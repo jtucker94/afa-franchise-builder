@@ -247,6 +247,8 @@
       el.addEventListener("click", (e) => {
         // Never intercept primary action buttons (Draft / Cut / Hire / etc.)
         if (e.target.closest && e.target.closest("button, a, input, select, label, .btn")) return;
+        // Players-tab rows open the full profile (which already shows Sleeper + stats) — no scout overlay
+        if (el.closest(".apt-row, .apt-modal")) return;
         const pid = el.getAttribute("data-pid") || el.getAttribute("data-scout");
         if (!pid || !window.AFA) return;
         const p = window.AFA.playerById ? window.AFA.playerById(pid) : (window.AFA.PLAYERS || []).find((x) => x.id === pid);
@@ -263,10 +265,15 @@
     });
   }
 
+  // v0.1.21: never leave the scout backdrop up when switching tabs/screens (it blocked the hub tab bar)
+  document.addEventListener("click", (e) => {
+    if (e.target.closest && e.target.closest("#hub-nav button, [data-tab], .mobile-tabbar button, #draft-nav button")) unpinScout();
+  }, true);
+  window.AFAMobileUnpinScout = unpinScout;
   document.addEventListener("click", (e) => {
     if (!scoutPinned) return;
     const card = $("scout-card");
-    if (!card || card.hidden) { scoutPinned = false; return; }
+    if (!card || card.hidden) { scoutPinned = false; $("scout-backdrop")?.classList.remove("show"); return; }
     if (card.contains(e.target)) return;
     if (e.target.closest && e.target.closest("[data-pid], [data-scout]")) return;
     unpinScout();

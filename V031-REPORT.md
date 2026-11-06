@@ -39,3 +39,39 @@ index.html, sw.js, manifest.json, js/app.js, js/scout.js, js/mobile.js (header c
 
 ## Skipped
 Weekly files/PPG, weekly rich injury notes, trending, headshot changes (already Sleeper CDN), K/P/DEF ADP beyond adp_ppr when present, college prospects (not in Sleeper NFL data).
+
+---
+## Added in the same v0.1.21 pass
+
+### Sleeper fantasy import (optional, team-pick screen)
+- `js/sleeper-leagues.js` from `work/build-sleeper-leagues-v031.py` (read-only GET /league, /rosters, /users; owner found by username jtuck94).
+  - OGFFL `1312302487876677632` · roster 1 · Daniel Jonestown Massacre · 31 Sleeper players → 30 imported (skipped KC Concepcion Jr., not in GMFB pool).
+  - Dynasty Domination `1355552579894923264` · roster 7 · Taylor Park Boys · 21 → 20 imported (skipped DEN D/ST — team defense, not a person).
+- "Standard draft / Import OGFFL / Import Dynasty Domination" chooser above the franchise grid. Leagues never mixed; text-only labels (no league logos).
+- Import = keeper rounds: Jordan's first N founding picks lock in the imported players, CPU clubs can't take them, then the entire 53-round draft auto-assigns all 32 clubs. Hub header shows "<League> import" badge.
+- Headless verified: DD import 20/20 on his roster, OGFFL 30/30, every club 53, 0 duplicates.
+
+### Coach identity drives roster building
+- Existing HC schemes (dynasty/coaches.js offScheme/defScheme, already used for play-calling pass rate / tempo) now tilt CPU draft scoring by up to +8% at the scheme's key positions (Wide-9 → DE, Man Press → CB, Power Run → OG/RB, Air Raid → QB/WR, etc.).
+- Power Run / Shanahan staffs prefer a complementary RB2 (≥15 lb different from RB1: ×1.06, clone: ×0.95).
+- Hub header shows each club's "Offense / Defense" scheme.
+
+### No-duplicate hard rule (global)
+- `enforceUniquePlayers()` runs before every save: identity = Sleeper player_id else GMFB id; precedence user club → other clubs → FA → draft board; later copies dropped (never cloned). `makePick` refuses owned players; FA signing refuses owned players.
+- Base pool audit: 2532 rows, 0 duplicate ids / Sleeper ids / name+team+pos. No existing duplicates found in headless runs.
+
+### Glitch pass (desktop 1440×900 + iPhone 390×844)
+- iPhone Players tab list was blank (rows forced static but kept virtual-list translateY → rendered below a 116k-px spacer). Fixed.
+- Scout backdrop could stay up after scout/profile and block the hub tab bar. Now cleared on screen change, tab taps, and profile open/close; Players-tab rows open the profile instead of the scout overlay.
+- Floating SAVE pill covered rows and Sim Draft on iPhone; hidden on screens that already have a top-bar Save.
+- Desktop hover scout card ran 700px past the window; capped to viewport and Sleeper block moved up. Card no longer scrolls sideways.
+- Long names in iPhone Players rows ellipsize instead of overlapping.
+
+### Art direction ("Broadcast Retro") — css/broadcast.css, shared by desktop + iPhone
+- Midnight-navy / field-green palette with gold #e0b145 and a retro broadcast orange accent.
+- Very light scanline + grain overlay (pointer-events none; disabled for reduced-motion/print).
+- Scorebug top bar (navy→green, gold rule + orange underline), Alfa Slab One for big titles only, gold "eyebrow" chips with offset shadow.
+- Panels with gold top rule, Oswald headers, ESPN-style table header strips, scoreboard buttons, bezel around scout card, mono glow numerals, lower-third toasts, 44px mobile tap targets.
+
+### Not visually verified
+- Lineup field graphic slots flagged by an automated right-edge check (no page-level horizontal scroll); Game Day replay; trades on very narrow (<360px) phones; real iOS Safari (tested in Chromium iPhone emulation).

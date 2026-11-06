@@ -145,8 +145,29 @@
     state.phase = id;
   }
 
+  /* v0.1.21 HARD RULE: one NFL player can exist in exactly one place.
+   * Identity = Sleeper player_id when known, else GMFB id. Order of ownership: user club first,
+   * then other clubs (fixed TEAMS order), then FA, then draft board. Later copies are dropped (never cloned). */
+  function playerKey(id) { const p = playerById(id); return p && p.sleeperId ? "s:" + String(p.sleeperId) : "g:" + id; }
+  function enforceUniquePlayers() {
+    if (!state || !state.rosters) return 0;
+    const seen = new Set(); let fixed = 0;
+    const keep = (id) => { const k = playerKey(id); if (seen.has(k)) { fixed++; return false; } seen.add(k); return true; };
+    const order = TEAMS.map((t) => t.id).sort((a, b) => (a === state.userTeamId ? -1 : b === state.userTeamId ? 1 : 0));
+    order.forEach((tid) => { if (Array.isArray(state.rosters[tid])) state.rosters[tid] = state.rosters[tid].filter(keep); });
+    Object.keys(state.rosters).forEach((tid) => { if (!order.includes(tid) && Array.isArray(state.rosters[tid])) state.rosters[tid] = state.rosters[tid].filter(keep); });
+    if (Array.isArray(state.fa)) state.fa = state.fa.filter(keep);
+    if (Array.isArray(state.board) && state.phase === "draft") state.board = state.board.filter(keep);
+    if (fixed) { state.dupFixes = (state.dupFixes || 0) + fixed; console.warn("AFA: removed " + fixed + " duplicate player entries"); }
+    return fixed;
+  }
+  function isOwned(id) {
+    const k = playerKey(id);
+    return Object.values(state.rosters || {}).some((r) => Array.isArray(r) && r.some((x) => playerKey(x) === k));
+  }
   function save() {
     try {
+      enforceUniquePlayers();
       captureActivePhase();
       state.version = "0.1.21";
       const payload = {
@@ -313,6 +334,7 @@
     ["boot","menu","mode","story","coaches","draft","hub"].forEach((name) => {
       document.body.classList.toggle("screen-" + name + "-active", name === id);
     });
+    if (window.AFAMobileUnpinScout) { try { window.AFAMobileUnpinScout(); } catch (e) {} }
     if (window.AFAMobile && typeof window.AFAMobile.resetScreenScroll === "function") {
       try { window.AFAMobile.resetScreenScroll(id); } catch (_) {}
     }
@@ -389,6 +411,7 @@
           <span><b>Hand</b> ${player.hand || "—"}</span>
           <span><b>College</b> ${player.college || "—"}</span>
         </div>
+        ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
         <div class="scout-section-label">PFF-style splits <span class="est-tag">estimate</span></div>
         <div class="scout-pff-row">
           <div class="scout-pff-cell"><span class="t">${s.pff.label}</span><span class="n">${s.pff.grade.toFixed(1)}</span></div>
@@ -397,7 +420,6 @@
         </div>
         <div class="scout-section-label">Madden attributes</div>
         <div class="scout-attrs">${attrs}</div>
-        ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
         ${window.AFACareersUI ? `<div class="scout-section-label">NFL career</div>${AFACareersUI.statsHtml(player.id)}` : ""}
         <div class="scout-foot">${s.gmfb.label}: ${s.gmfb.note}
           ${window.AFAPlayersTab ? ` · <button type="button" class="btn btn-sm" data-profile="${player.id}">Full profile</button>` : ""}
@@ -494,6 +516,7 @@
       if (touchy) {
         el.addEventListener("click", (e) => {
           if (e.target.closest && e.target.closest("button, a, input, select, label, .btn")) return;
+          if (el.closest(".apt-row, .apt-modal")) return; // Players tab opens the full profile instead
           const p = playerById(pid);
           if (!p) return;
           const card = $("scout-card");
@@ -599,8 +622,10 @@
     $("franchise-picker").style.display = "none";
   }
 
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
   function chooseAll32() {
     state.mode = "all32";
+    state.sleeperImport = null;
     state.userTeamId = null;
     state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, "manual"]));
     save();
@@ -612,7 +637,19 @@
     box.style.display = "block";
     const mode = $("screen-mode");
     if (mode) mode.scrollTop = 0;
-    box.innerHTML = `<p class="eyebrow">Choose your franchise</p>
+    const LG = (window.AFA_SLEEPER_LEAGUES && window.AFA_SLEEPER_LEAGUES.leagues) || {};
+    const imp = ui.importKey || "";
+    const impBtn = (k, lab, sub) => `<button type="button" class="import-opt${imp === k ? " on" : ""}" data-import="${k}"><b>${lab}</b><span>${sub}</span></button>`;
+    box.innerHTML = `<div class="import-panel">
+        <p class="eyebrow">Optional · Bring your Sleeper team</p>
+        <div class="import-row">
+          ${impBtn("", "Standard draft", "Founding draft from scratch")}
+          ${LG.ogffl ? impBtn("ogffl", "Import OGFFL", esc(LG.ogffl.teamName) + " · " + LG.ogffl.ids.length + " players") : ""}
+          ${LG.dd ? impBtn("dd", "Import Dynasty Domination", esc(LG.dd.teamName) + " · " + LG.dd.ids.length + " players") : ""}
+        </div>
+        <p class="help">${imp && LG[imp] ? `Your ${esc(LG[imp].league)} roster becomes your club's core: your first ${LG[imp].ids.length} founding-draft picks lock them in (keeper rounds), then the whole draft auto-assigns all 32 clubs around each head coach's scheme. No player can land on two teams. Snapshot ${esc(String(window.AFA_SLEEPER_LEAGUES.meta.fetchedAt).slice(0, 10))}${LG[imp].skipped.length ? " · skipped: " + LG[imp].skipped.map((x) => esc(x.name)).join(", ") : ""}.` : "Pick an import to play with your fantasy roster, or keep the standard draft."}</p>
+      </div>
+      <p class="eyebrow">Choose your franchise</p>
       <div class="team-assign-grid">
         ${TEAMS.map((t) => `
           <div class="team-slot" data-pick-team="${t.id}">
@@ -623,6 +660,9 @@
             </div>
           </div>`).join("")}
       </div>`;
+    box.querySelectorAll("[data-import]").forEach((el) => {
+      el.onclick = () => { ui.importKey = el.getAttribute("data-import"); openFranchisePicker(); };
+    });
     box.querySelectorAll("[data-pick-team]").forEach((el) => {
       el.onclick = () => chooseSingle(el.getAttribute("data-pick-team"));
     });
@@ -635,14 +675,18 @@
     ui.selectedTeam = teamId;
     ui.draftViewTeam = teamId;
     ui.viewTeamId = teamId;
+    const LG = (window.AFA_SLEEPER_LEAGUES && window.AFA_SLEEPER_LEAGUES.leagues) || {};
+    const L = ui.importKey && LG[ui.importKey];
+    state.sleeperImport = L ? { key: L.key, league: L.league, teamName: L.teamName, ids: L.ids.filter((id) => playerById(id)), skipped: L.skipped.length } : null;
     save();
-    toast("You run the " + displayName(teamById(teamId)) + ". CPU handles the other 31.");
+    toast(L ? "Imported " + state.sleeperImport.ids.length + " " + L.league + " players to the " + displayName(teamById(teamId)) + "." : "You run the " + displayName(teamById(teamId)) + ". CPU handles the other 31.");
     renderStory();
   }
 
   function ensureSingleDesks() {
     if (state.mode !== "single" || !state.userTeamId) return;
-    state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, t.id === state.userTeamId ? "manual" : "auto"]));
+    // Fantasy import: the whole founding draft auto-assigns (imported core locked first, then every club fills)
+    state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, t.id === state.userTeamId && !(state.sleeperImport && state.phase === "draft" && state.draftPick < TOTAL_PICKS) ? "manual" : "auto"]));
   }
 
   /* ---------- STORY ---------- */
@@ -1077,12 +1121,38 @@
     if (round <= 10 && (player.pos === "K" || player.pos === "P")) score *= 0.08;
     if (round <= 6 && player.pos === "RB" && player.ovr < 94) score *= 0.75;
 
+    // v0.1.21 coach identity: the HC's offensive + defensive scheme (dynasty/coaches.js, also used for
+    // play-calling pass rate) tilts CPU drafting toward that identity (≤ +8%), so a Wide-9 coach stacks
+    // edge rushers, a Power Run coach builds OL/RB, Air Raid hoards QB/WR, Man Press buys corners.
+    const C = window.AFACoaches, co = state.dynasty && state.dynasty.coaches && state.dynasty.coaches[teamId];
+    if (C && co && C.OFF_SCHEMES[co.offScheme] && C.DEF_SCHEMES[co.defScheme]) {
+      const w = (C.OFF_SCHEMES[co.offScheme].keys[player.pos] || 0) + (C.DEF_SCHEMES[co.defScheme].keys[player.pos] || 0);
+      score *= 1 + 0.06 * Math.min(1.4, w);
+      // Run-first staffs want a complementary RB2 (bell-cow + change-of-pace), not a clone of RB1
+      if (player.pos === "RB" && /Power Run|Shanahan/.test(co.offScheme)) {
+        const rb1 = (state.rosters[teamId] || []).map(playerById).filter((x) => x && x.pos === "RB").sort((a, b) => b.ovr - a.ovr)[0];
+        if (rb1 && rb1.weight && player.weight) score *= Math.abs(rb1.weight - player.weight) >= 15 ? 1.06 : 0.95;
+      }
+    }
     return score;
   }
 
+  /* v0.1.21 Sleeper import (keeper rounds): Jordan's imported fantasy roster is reserved for his club;
+   * his first N founding-draft picks lock those players in, CPU clubs never take them, and the rest of
+   * the 53 rounds fill normally so all 32 rosters stay realistic and no player is duplicated. */
+  function importReserved() { return (state.sleeperImport && state.sleeperImport.ids) || []; }
+  function pendingKeepers() {
+    const r = importReserved(); if (!r.length) return [];
+    const onBoard = new Set(state.board);
+    return r.filter((id) => onBoard.has(id)).map(playerById).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
+  }
   function recommendPlayer(teamId) {
     const pool = [];
+    const isUser = state.sleeperImport && teamId === state.userTeamId;
+    if (isUser) { const k = pendingKeepers(); if (k.length) return k[0]; }
+    const reserved = !isUser && state.sleeperImport ? new Set(importReserved()) : null;
     for (let i = 0; i < state.board.length; i++) {
+      if (reserved && reserved.has(state.board[i])) continue;
       const p = playerById(state.board[i]);
       if (p) pool.push(p);
     }
@@ -1110,8 +1180,14 @@
   function makePick(teamId, playerId, quiet) {
     if (state.draftPick >= TOTAL_PICKS) return false;
     if (snakeTeamId(state.draftPick) !== teamId) return false;
+    if (state.sleeperImport && teamId !== state.userTeamId && importReserved().includes(playerId)) return false;
+    if (state.sleeperImport && teamId === state.userTeamId) {
+      const k = pendingKeepers();
+      if (k.length && !k.some((p) => p.id === playerId)) playerId = k[0].id; // keeper round
+    }
     const bi = state.board.indexOf(playerId);
     if (bi < 0) return false;
+    if (isOwned(playerId)) { state.board.splice(bi, 1); return false; } // never clone an owned player
     state.board.splice(bi, 1);
     state.rosters[teamId].push(playerId);
     const overall = state.draftPick + 1;
@@ -1132,6 +1208,7 @@
     let guard = 0;
     while (state.draftPick < TOTAL_PICKS && guard++ < TOTAL_PICKS + 2) {
       const tid = snakeTeamId(state.draftPick);
+      if (state.sleeperImport && tid === state.userTeamId && pendingKeepers().length) { if (!aiPick(tid, true)) break; continue; }
       if ((state.desks[tid] || "manual") !== "auto") break;
       if (!aiPick(tid, true)) break;
     }
@@ -3273,7 +3350,7 @@
     ).join("");
     $("hub-team-logo").innerHTML = logoImg(vt);
     const hc = coachById(state.coachAssign[vt.id]);
-    $("hub-team-meta").innerHTML = `<strong>${displayName(vt)}</strong><div class="city">${vt.conference} · ${vt.division}${hc ? " · HC " + hc.name : ""}</div>`;
+    $("hub-team-meta").innerHTML = `<strong>${displayName(vt)}</strong><div class="city">${vt.conference} · ${vt.division}${hc ? " · HC " + hc.name : ""}${state.dynasty && state.dynasty.coaches && state.dynasty.coaches[vt.id] ? " · " + state.dynasty.coaches[vt.id].offScheme + " / " + state.dynasty.coaches[vt.id].defScheme : ""}${state.sleeperImport && vt.id === state.userTeamId ? ` · <span class="import-badge">${state.sleeperImport.league} import</span>` : ""}</div>`;
 
     $("hub-week-chip").textContent = state.collegeDraft ? (state.collegeDraft.year + " College Draft") : (state.seasonDone ? "Season final" : "Week " + state.week);
     document.querySelectorAll("#hub-nav [data-tab]").forEach((b) => {
@@ -4628,6 +4705,7 @@
       toast("Signing blocked — over the salary cap (" + formatMoney(hit) + " / " + formatMoney(state.salaryCap || AFA_CAP) + ").");
       return;
     }
+    if (isOwned(pid)) { state.fa = state.fa.filter((id) => id !== pid); toast("That player is already on a roster."); save(); renderHub(); return; }
     state.fa = state.fa.filter((id) => id !== pid);
     state.rosters[teamId].push(pid);
     try {

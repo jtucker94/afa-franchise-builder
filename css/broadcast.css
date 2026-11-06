@@ -1,0 +1,136 @@
+/* v0.1.21 "Broadcast Retro" art pass — Madden/ESPN broadcast look with light retro texture.
+ * Shared by desktop and iPhone (no layout/size changes; colors, type, texture only). */
+:root {
+  --bg: #060b16;            /* midnight navy */
+  --bg-2: #0a1322;
+  --panel: #0f1a2b;
+  --panel-2: #13223a;
+  --line: #243653;
+  --line-2: #33496b;
+  --field: #0f3b24;          /* deep field green */
+  --field-2: #16532f;
+  --ember: #d9622b;          /* retro broadcast orange, used sparingly */
+  --slab: "Alfa Slab One", "Rockwell", "Georgia", serif;  /* titles only */
+}
+body {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(224,177,69,0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(22,83,47,0.28), transparent 60%),
+    var(--bg);
+}
+/* Very light scanlines + grain; never intercepts taps, sits under modals/toasts */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.05'/></svg>");
+  mix-blend-mode: overlay; opacity: 0.6;
+}
+#app { position: relative; z-index: 2; }
+@media (prefers-reduced-motion: reduce), print { body::after { display: none; } }
+
+/* Broadcast top bar: navy → field green with gold rule (scorebug strip) */
+.topbar {
+  background: linear-gradient(90deg, #0b1630 0%, #0e2340 55%, var(--field) 100%);
+  border-bottom: 2px solid var(--gold);
+  box-shadow: 0 2px 0 rgba(217,98,43,0.55), 0 8px 24px rgba(0,0,0,0.35);
+}
+.brand-lock strong { color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,0.6); }
+
+/* Retro slab display for big titles only (body text unchanged) */
+h1, .menu-card h1, .story-copy h2, .draft-intro h2, #draft-intro-title {
+  font-family: var(--slab); font-weight: 400; letter-spacing: 0.02em;
+  text-shadow: 0 2px 0 rgba(0,0,0,0.55), 0 0 18px rgba(224,177,69,0.18);
+}
+.eyebrow {
+  display: inline-block; background: linear-gradient(90deg, var(--gold), #f3d58a);
+  color: #14100a !important; padding: 3px 10px; border-radius: 3px;
+  font-family: var(--display); letter-spacing: 0.14em; text-transform: uppercase;
+  box-shadow: 3px 3px 0 var(--ember);
+}
+
+/* Panels: broadcast card with gold top rule */
+.panel { border-color: var(--line); box-shadow: inset 0 2px 0 rgba(224,177,69,0.55), 0 10px 30px rgba(0,0,0,0.35); }
+.panel-h {
+  background: linear-gradient(90deg, #13223a, #0f2a24);
+  font-family: var(--display); color: var(--gold-2);
+  border-bottom: 1px solid rgba(224,177,69,0.35);
+}
+
+/* Buttons: scoreboard chips */
+.btn { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; }
+.btn-primary {
+  background: linear-gradient(180deg, #f6cd5c 0%, #e0b145 55%, #b8861c 100%);
+  box-shadow: 0 2px 0 #7a5810, 0 6px 16px rgba(224,177,69,0.25);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+}
+.hub-nav button { font-family: var(--display); letter-spacing: 0.08em; }
+.hub-nav button.on { box-shadow: inset 0 -3px 0 var(--ember); }
+
+/* Tables: ESPN stat strip */
+.player-table th, .div-table th, .drafted-table th {
+  font-family: var(--display); letter-spacing: 0.1em; color: var(--gold-2);
+  background: linear-gradient(180deg, #13223a, #0e1a2d);
+}
+.player-table tbody tr:nth-child(even), .div-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.018); }
+
+/* Scout card: broadcast bezel */
+.scout-card {
+  border: 1px solid rgba(224,177,69,0.6);
+  background: linear-gradient(165deg, #10203a 0%, #0a1426 55%, #08111e 100%);
+  box-shadow: 0 0 0 3px rgba(6,11,22,0.9), 0 0 0 4px rgba(224,177,69,0.35), 0 18px 50px rgba(0,0,0,0.6);
+}
+.scout-grade { background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.25)); }
+.scout-grade .g-val { font-family: var(--mono); font-weight: 700; text-shadow: 0 0 10px currentColor; }
+.scout-grade .g-label { font-family: var(--display); letter-spacing: 0.1em; }
+.scout-section-label { font-family: var(--display); letter-spacing: 0.12em; color: var(--gold-2); border-left: 3px solid var(--ember); padding-left: 6px; }
+.sl-chip b, .sl-stat b { font-family: var(--mono); }
+.sl-box { background: linear-gradient(135deg, rgba(22,83,47,0.28), rgba(14,35,64,0.55)); border-color: rgba(224,177,69,0.35); }
+
+/* Toast: lower-third */
+.toast { border-left: 4px solid var(--gold); font-family: var(--display); letter-spacing: 0.05em; }
+
+/* Mobile: keep same identity; ensure tap targets */
+@media (max-width: 900px) {
+  .hub-nav button, .btn-sm { min-height: 44px; }
+  .eyebrow { box-shadow: 2px 2px 0 var(--ember); }
+}
+
+/* v0.1.21 glitch pass: on iPhone the floating SAVE pill covered rows and Sim Draft.
+ * These screens already have a Save button in their top bar, so the FAB is hidden there. */
+@media (max-width: 900px) {
+  body.screen-mode-active .save-fab,
+  body.screen-coaches-active .save-fab,
+  body.screen-draft-active .save-fab,
+  body.screen-hub-active .save-fab { display: none !important; }
+}
+/* Desktop hover scout card: never taller than the window */
+@media (min-width: 901px) {
+  .scout-card { max-height: calc(100vh - 24px); }
+}
+
+/* v0.1.21 Sleeper import chooser (team pick screen) */
+.import-panel{margin:0 0 18px;padding:12px;border:1px solid rgba(224,177,69,.45);border-radius:10px;background:linear-gradient(135deg,rgba(22,83,47,.25),rgba(14,35,64,.6))}
+.import-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:8px 0}
+.import-opt{min-height:56px;text-align:left;padding:10px 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--panel);color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.import-opt b{font-family:var(--display);letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+.import-opt span{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.import-opt.on{border-color:var(--gold);box-shadow:inset 0 -3px 0 var(--ember),0 0 0 1px var(--gold)}
+.import-opt.on b{color:var(--gold-2)}
+.import-panel .help{font-size:12px;color:var(--muted);margin:4px 0 0;overflow-wrap:anywhere}
+.import-badge{display:inline-block;padding:1px 6px;border-radius:3px;background:var(--gold);color:#14100a;font-family:var(--display);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+/* Scout card never scrolls sideways (desktop career table was 16px too wide) */
+.scout-card, .scout-body { overflow-x: hidden; }
+.scout-body table { max-width: 100%; }
+.scout-body .table-scroll, .scout-body [class*="stats"] { max-width: 100%; overflow-x: auto; }
+/* v0.1.21 fix: iPhone Players list was blank — rows were forced into normal flow but still carried the
+ * virtual-list translateY, so they rendered below a 2532-row spacer. Keep the virtual list absolute. */
+@media (max-width: 900px) {
+  .apt-vp { position: relative; height: calc(100vh - 360px); min-height: 320px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .apt-rows { position: absolute !important; inset: 0 0 auto 0; }
+  .apt-row { position: absolute !important; left: 0 !important; right: 0 !important; top: 0 !important; height: 46px !important; min-height: 0 !important; padding: 0 8px !important; }
+  .apt-head { grid-template-columns: 40px 1fr 48px 44px; overflow: hidden; }
+  .apt-head > :nth-child(n+5) { display: none; }
+  .conf-block .table-scroll table { min-width: 0; width: 100%; }
+}
+@media (max-width:900px){.apt-row .apt-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}}

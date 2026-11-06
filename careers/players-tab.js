@@ -150,7 +150,7 @@
 
   /* ---------- profile ---------- */
   let modal = null;
-  function close() { if (modal) { modal.remove(); modal = null; document.removeEventListener("keydown", onKey); } }
+  function close() { if (W.AFAMobileUnpinScout) { try { W.AFAMobileUnpinScout(); } catch (e) {} } if (modal) { modal.remove(); modal = null; document.removeEventListener("keydown", onKey); } }
   function onKey(e) { if (e.key === "Escape") close(); }
   let _profilesPromise = null;
   function ensureProfilesLoaded() {
@@ -167,6 +167,7 @@
     return _profilesPromise;
   }
   function openProfile(id, st) {
+    if (W.AFAMobileUnpinScout) { try { W.AFAMobileUnpinScout(); } catch (e) {} }
     if (!W.AFAProfiles) {
       ensureProfilesLoaded().then(() => openProfile(id, st)).catch((e) => console.warn(e));
       return;
