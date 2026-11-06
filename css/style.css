@@ -143,6 +143,7 @@ button, input, select { font-family: inherit; }
   cursor: pointer;
   text-align: left;
   box-shadow: var(--shadow);
+  color: var(--text);
 }
 .mode-tile:hover { border-color: var(--gold); }
 .mode-tile h2 {
@@ -150,6 +151,7 @@ button, input, select { font-family: inherit; }
   margin: 0 0 8px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  color: var(--text);
 }
 .mode-tile p { color: var(--muted); margin: 0; line-height: 1.45; }
 .mode-tile .tag { color: var(--gold); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
@@ -1036,6 +1038,7 @@ button, input, select { font-family: inherit; }
   box-shadow: var(--shadow);
   z-index: 20;
   display: none;
+  pointer-events: none;
 }
 .toast.show { display: block; animation: fadeToast 2.4s ease forwards; }
 @keyframes fadeToast {
@@ -1397,12 +1400,15 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .draft-complete[hidden] { display: none !important; }
 .draft-complete-card {
   width: min(560px, 94vw);
+  max-width: 100%;
   text-align: center;
   background: var(--panel);
   border: 1px solid var(--gold-dim);
   border-radius: 16px;
   padding: 28px 26px;
   box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 .draft-complete-card h1 {
   font-family: var(--display);

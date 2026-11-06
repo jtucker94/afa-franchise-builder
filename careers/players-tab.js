@@ -158,7 +158,7 @@
     if (_profilesPromise) return _profilesPromise;
     _profilesPromise = new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "careers/profiles-data.js?v=029";
+      s.src = "careers/profiles-data.js?v=030";
       s.async = true;
       s.onload = () => resolve(W.AFAProfiles || {});
       s.onerror = () => reject(new Error("profiles-data.js failed to load"));

@@ -57,7 +57,7 @@
 
   function freshState() {
     return {
-      version: "0.1.19",
+      version: "0.1.20",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -148,9 +148,9 @@
   function save() {
     try {
       captureActivePhase();
-      state.version = "0.1.19";
+      state.version = "0.1.20";
       const payload = {
-        version: "0.1.19",
+        version: "0.1.20",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -177,9 +177,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.19";
+      state.version = "0.1.20";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -279,12 +279,12 @@
     const fab = $("btn-draft-room");
     if (!fab) return;
     const open = draftEraOpen();
-    fab.hidden = !open;
-    if (!open) return;
     const onDraft = !!document.querySelector("#screen-draft.active");
-    const onBoard = onDraft && (ui.draftTab || "board") === "board" && state.draftIntroSeen;
-    fab.textContent = onBoard ? "Draft Board" : "Draft Room";
-    fab.title = onBoard ? "You're in the draft room — jump to the board" : "Return to the draft room / board";
+    // Hide while already in the draft room so it can't cover Sim / Auto-pick
+    fab.hidden = !open || onDraft;
+    if (!open || onDraft) return;
+    fab.textContent = "Draft Room";
+    fab.title = "Return to the draft room / board";
   }
 
   function syncHubDraftTab() {
@@ -304,16 +304,31 @@
   function showScreen(id) {
     document.querySelectorAll(".screen").forEach((el) => el.classList.remove("active"));
     const sc = $("screen-" + id);
-    if (sc) sc.classList.add("active");
+    if (sc) {
+      sc.classList.add("active");
+      sc.scrollTop = 0;
+      const ws = sc.querySelector(".workspace");
+      if (ws) ws.scrollTop = 0;
+    }
+    ["boot","menu","mode","story","coaches","draft","hub"].forEach((name) => {
+      document.body.classList.toggle("screen-" + name + "-active", name === id);
+    });
+    if (window.AFAMobile && typeof window.AFAMobile.resetScreenScroll === "function") {
+      try { window.AFAMobile.resetScreenScroll(id); } catch (_) {}
+    }
     updateDraftRoomFab();
   }
 
   function toast(msg) {
     const el = $("toast");
+    if (!el) return;
     el.textContent = msg;
+    el.style.pointerEvents = "none";
     el.classList.remove("show");
     void el.offsetWidth;
     el.classList.add("show");
+    clearTimeout(el._toastTimer);
+    el._toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
   }
 
   function ovrClass(n) {
@@ -391,6 +406,16 @@
 
   let scoutHideTimer = null;
   function placeScoutCard(card, clientX, clientY) {
+    // Mobile uses CSS modal centering — don't fight it with inline coords
+    const mobile = (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) ||
+      (window.AFAMobile && window.AFAMobile.isMobile && window.AFAMobile.isMobile());
+    if (mobile) {
+      card.style.left = "";
+      card.style.top = "";
+      card.style.right = "";
+      card.style.bottom = "";
+      return;
+    }
     const pad = 14;
     const w = card.offsetWidth || 360;
     const h = card.offsetHeight || 420;
@@ -409,10 +434,23 @@
     if (!card || !player) return;
     clearTimeout(scoutHideTimer);
     card.innerHTML = scoutCardHtml(player);
+    const mobile = (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) ||
+      (window.AFAMobile && window.AFAMobile.isMobile && window.AFAMobile.isMobile());
+    if (mobile) {
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "scout-close";
+      close.setAttribute("aria-label", "Close scout card");
+      close.textContent = "×";
+      close.onclick = (e) => { e.preventDefault(); e.stopPropagation(); hideScoutCard(0); card.classList.remove("pinned"); document.getElementById("scout-backdrop")?.classList.remove("show"); };
+      card.insertBefore(close, card.firstChild);
+      document.getElementById("scout-backdrop")?.classList.add("show");
+    }
     card.hidden = false;
     card.classList.add("show");
-    // measure then place
-    requestAnimationFrame(() => placeScoutCard(card, evt.clientX, evt.clientY));
+    const cx = (evt && evt.clientX != null) ? evt.clientX : window.innerWidth / 2;
+    const cy = (evt && evt.clientY != null) ? evt.clientY : window.innerHeight / 2;
+    requestAnimationFrame(() => placeScoutCard(card, cx, cy));
   }
 
   function moveScoutCard(evt) {
@@ -426,8 +464,9 @@
     if (!card) return;
     clearTimeout(scoutHideTimer);
     scoutHideTimer = setTimeout(() => {
-      card.classList.remove("show");
+      card.classList.remove("show", "pinned");
       card.hidden = true;
+      document.getElementById("scout-backdrop")?.classList.remove("show");
     }, delay == null ? 80 : delay);
   }
 
@@ -453,6 +492,7 @@
       });
       if (touchy) {
         el.addEventListener("click", (e) => {
+          if (e.target.closest && e.target.closest("button, a, input, select, label, .btn")) return;
           const p = playerById(pid);
           if (!p) return;
           const card = $("scout-card");
@@ -569,6 +609,8 @@
   function openFranchisePicker() {
     const box = $("franchise-picker");
     box.style.display = "block";
+    const mode = $("screen-mode");
+    if (mode) mode.scrollTop = 0;
     box.innerHTML = `<p class="eyebrow">Choose your franchise</p>
       <div class="team-assign-grid">
         ${TEAMS.map((t) => `
@@ -1494,7 +1536,7 @@
     return p.ovr || 60;
   }
 
-  /* ---------- v0.1.19 mobile/PWA + v0.1.18 schedule / coaches / playoffs / picks / schedule / coaches ---------- */
+  /* ---------- v0.1.20 mobile/PWA + v0.1.18 schedule / coaches / playoffs / picks / schedule / coaches ---------- */
   function ensureStadiums() {
     if (!window.AFAStadiums) return null;
     if (!state.stadiums) state.stadiums = AFAStadiums.initLeague(TEAMS.map((t) => t.id));
@@ -2481,11 +2523,17 @@
       };
     });
     bindScoutHover($("player-body"));
-    // Rec card scout on the recommended player name
+    // Rec card scout on the recommended player name only (not the Draft button)
     if (rec) {
       const recCard = $("rec-box") && $("rec-box").querySelector(".rec-card");
       if (recCard) {
-        recCard.setAttribute("data-scout", rec.id);
+        recCard.removeAttribute("data-scout");
+        const h3 = recCard.querySelector("h3");
+        if (h3) {
+          h3.setAttribute("data-scout", rec.id);
+          h3.style.cursor = "pointer";
+          h3.title = "Tap for scout card";
+        }
         bindScoutHover($("rec-box"));
       }
     }
@@ -3318,9 +3366,11 @@
     const segs = entries.map((e) => {
       const bw = Math.max(2, Math.round((e.n / total) * (w - pad * 2)));
       const color = POS_BAR_COLORS[e.pos] || "#5cb0ff";
+      const showLabel = bw >= 18;
+      const showCount = bw >= 12;
       const g = `<rect x="${x}" y="28" width="${bw}" height="28" fill="${color}"/>
-        <text x="${x + bw / 2}" y="22" text-anchor="middle" fill="#c5d0e0" font-size="9">${e.pos}</text>
-        <text x="${x + bw / 2}" y="48" text-anchor="middle" fill="#0b1018" font-size="10" font-weight="700">${e.n}</text>`;
+        ${showLabel ? `<text x="${x + bw / 2}" y="22" text-anchor="middle" fill="#c5d0e0" font-size="9">${e.pos}</text>` : ""}
+        ${showCount ? `<text x="${x + bw / 2}" y="48" text-anchor="middle" fill="#0b1018" font-size="10" font-weight="700">${e.n}</text>` : ""}`;
       x += bw;
       return g;
     }).join("");
@@ -3332,6 +3382,7 @@
       <svg class="chart-svg" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Picks by position">${segs}
         <text x="${pad}" y="${h - 12}" fill="#8b9bb0" font-size="10">Picks by position</text>
       </svg>
+      <div class="help" style="margin-top:6px;font-size:11px">${entries.map((e) => e.pos + " " + e.n).join(" · ")}</div>
     </div>`;
   }
 
@@ -3434,7 +3485,7 @@
       </div>
       <div class="home-grid">
         <div class="panel">
-          <div class="panel-h"><strong>Top talent</strong><span class="help">Tap or hover for scout card</span></div>
+          <div class="panel-h"><strong>Top talent</strong><span class="help">Tap for scout card</span></div>
           <div class="panel-b home-stars">${starHtml}</div>${picksHtml}
         </div>
         <div class="panel">
@@ -3923,7 +3974,7 @@
       const selPicks = pbucket.map(pickById).filter(Boolean);
       const owned = picksOwnedBy(team.id);
       return `<div class="panel trade-side">
-        <div class="panel-h"><strong>${displayName(team)}</strong><span class="help">Click to add · value shown</span></div>
+        <div class="panel-h"><strong>${displayName(team)}</strong><span class="help">Tap to add · value shown</span></div>
         <div class="panel-b">
           <div id="${key}-sel">
             ${selected.map((p) => `<div class="sel-pill"><span class="jersey">#${jerseyNum(p)}</span> ${p.name} · ${p.pos} ${p.ovr} · TV ${playerTradeValue(p)}<button class="btn btn-sm" data-un${key}="${p.id}">×</button></div>`).join("")}

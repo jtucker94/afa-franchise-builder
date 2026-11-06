@@ -1,4 +1,4 @@
-/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout */
+/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.20) */
 (function () {
   const MQ = window.matchMedia("(max-width: 900px)");
   const COARSE = window.matchMedia("(hover: none), (pointer: coarse)");
@@ -25,7 +25,7 @@
     try {
       if (window.matchMedia("(display-mode: standalone)").matches) return;
       if (window.navigator.standalone) return;
-      const dismissed = localStorage.getItem("afa-pwa-hint-v029");
+      const dismissed = localStorage.getItem("afa-pwa-hint-v030") || localStorage.getItem("afa-pwa-hint-v029");
       if (dismissed === "1") return;
       const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -41,19 +41,50 @@
             : "Use your browser menu to Install app / Add to Home Screen.") +
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
           '<button type="button" class="btn btn-sm" id="pwa-hint-dismiss">Got it</button></div>';
-        document.body.appendChild(el);
+        // Prefer inserting above Play Story so the CTA stays visible
+        const menuCard = document.querySelector("#screen-menu .menu-card");
+        if (menuCard) {
+          const logo = menuCard.querySelector(".menu-logo");
+          if (logo && logo.nextSibling) menuCard.insertBefore(el, logo.nextSibling);
+          else menuCard.insertBefore(el, menuCard.firstChild);
+        } else {
+          document.body.appendChild(el);
+        }
         el.querySelector("#pwa-hint-dismiss").onclick = () => {
-          localStorage.setItem("afa-pwa-hint-v029", "1");
+          localStorage.setItem("afa-pwa-hint-v030", "1");
           el.classList.remove("show");
         };
       }
-      // Delay so it doesn't fight the splash
-      setTimeout(() => el.classList.add("show"), 4500);
+      setTimeout(() => el.classList.add("show"), 1200);
     } catch (_) {}
+  }
+
+  /* ---------- Body screen class for FAB / toast placement ---------- */
+  function syncBodyScreenClass() {
+    const active = document.querySelector(".screen.active");
+    const id = active && active.id ? active.id.replace(/^screen-/, "") : "";
+    ["boot", "menu", "mode", "story", "coaches", "draft", "hub"].forEach((name) => {
+      document.body.classList.toggle("screen-" + name + "-active", name === id);
+    });
   }
 
   /* ---------- Hamburger / more drawer for hub tabs ---------- */
   const PRIMARY_TABS = ["home", "roster", "trades", "slate", "gameday", "sim"];
+  const SHORT_LABELS = {
+    home: "Home",
+    lineup: "Lineup",
+    roster: "Roster",
+    players: "Players",
+    trades: "Trades",
+    signings: "FA",
+    slate: "Sched",
+    standings: "Stand",
+    stadium: "Stad",
+    dynasty: "Dyn",
+    gameday: "GDay",
+    college: "Draft",
+    sim: "Play"
+  };
 
   function ensureMobileChrome() {
     const hub = $("screen-hub");
@@ -90,6 +121,14 @@
       });
       drawer.querySelector("#mobile-drawer-close").onclick = () => drawer.classList.remove("open");
     }
+
+    if (!$("scout-backdrop")) {
+      const bd = document.createElement("div");
+      bd.id = "scout-backdrop";
+      bd.className = "scout-backdrop";
+      bd.addEventListener("click", () => unpinScout());
+      document.body.appendChild(bd);
+    }
   }
 
   function syncDrawer() {
@@ -102,7 +141,7 @@
       const clone = document.createElement("button");
       clone.type = "button";
       clone.className = "btn" + (b.classList.contains("on") ? " btn-primary" : "");
-      clone.textContent = b.textContent.trim();
+      clone.textContent = b.getAttribute("data-full-label") || b.textContent.trim();
       clone.onclick = () => {
         b.click();
         $("mobile-drawer")?.classList.remove("open");
@@ -116,7 +155,11 @@
     const nav = $("hub-nav");
     if (!nav) return;
     const buttons = Array.from(nav.querySelectorAll("button[data-tab]"));
-    // Keep primary tabs visually first; others still scrollable in the bar
+    buttons.forEach((b) => {
+      const tab = b.getAttribute("data-tab");
+      if (!b.getAttribute("data-full-label")) b.setAttribute("data-full-label", b.textContent.trim());
+      if (SHORT_LABELS[tab]) b.textContent = SHORT_LABELS[tab];
+    });
     buttons.sort((a, b) => {
       const ai = PRIMARY_TABS.indexOf(a.getAttribute("data-tab"));
       const bi = PRIMARY_TABS.indexOf(b.getAttribute("data-tab"));
@@ -125,7 +168,6 @@
       return av - bv;
     });
     buttons.forEach((b) => nav.appendChild(b));
-    // Draft room tab first if visible
     const draft = $("btn-hub-draft-room");
     if (draft && !draft.hidden) nav.insertBefore(draft, nav.firstChild);
   }
@@ -142,33 +184,59 @@
     });
   }
 
-  /* ---------- Scout card: tap to pin ---------- */
+  /* ---------- Scout card: tap modal ---------- */
   let scoutPinned = false;
+
+  function ensureScoutClose(card) {
+    if (!card || card.querySelector(".scout-close")) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "scout-close";
+    btn.setAttribute("aria-label", "Close scout card");
+    btn.textContent = "×";
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      unpinScout();
+    });
+    card.insertBefore(btn, card.firstChild);
+  }
 
   function pinScoutFromTap(player, evt) {
     if (!window.FB || !player) return;
     const card = $("scout-card");
     if (!card) return;
-    // Reuse FB internals via DOM: dispatch a synthetic mouseenter path by calling shown HTML
-    // Prefer public hook if present
     if (typeof window.FB.showScoutCard === "function") {
-      window.FB.showScoutCard(player, evt);
+      window.FB.showScoutCard(player, evt || { clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 });
     } else {
-      // Fallback: click path already builds card via bindScoutHover — force show
       card.hidden = false;
       card.classList.add("show");
     }
+    // Clear inline desktop positioning so mobile CSS modal wins
+    if (isMobile()) {
+      card.style.left = "";
+      card.style.top = "";
+      card.style.right = "";
+      card.style.bottom = "";
+    }
     card.classList.add("pinned");
+    ensureScoutClose(card);
+    const bd = $("scout-backdrop");
+    if (bd && isMobile()) bd.classList.add("show");
     scoutPinned = true;
-    // Center-ish on mobile via CSS; still place if desktop-touch hybrid
   }
 
   function unpinScout() {
     const card = $("scout-card");
-    if (!card) return;
-    card.classList.remove("pinned", "show");
-    card.hidden = true;
+    if (card) {
+      card.classList.remove("pinned", "show");
+      card.hidden = true;
+    }
+    $("scout-backdrop")?.classList.remove("show");
     scoutPinned = false;
+    if (window.FB && typeof window.FB.hideScoutCard === "function") {
+      try { window.FB.hideScoutCard(0); } catch (_) {}
+    }
   }
 
   function bindScoutTap(rootEl) {
@@ -177,16 +245,14 @@
       if (el._scoutTapBound) return;
       el._scoutTapBound = true;
       el.addEventListener("click", (e) => {
-        // Don't steal draft-pick clicks on the board row itself if it's a draft action —
-        // long-press / second tap pattern: first tap shows scout if not already drafting.
+        // Never intercept primary action buttons (Draft / Cut / Hire / etc.)
+        if (e.target.closest && e.target.closest("button, a, input, select, label, .btn")) return;
         const pid = el.getAttribute("data-pid") || el.getAttribute("data-scout");
         if (!pid || !window.AFA) return;
         const p = window.AFA.playerById ? window.AFA.playerById(pid) : (window.AFA.PLAYERS || []).find((x) => x.id === pid);
         if (!p) return;
-        // If this element is primarily a draft button, only open scout when modifier / data-scout-only
         if (el.closest("#player-body") && el.tagName === "TR" && !el.dataset.scoutOnly) {
-          // On touch: show scout on tap; drafting still works via dedicated draft controls / second interaction
-          // Allow draft click to proceed but also show card briefly
+          // Show scout alongside draft row tap; drafting still proceeds
           pinScoutFromTap(p, e);
           return;
         }
@@ -206,6 +272,47 @@
     unpinScout();
   }, true);
 
+  /* ---------- Mobile copy: Click → Tap ---------- */
+  function patchMobileCopy(root) {
+    if (!isMobile() || !root) return;
+    root.querySelectorAll(".panel-h span, .panel-h .help, .help").forEach((el) => {
+      if (!el || el.dataset.tapPatched) return;
+      const t = el.textContent || "";
+      if (/click/i.test(t) || /hover/i.test(t)) {
+        el.textContent = t
+          .replace(/Click a name to draft/gi, "Tap a name to draft")
+          .replace(/CLICK A NAME TO DRAFT/g, "TAP A NAME TO DRAFT")
+          .replace(/Tap or hover for scout card/gi, "Tap for scout card")
+          .replace(/TAP OR HOVER FOR SCOUT CARD/g, "TAP FOR SCOUT CARD")
+          .replace(/Click to add/gi, "Tap to add")
+          .replace(/CLICK TO ADD/g, "TAP TO ADD");
+        el.dataset.tapPatched = "1";
+      }
+    });
+    // Static draft panel header in index.html
+    const poolHint = document.querySelector("#draft-tab-board .panel-h span");
+    if (poolHint && /click/i.test(poolHint.textContent || "")) {
+      poolHint.textContent = "Tap a name to draft";
+    }
+  }
+
+  /* ---------- Scroll reset when screens show ---------- */
+  function resetScreenScroll(id) {
+    const sc = $("screen-" + id);
+    if (!sc) return;
+    sc.scrollTop = 0;
+    const ws = sc.querySelector(".workspace");
+    if (ws) ws.scrollTop = 0;
+    if (id === "mode") {
+      const picker = $("franchise-picker");
+      if (picker) picker.scrollTop = 0;
+    }
+    if (id === "draft") {
+      const dw = $("draft-workspace");
+      if (dw) dw.scrollTop = 0;
+    }
+  }
+
   /* ---------- Observe hub renders ---------- */
   const mo = new MutationObserver(() => {
     if (!isMobile()) return;
@@ -213,6 +320,8 @@
     wrapTables($("draft-workspace"));
     bindScoutTap(document);
     prioritizeHubTabs();
+    patchMobileCopy(document);
+    syncBodyScreenClass();
   });
 
   function boot() {
@@ -222,10 +331,21 @@
     prioritizeHubTabs();
     wrapTables(document);
     bindScoutTap(document);
+    patchMobileCopy(document);
+    syncBodyScreenClass();
     const hubBody = $("hub-body");
     if (hubBody) mo.observe(hubBody, { childList: true, subtree: true });
     const draftWs = $("draft-workspace");
     if (draftWs) mo.observe(draftWs, { childList: true, subtree: true });
+    // Watch screen class changes
+    const app = $("app");
+    if (app) {
+      new MutationObserver(() => {
+        syncBodyScreenClass();
+        const active = document.querySelector(".screen.active");
+        if (active && active.id) resetScreenScroll(active.id.replace(/^screen-/, ""));
+      }).observe(app, { attributes: true, subtree: true, attributeFilter: ["class"] });
+    }
     MQ.addEventListener?.("change", () => {
       prioritizeHubTabs();
       if (!MQ.matches) $("mobile-drawer")?.classList.remove("open");
@@ -238,14 +358,17 @@
     boot();
   }
 
-  // Expose small helpers for tests / app bridge
   window.AFAMobile = {
     isMobile,
     isTouch,
     wrapTables,
     bindScoutTap,
     unpinScout,
+    pinScoutFromTap,
     syncDrawer,
-    prioritizeHubTabs
+    prioritizeHubTabs,
+    resetScreenScroll,
+    syncBodyScreenClass,
+    patchMobileCopy
   };
 })();
