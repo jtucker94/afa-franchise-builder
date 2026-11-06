@@ -1,4 +1,4 @@
-/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.22) */
+/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.23) */
 (function () {
   const MQ = window.matchMedia("(max-width: 900px)");
   const COARSE = window.matchMedia("(hover: none), (pointer: coarse)");
@@ -266,7 +266,7 @@
   }
 
   // v0.1.21: never leave the scout backdrop up when switching tabs/screens (it blocked the hub tab bar)
-  // v0.1.22: coach screen page-scroll is CSS-only (mobile.css); keep clearing scout backdrop here
+  // v0.1.23: coach screen page-scroll is CSS-only (mobile.css); keep clearing scout backdrop here
   document.addEventListener("click", (e) => {
     if (e.target.closest && e.target.closest("#hub-nav button, [data-tab], .mobile-tabbar button, #draft-nav button")) unpinScout();
   }, true);

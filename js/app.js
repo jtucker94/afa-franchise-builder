@@ -57,7 +57,7 @@
 
   function freshState() {
     return {
-      version: "0.1.22",
+      version: "0.1.23",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -169,9 +169,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.22";
+      state.version = "0.1.23";
       const payload = {
-        version: "0.1.22",
+        version: "0.1.23",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -198,9 +198,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.22";
+      state.version = "0.1.23";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -2444,12 +2444,24 @@
   function fillDraftIntroCopy() {
     const single = state.mode === "single" && state.userTeamId;
     const club = single ? displayName(teamById(state.userTeamId)) : null;
+    // Hired HC from coach-assignment (state.coachAssign); never invent a name
+    const hcId = single ? (state.coachAssign && state.coachAssign[state.userTeamId]) : null;
+    const hc = hcId ? coachById(hcId) : null;
+    const coachName = hc && hc.name ? hc.name : null;
     const eye = $("draft-intro-eyebrow");
     const title = $("draft-intro-title");
     const sub = $("draft-intro-sub");
     const lede = $("draft-intro-lede");
     const dim = $("draft-intro-dim");
-    if (eye) eye.textContent = single ? ("Your franchise · " + club) : "Alliance Football Association";
+    if (eye) {
+      if (single && club) {
+        eye.textContent = coachName
+          ? ("Your franchise · " + club + " · HC " + coachName)
+          : ("Your franchise · " + club);
+      } else {
+        eye.textContent = "Alliance Football Association";
+      }
+    }
     if (title) title.textContent = "DRAFT";
     if (sub) {
       sub.textContent = single
@@ -2458,9 +2470,13 @@
     }
     if (lede) lede.textContent = "The AFA Draft is officially underway — every NFL player is a free agent.";
     if (dim) {
-      dim.textContent = single
-        ? ("You draft for the " + club + ". The other 31 clubs pick themselves.")
-        : "Every roster starts empty. The founding snake draft is live.";
+      if (single && club) {
+        dim.textContent = coachName
+          ? ("You draft for the " + club + ", led by " + coachName + ". The other 31 clubs pick themselves.")
+          : ("You draft for the " + club + ". The other 31 clubs pick themselves.");
+      } else {
+        dim.textContent = "Every roster starts empty. The founding snake draft is live.";
+      }
     }
     const ticker = $("draft-intro-ticker");
     if (ticker) {

@@ -676,6 +676,10 @@
 
   /* Draft open / complete */
   .draft-open-title { font-size: clamp(36px, 14vw, 64px); }
+  .draft-open-eyebrow {
+    letter-spacing: 0.14em;
+    font-size: 11px;
+  }
   .draft-complete {
     padding: 12px 8px;
     align-items: stretch;

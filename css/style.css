@@ -570,6 +570,9 @@ button, input, select { font-family: inherit; }
   text-transform: uppercase;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.45;
+  max-width: 100%;
+  padding: 0 6px;
   animation: draftFadeUp 0.7s ease 0.15s both;
 }
 .draft-open-mark {
