@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#e0b145">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AFA Franchise">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="description" content="Alliance Football Association GM Franchise Builder — hire coaches, draft, trade, and run your club.">
+  <title>GM Franchise Builder — Alliance Football Association</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=029">
+  <link rel="stylesheet" href="css/mobile.css?v=029">
+  <link rel="stylesheet" href="stadiums/stadium.css?v=029">
+  <link rel="stylesheet" href="dynasty/dynasty.css?v=029">
+  <link rel="stylesheet" href="gameday/gameday.css?v=029">
+  <link rel="stylesheet" href="careers/careers.css?v=029">
+  <link rel="stylesheet" href="careers/players-tab.css?v=029">
+</head>
+<body>
+  <div id="app">
+    <section id="screen-boot" class="screen active">
+      <div class="splash-wrap">
+        <img src="assets/gm-franchise-builder-logo.jpg" alt="GM Franchise Builder">
+      </div>
+      <div class="skip-hint">Click to skip</div>
+    </section>
+
+    <section id="screen-menu" class="screen">
+      <div class="menu-card">
+        <img class="menu-logo" src="assets/gm-franchise-builder-logo.jpg" alt="GM Franchise Builder">
+        <p class="eyebrow">Working title · v0.1.19</p>
+        <h1>GM Franchise Builder</h1>
+        <p class="sub">The NFL is gone. The Alliance Football Association is yours to build — 32 cities, one founding draft, total roster control.</p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-play-story">Play Story</button>
+          <button class="btn" id="btn-continue">Continue</button>
+          <button class="btn" id="btn-save-menu">Save</button>
+          <button class="btn btn-danger" id="btn-reset-menu">Reset save</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-mode" class="screen">
+      <div style="width:min(92vw,820px)">
+        <p class="eyebrow">AFA league setup</p>
+        <h1 style="font-family:var(--display);text-transform:uppercase">How do you want to build the league?</h1>
+        <p class="sub">Jordan runs the founding of the Alliance. Choose a commissioner's desk or a single franchise.</p>
+        <div class="mode-grid">
+          <button class="mode-tile" id="btn-mode-all32" type="button">
+            <div class="tag">All 32 clubs</div>
+            <h2>Commissioner's Desk</h2>
+            <p>Hire every head coach and run every draft pick. Manual, Assisted, or Auto on each desk. Full trade and signing control across the AFA.</p>
+          </button>
+          <button class="mode-tile" id="btn-mode-single" type="button">
+            <div class="tag">Single franchise</div>
+            <h2>Take a Club</h2>
+            <p>Pick one club. Hire your HC (or sim the other 31), then draft only your picks while the CPU fills the rest of the board. Trade and sign as that GM.</p>
+          </button>
+        </div>
+        <div id="franchise-picker" style="display:none;margin-top:22px"></div>
+        <div class="btn-row" style="margin-top:22px">
+          <button class="btn btn-ghost" id="btn-mode-back">Back to menu</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-story" class="screen">
+      <div class="story-copy">
+        <p class="eyebrow">Cold open</p>
+        <h1>The league that outlived the shield</h1>
+        <p>The National Football League is gone. A last lockout, a broadcast collapse, and a sale that never closed left thirty-two cities without a Sunday.</p>
+        <p>From that wreckage a new circuit was chartered: the Alliance Football Association. Two conferences. Eight divisions. A clean sheet.</p>
+        <p>Every head coach is a free agent. Every player is unsigned. There are no inherited rosters.</p>
+        <p class="dim">The board named you, Jordan, to open the AFA — assign the sidelines, run the founding snake draft, and send the league into its first season.</p>
+        <button class="btn btn-primary" id="btn-story-continue">Begin coach assignments</button>
+      </div>
+    </section>
+
+    <section id="screen-coaches" class="screen">
+      <header class="topbar">
+        <div class="brand-lock">
+          <img src="assets/gm-franchise-builder-logo.jpg" alt="">
+          <div class="titles"><strong>GM Franchise Builder</strong><span>Alliance Football Association</span></div>
+        </div>
+        <span class="phase-chip">Coach assignment</span>
+        <div class="grow"></div>
+        <span id="coach-count">0 / 32 hired</span>
+        <button class="btn btn-sm" id="btn-save-coaches">Save</button>
+        <button class="btn btn-sm" id="btn-assist-coach">Assist</button>
+        <button class="btn btn-sm" id="btn-clear-coach">Undo last hire</button>
+        <button class="btn btn-primary btn-sm" id="btn-lock-coaches">Lock hires · go to draft</button>
+      </header>
+      <div class="workspace coach-workspace">
+        <p class="help" style="margin-top:0" id="coach-help">Hire your head coach — once your sideline is set we auto-fill the other desks and open the AFA Draft. No Next spam. You can still <strong>Simulate</strong> the other clubs first if you want.</p>
+        <div id="hired-strip" class="hired-strip" hidden></div>
+        <div class="coach-layout">
+          <div class="panel">
+            <div class="panel-h"><strong>Open clubs</strong><span id="open-team-count">32 left</span></div>
+            <div class="panel-b scroll-bank"><div id="team-assign-grid" class="team-assign-grid"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-h"><strong>2026 NFL head coaches</strong><span id="open-coach-count">32 available</span></div>
+            <div class="panel-b scroll-bank"><div id="coach-list" class="coach-list"></div></div>
+          </div>
+        </div>
+      </div>
+      <footer class="coach-footer">
+        <div class="footer-note" id="coach-footer-note">Simulate fills every remaining open sideline with the best available 2026 HCs.</div>
+        <button class="btn btn-sim" id="btn-sim-coaches">Simulate</button>
+      </footer>
+    </section>
+
+    <section id="screen-draft" class="screen">
+      <header class="topbar">
+        <div class="brand-lock">
+          <img src="assets/gm-franchise-builder-logo.jpg" alt="">
+          <div class="titles"><strong>GM Franchise Builder</strong><span>AFA Founding Draft</span></div>
+        </div>
+        <span class="phase-chip">Alliance Football Association</span>
+        <div class="grow"></div>
+        <span class="phase-chip" id="draft-round-chip">53 rounds · 1,696 picks</span>
+        <button class="btn btn-sm" id="btn-save-draft">Save</button>
+      </header>
+      <div id="draft-intro" class="draft-intro" hidden>
+        <div class="draft-open" id="draft-open-stage" role="button" tabindex="0" title="Click to enter the draft room">
+          <div class="draft-open-beams" aria-hidden="true"></div>
+          <div class="draft-open-scan" aria-hidden="true"></div>
+          <div class="draft-open-live"><span class="pulse"></span> LIVE</div>
+          <div class="draft-open-bug">AFA NETWORK</div>
+          <div class="draft-open-center">
+            <p class="draft-open-eyebrow" id="draft-intro-eyebrow">Alliance Football Association</p>
+            <div class="draft-open-mark" aria-hidden="true">AFA</div>
+            <h1 class="draft-open-title" id="draft-intro-title">DRAFT</h1>
+            <p class="draft-open-sub" id="draft-intro-sub">FOUNDING SNAKE DRAFT · 32 CLUBS · 96 PICKS</p>
+            <p class="draft-open-prompt" id="draft-intro-lede">The AFA Draft is officially underway.</p>
+            <p class="draft-open-dim" id="draft-intro-dim">Entering the draft room…</p>
+            <div class="draft-open-progress" aria-hidden="true"><span id="draft-open-bar"></span></div>
+            <p class="draft-open-skip" id="draft-open-skip">Click to skip</p>
+          </div>
+          <div class="draft-open-ticker" aria-hidden="true">
+            <div class="draft-open-ticker-track" id="draft-intro-ticker"></div>
+          </div>
+        </div>
+        <ul id="draft-intro-rules" hidden></ul>
+        <button type="button" id="btn-enter-draft" hidden>Enter</button>
+        <button type="button" id="btn-review-coaches" hidden>Review</button>
+        <button type="button" id="btn-enter-draft-from-review" hidden>Enter</button>
+        <button type="button" id="btn-coach-review-back" hidden>Back</button>
+        <div id="coach-review" hidden></div>
+      </div>
+      <div id="draft-board" class="draft-board">
+        <div id="draft-status" class="draft-top"></div>
+        <nav class="draft-nav" id="draft-nav">
+          <button class="btn btn-sm on" data-draft-tab="board">Board</button>
+          <button class="btn btn-sm" data-draft-tab="drafted">Drafted</button>
+          <button class="btn btn-sm" data-draft-tab="depth">Depth Chart</button>
+          <button class="btn btn-sm" data-draft-tab="lineup">Lineup</button>
+          <div class="grow"></div>
+          <label class="draft-team-label">Club
+            <select id="draft-team-select" aria-label="View club roster"></select>
+          </label>
+        </nav>
+        <div class="workspace" id="draft-workspace">
+          <div id="draft-tab-board" class="draft-layout">
+            <div class="panel">
+              <div class="panel-h"><strong>Player pool</strong><span>Click a name to draft</span></div>
+              <div class="panel-b">
+                <input id="search-players" class="search" type="search" placeholder="Search players">
+                <div id="pos-filters" class="filters"></div>
+                <table class="player-table">
+                  <thead><tr><th>OVR</th><th>Player</th><th>Pos</th><th>Age</th></tr></thead>
+                  <tbody id="player-body"></tbody>
+                </table>
+              </div>
+            </div>
+            <div id="rec-box"></div>
+            <div class="panel">
+              <div class="panel-h"><strong>Pick feed</strong></div>
+              <div class="panel-b"><div id="pick-feed" class="pick-feed"></div></div>
+            </div>
+          </div>
+          <div id="draft-tab-view" class="draft-tab-view" hidden></div>
+        </div>
+      </div>
+      <div id="draft-complete" class="draft-complete" hidden>
+        <div class="draft-complete-card">
+          <p class="eyebrow">Alliance Football Association</p>
+          <h1>Founding draft complete</h1>
+          <p class="lede" id="draft-complete-lede">All 1,696 picks are in. Heading to the season hub…</p>
+          <div id="draft-complete-charts" class="draft-summary-charts"></div>
+          <div class="draft-open-actions">
+            <button type="button" class="btn btn-primary btn-lg" id="btn-draft-complete-hub">Continue to season hub</button>
+            <button type="button" class="btn btn-lg" id="btn-draft-complete-review">Review draft board</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-hub" class="screen">
+      <header class="topbar">
+        <div class="brand-lock">
+          <img src="assets/gm-franchise-builder-logo.jpg" alt="">
+          <div class="titles"><strong>GM Franchise Builder</strong><span>Season hub</span></div>
+        </div>
+        <span class="phase-chip" id="hub-week-chip">Week 1</span>
+        <div class="grow"></div>
+        <div class="team-switch">
+          <span id="hub-team-logo"></span>
+          <div>
+            <div id="hub-team-meta"></div>
+            <select id="hub-team-select" aria-label="View team"></select>
+          </div>
+        </div>
+        <button class="btn btn-sm" id="btn-save-hub">Save</button>
+        <button class="btn btn-sm btn-live" id="btn-sim-now">Sim</button>
+        <button class="btn btn-sm btn-danger" id="btn-hub-reset">Reset save</button>
+      </header>
+      <nav class="hub-nav" id="hub-nav">
+        <button class="btn btn-sm btn-draft-tab" id="btn-hub-draft-room" type="button" hidden>Draft Room</button>
+        <button class="btn btn-sm" data-tab="home">League Home</button>
+        <button class="btn btn-sm" data-tab="lineup">Lineup</button>
+        <button class="btn btn-sm" data-tab="roster">Roster</button>
+        <button class="btn btn-sm" data-tab="players">Players</button>
+        <button class="btn btn-sm" data-tab="trades">Trades</button>
+        <button class="btn btn-sm" data-tab="signings">Free Agency</button>
+        <button class="btn btn-sm" data-tab="slate">Schedule</button>
+        <button class="btn btn-sm" data-tab="standings">Standings</button>
+        <button class="btn btn-sm" data-tab="stadium">Stadium</button>
+        <button class="btn btn-sm" data-tab="dynasty">Dynasty</button>
+        <button class="btn btn-sm" data-tab="gameday">Game Day</button>
+        <button class="btn btn-sm" data-tab="college">College Draft</button>
+        <button class="btn btn-sm" data-tab="sim">Play Week</button>
+      </nav>
+      <div class="workspace" id="hub-body"></div>
+    </section>
+  </div>
+  <button type="button" class="draft-fab" id="btn-draft-room" hidden title="Return to the draft room">Draft Room</button>
+  <button type="button" class="save-fab" id="btn-save-anywhere" title="Save exactly where you are">Save</button>
+  <div id="scout-card" class="scout-card" hidden></div>
+  <div id="toast" class="toast"></div>
+  <script src="js/players-nfl.js?v=029"></script>
+  <script src="js/prospects-college.js?v=029"></script>
+  <script src="js/data.js?v=029"></script>
+  <script src="js/scout.js?v=029"></script>
+  <script src="js/grading.js?v=029"></script>
+  <script src="js/stats-2025.js?v=029"></script>
+  <script src="js/systems-data-bundle.js?v=029"></script>
+  <script src="js/systems-market.js?v=029"></script>
+  <script src="js/systems-rookie-scale.js?v=029"></script>
+  <script src="js/systems-injuries.js?v=029"></script>
+  <script src="stadiums/stadium-data.js?v=029"></script>
+  <script src="stadiums/stadiums.js?v=029"></script>
+  <script src="stadiums/stadium-ui.js?v=029"></script>
+  <script src="dynasty/coaches.js?v=029"></script>
+  <script src="dynasty/dynasty.js?v=029"></script>
+  <script src="gameday/engine.js?v=029"></script>
+  <script src="gameday/replay.js?v=029"></script>
+  <script src="gameday/gameday-ui.js?v=029"></script>
+  <script src="careers/careers-data.js?v=029"></script>
+  <script src="careers/careers-ui.js?v=029"></script>
+  <script src="careers/players-tab.js?v=029"></script>
+  <script src="js/bridge-v024.js?v=029"></script>
+  <script src="js/bridge-v025.js?v=029"></script>
+  <script src="js/mobile.js?v=029"></script>
+  <script src="js/app.js?v=029"></script>
+</body>
+</html>

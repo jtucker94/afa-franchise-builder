@@ -1,0 +1,8 @@
+.afc-wrap{font:12px/1.35 system-ui,sans-serif;color:#e8ecf2}
+.afc-group{margin:10px 0}.afc-glabel{font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:#9fb3c8;margin-bottom:4px}
+.afc-scroll{overflow-x:auto}.afc-table{border-collapse:collapse;width:100%;min-width:420px}
+.afc-table th,.afc-table td{padding:4px 6px;text-align:right;border-bottom:1px solid rgba(255,255,255,.07);white-space:nowrap}
+.afc-table th:nth-child(-n+2),.afc-table td:nth-child(-n+2){text-align:left}
+.afc-table th{font-size:10px;color:#8aa0b6;font-weight:600;background:rgba(255,255,255,.03)}
+.afc-table tr.afc-total td{font-weight:700;border-top:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.04)}
+.afc-corr{color:#5ad38c;font-size:10px;cursor:help}.afc-empty,.afc-note{padding:10px;color:#9fb3c8;font-style:italic}.afc-src{font-size:10px;color:#6f8399;margin-top:6px}

@@ -1,0 +1,17 @@
+.dyn-dash{display:grid;gap:14px;font-family:inherit;color:#eef}
+.dyn-kpis{display:flex;gap:10px}.dyn-kpis div{flex:1;background:#1c2540;border-radius:10px;padding:10px;text-align:center}
+.dyn-kpis span{display:block;font-size:12px;opacity:.7}.dyn-kpis b{font-size:22px}
+.dyn-card{background:#1c2540;border-radius:12px;padding:12px}.dyn-card h3{margin:0 0 6px}.dyn-card small{opacity:.7;font-weight:400}
+.dyn-tags{display:flex;gap:6px;margin-bottom:8px}.dyn-tag{padding:2px 8px;border-radius:99px;font-size:12px}.dyn-tag.off{background:#2980b9}.dyn-tag.def{background:#c0392b}
+.dyn-attr{display:grid;grid-template-columns:96px 1fr 28px;align-items:center;gap:6px;font-size:12px;margin:3px 0}
+.dyn-attr b{height:8px;border-radius:4px;background:linear-gradient(90deg,#3498db,#2ecc71)}
+.dyn-tend{font-size:12px;margin:8px 0}.dyn-sub{font-size:12px;opacity:.7}
+.dyn-meter{position:relative;height:18px;background:#0e1424;border-radius:9px;overflow:hidden}
+.dyn-meter-fill{height:100%;transition:width .4s}.dyn-meter span{position:absolute;inset:0;font-size:11px;text-align:center;line-height:18px}
+.dyn-chart{background:#1c2540;border-radius:12px;padding:10px}.dyn-chart svg{width:100%;height:auto}
+.dyn-chart-title{font-weight:600;margin-bottom:4px}.dyn-axis{stroke:#556}.dyn-tick{fill:#99a;font-size:10px}
+.dyn-legend{display:flex;gap:12px;font-size:12px}.dyn-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+.dyn-timeline{list-style:none;padding:0;margin:0;max-height:320px;overflow:auto}
+.dyn-timeline li{border-left:4px solid #e74c3c;padding:6px 10px;margin:4px 0;background:#141b30;border-radius:4px}
+.dyn-timeline li.up{border-color:#2ecc71}.dyn-timeline span{opacity:.7;margin-left:8px;font-size:12px}.dyn-timeline small{display:block;opacity:.6}
+.dyn-empty{opacity:.6;padding:12px}
