@@ -158,7 +158,7 @@
     if (_profilesPromise) return _profilesPromise;
     _profilesPromise = new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "careers/profiles-data.js?v=030";
+      s.src = "careers/profiles-data.js?v=031";
       s.async = true;
       s.onload = () => resolve(W.AFAProfiles || {});
       s.onerror = () => reject(new Error("profiles-data.js failed to load"));
@@ -197,7 +197,7 @@
       ${statCards(c)}
       <div class="apt-tabs">${["Overview", "NFL Stats", "College", "High School", "Bio & History"].map((t, i) => `<button data-t="${i}" class="${i ? "" : "on"}">${t}</button>`).join("")}</div>
       <div class="apt-body">
-        <section data-t="0" class="on"><div class="apt-grid">${afaPanel(id, st, team, lp)}${pctHtml(pr)}${combineHtml(pr)}${attrsHtml(lp)}
+        <section data-t="0" class="on"><div class="apt-grid">${afaPanel(id, st, team, lp)}${W.AFA && W.AFA.sleeperHtml && lp ? `<div class="apt-card apt-sleeper">${W.AFA.sleeperHtml(lp)}</div>` : ""}${pctHtml(pr)}${combineHtml(pr)}${attrsHtml(lp)}
           <div class="apt-card"><h4>Honors & grades</h4>${kv("Awards", aw)}<div class="apt-src">${pr.awards ? esc(pr.awards.asOf) : "Awards: Not on record (undrafted players are not covered by the source)."}</div>${kv("PFF grade", null)}<div class="apt-src">Not on record (PFF paywalled)</div></div></div>${chartHtml(c)}</section>
         <section data-t="1">${W.AFACareersUI ? W.AFACareersUI.statsHtml(id) : NR}</section>
         <section data-t="2">${collegeHtml(pr)}</section>

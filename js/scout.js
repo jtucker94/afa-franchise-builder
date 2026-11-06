@@ -5,9 +5,9 @@
   if (!AFA || !AFA.PLAYERS) return;
 
   const GMFB_ALGO = {
-    version: "0.1",
-    label: "GMFB grade · algo v0.1",
-    note: "Blend of Madden OVR, estimated PFF-style overall, athleticism, and age curve. Tune later."
+    version: "0.2",
+    label: "GMFB grade · algo v0.2",
+    note: "Blend of Madden OVR, estimated PFF-style overall, athleticism, age curve, plus a capped Sleeper ADP consideration (12% weight, max ±3)."
   };
 
   const COLLEGES = [
@@ -178,11 +178,64 @@
     const age = player.age || 25;
     const ageFactor = age <= 23 ? 5 : age <= 26 ? 3 : age <= 29 ? 1 : age <= 32 ? -2 : -5;
     const raw = 0.40 * maddenOvr + 0.30 * pffOverall + 0.18 * athleticism + 0.12 * skill + ageFactor;
-    return clamp(Math.round(raw), 40, 99);
+    const base = clamp(Math.round(raw), 40, 99);
+    const sl = sleeperFactor(player, base);
+    player._gmfbBase = base;
+    player._sleeperFactor = sl;
+    return sl ? clamp(Math.round(base + sl.adj), 40, 99) : base;
+  }
+
+  /* v0.1.21 Sleeper pillar ("market consideration"), ~12% of composite, capped.
+   *  sleeperScore = 55 + 44 * positionalPct(ADP)      (adp_idp for defenders, adp_ppr for offense/K)
+   *  if dynasty ADP valid: sleeperScore = 0.75*that + 0.25*(55 + 44*dynPct)   (small horizon nudge; age already in GMFB)
+   *  composite = 0.88 * GMFB_base + 0.12 * sleeperScore
+   *  adj = clamp(composite - GMFB_base, -3, +3)  → Sleeper never moves GMFB more than 3 points.
+   *  Missing / 999 ADP → no adjustment (no penalty). search_rank is display-only. pts_ppr never used. */
+  const SLEEPER_W = 0.12, SLEEPER_CAP = 3;
+  function sleeperEntry(player) {
+    const S = root.AFA_SLEEPER;
+    return S && S.players ? S.players[player.id] || null : null;
+  }
+  function sleeperFactor(player, base) {
+    const e = sleeperEntry(player);
+    if (!e || e.adp == null || e.adpPct == null) return null;
+    let score = 55 + 44 * e.adpPct;
+    if (e.dynPct != null) score = 0.75 * score + 0.25 * (55 + 44 * e.dynPct);
+    const comp = (1 - SLEEPER_W) * base + SLEEPER_W * score;
+    const adj = Math.max(-SLEEPER_CAP, Math.min(SLEEPER_CAP, comp - base));
+    return { score: Math.round(score), adj: Math.round(adj * 10) / 10, weight: SLEEPER_W, cap: SLEEPER_CAP };
+  }
+  const SL_LABELS = { gp: "GP", gs: "GS", pass_att: "Att", pass_cmp: "Cmp", pass_yd: "Pass yds", pass_td: "Pass TD", pass_int: "INT",
+    rush_att: "Car", rush_yd: "Rush yds", rush_td: "Rush TD", rec_tgt: "Tgt", rec: "Rec", rec_yd: "Rec yds", rec_td: "Rec TD", fum_lost: "Fum lost",
+    fgm: "FGM", fga: "FGA", xpm: "XPM", punts: "Punts", idp_tkl_solo: "Solo", idp_tkl_ast: "Ast", idp_tkl_loss: "TFL", idp_sack: "Sacks",
+    idp_qb_hit: "QB hits", idp_pass_def: "PD", idp_int: "INT", idp_ff: "FF", idp_fum_rec: "FR", idp_def_td: "Def TD" };
+  function sleeperHtml(player) {
+    const S = root.AFA_SLEEPER, e = sleeperEntry(player);
+    const NR = '<span class="sl-nr">Not on record</span>';
+    if (!S) return "";
+    if (!e) return `<div class="scout-section-label">Sleeper (${S.meta.season})</div><div class="sl-box">${NR} — no confident Sleeper match</div>`;
+    const f = player._sleeperFactor;
+    const snap = (a, b) => (e.st[a] && e.st[b] ? Math.round((100 * e.st[a]) / e.st[b]) + "%" : null);
+    const sn = snap("off_snp", "tm_off_snp") || snap("def_snp", "tm_def_snp");
+    const cells = Object.keys(SL_LABELS).filter((k) => e.st[k] != null && k !== "gs").slice(0, 9)
+      .map((k) => `<div class="sl-stat"><span>${SL_LABELS[k]}</span><b>${Math.round(e.st[k] * 10) / 10}</b></div>`).join("");
+    const chip = (cls, lab, val, sub) => `<div class="sl-chip ${cls}"><span>${lab}</span><b>${val}</b>${sub ? `<i>${sub}</i>` : ""}</div>`;
+    return `<div class="scout-section-label">Sleeper market &amp; ${S.meta.season} stats <span class="est-tag">thru wk ${S.meta.week}</span></div>
+      <div class="sl-box">
+        <div class="sl-chips">
+          ${chip("adp", "Sleeper ADP (" + e.adpKind + ")", e.adp != null ? e.adp.toFixed(1) : "Unranked", e.adpPct != null ? "top " + Math.max(1, Math.round((1 - e.adpPct) * 100)) + "% at pos" : "")}
+          ${e.adpKind === "PPR" ? chip("dyn", "Dynasty ADP", e.dyn != null ? e.dyn.toFixed(1) : "Unranked", "") : ""}
+          ${chip("pop", "Sleeper popularity", e.sr != null ? "#" + e.sr : "—", "search rank")}
+          ${chip("adj", "GMFB Sleeper adj", f ? (f.adj > 0 ? "+" : "") + f.adj : "0", f ? "max ±" + f.cap : "no valid ADP")}
+        </div>
+        <div class="sl-meta">${e.team ? e.team : "Free Agent"} · ${e.dc ? e.dc + (e.dco ? " #" + e.dco : "") : "Depth: Not on record"}${sn ? " · Snaps " + sn : ""}${e.inj ? ` · <span class="sl-inj">${e.inj}${e.injPart ? " (" + e.injPart + ")" : ""}</span>` : ""}${e.yx != null ? " · Yr " + (e.yx + 1) : ""}</div>
+        <div class="sl-stats">${cells || NR}</div>
+        <div class="sl-src">Sleeper public API · ${String(S.meta.fetchedAt).slice(0, 10)} · ADP/popularity are market signals; GMFB stays the grade.</div>
+      </div>`;
   }
 
   function enrichPlayer(player) {
-    if (player.scout && player.scout.schema === 3) return player;
+    if (player.scout && player.scout.schema === 4) return player;
     player.scout = null;
     const rng = mulberry32(hashStr(player.id + ":scout:" + player.pos));
     const size = POS_SIZE[player.pos] || POS_SIZE.WR;
@@ -204,7 +257,7 @@
     }
     if (!player.hand) player.hand = rng() > 0.12 ? "Right" : "Left";
     player.scout = {
-      schema: 3,
+      schema: 4,
       face: faceHtml(player),
       madden: {
         ovr: maddenOvr,
@@ -214,6 +267,8 @@
       pff: pff,
       gmfb: {
         ovr: gmfb,
+        base: player._gmfbBase,
+        sleeper: player._sleeperFactor || null,
         version: GMFB_ALGO.version,
         label: GMFB_ALGO.label,
         note: GMFB_ALGO.note
@@ -230,6 +285,8 @@
 
   AFA.enrichPlayer = enrichPlayer;
   AFA.GMFB_ALGO = GMFB_ALGO;
+  AFA.sleeperHtml = sleeperHtml;
+  AFA.sleeperEntry = sleeperEntry;
   AFA.scoutFace = faceHtml;
   AFA.jerseyLabel = jerseyLabel;
 

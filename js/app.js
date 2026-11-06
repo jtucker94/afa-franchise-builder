@@ -57,7 +57,7 @@
 
   function freshState() {
     return {
-      version: "0.1.20",
+      version: "0.1.21",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -148,9 +148,9 @@
   function save() {
     try {
       captureActivePhase();
-      state.version = "0.1.20";
+      state.version = "0.1.21";
       const payload = {
-        version: "0.1.20",
+        version: "0.1.21",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -177,9 +177,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.20";
+      state.version = "0.1.21";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -351,7 +351,7 @@
 
   function ensureScout(player) {
     if (!player) return null;
-    if (player.scout) return player;
+    if (player.scout && player.scout.schema === 4) return player;
     if (window.AFA && typeof window.AFA.enrichPlayer === "function") return window.AFA.enrichPlayer(player);
     return player;
   }
@@ -377,7 +377,7 @@
           <div class="scout-grades">
             <div class="scout-grade pff"><span class="g-label">PFF${pffEst ? " est." : ""}</span><span class="g-val">${s.pff.overall.toFixed(1)}</span><span class="g-sub">${s.pff.label}${pffEst ? " · estimate" : ""}</span></div>
             <div class="scout-grade madden"><span class="g-label">Madden</span><span class="g-val">${s.madden.ovr}</span><span class="g-sub">OVR</span></div>
-            <div class="scout-grade gmfb"><span class="g-label">GMFB</span><span class="g-val">${s.gmfb.ovr}</span><span class="g-sub">algo v${s.gmfb.version}</span></div>
+            <div class="scout-grade gmfb"><span class="g-label">GMFB</span><span class="g-val">${s.gmfb.ovr}</span><span class="g-sub">algo v${s.gmfb.version}${s.gmfb.sleeper ? " · Sleeper " + (s.gmfb.sleeper.adj > 0 ? "+" : "") + s.gmfb.sleeper.adj : ""}</span></div>
             ${player.grade ? `<div class="scout-grade afa"><span class="g-label">AFA Grade</span><span class="g-val">${player.grade.overall}</span><span class="g-sub">base ${player.ovrBase != null ? player.ovrBase : "—"} · conf ${Math.round((player.grade.confidence || 0) * 100)}%</span></div>` : ""}
           </div>
         </div>
@@ -397,6 +397,7 @@
         </div>
         <div class="scout-section-label">Madden attributes</div>
         <div class="scout-attrs">${attrs}</div>
+        ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
         ${window.AFACareersUI ? `<div class="scout-section-label">NFL career</div>${AFACareersUI.statsHtml(player.id)}` : ""}
         <div class="scout-foot">${s.gmfb.label}: ${s.gmfb.note}
           ${window.AFAPlayersTab ? ` · <button type="button" class="btn btn-sm" data-profile="${player.id}">Full profile</button>` : ""}

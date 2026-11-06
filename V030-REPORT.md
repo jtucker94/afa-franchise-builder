@@ -55,9 +55,12 @@ Desktop (≥901px) path left essentially unchanged (mobile overrides stay behind
 ---
 
 ## Publish
-- Copied `game/` → git checkout `afa-franchise-builder` on `main` (with `.nojekyll`)
-- Commit: Fix iPhone layout overflow and covered controls (v0.1.20)
-- Push to GitHub Pages: https://jtucker94.github.io/afa-franchise-builder/
+- Copied `game/` → git checkout `/tmp/afa-franchise-builder` on `main` (with `.nojekyll`)
+- Commit: `e8a9b363ba65f8db914c86fd767ae6f3c9c40f6b` — Fix iPhone layout overflow and covered controls (v0.1.20)
+- Author: jtucker94 <n.jordantucker94@gmail.com>
+- Push: **succeeded** (`main`)
+- Live verified: index shows `v0.1.20` / `?v=030`; `sw.js` → `afa-shell-v030`; mobile.css contains scout-backdrop / screen-draft-active rules
+- URL: https://jtucker94.github.io/afa-franchise-builder/
 
 ## Still worth a visual re-check on a real iPhone
 1. Scout modal open/close while drafting (Draft button + name tap)
