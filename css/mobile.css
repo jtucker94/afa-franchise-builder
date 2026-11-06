@@ -126,37 +126,113 @@
 
   /* Coach / draft grids already collapse at 1100; tighten */
   .coach-layout, .draft-layout { gap: 10px; }
-  .coach-workspace {
-    overflow: hidden;
-    min-height: 0;
+
+  /* v0.1.22: Coach assignment is ONE page scroll on iPhone.
+   * Open Clubs + Head Coaches sit in normal document flow (height:auto).
+   * Nested .scroll-bank overflow traps are disabled so they cannot steal the page scroll.
+   * Sticky header keeps Lock Hires reachable; sticky footer keeps Sim reachable.
+   * Desktop (≥901px) keeps the two-pane nested-scroll layout from style.css. */
+  #screen-coaches.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  .coach-layout {
+  #screen-coaches .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 35;
+    background: var(--panel-2, #0e1620);
+  }
+  #screen-coaches .coach-workspace {
+    overflow: visible !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    /* Clear sticky footer so last coaches aren't permanently hidden */
+    padding-bottom: calc(96px + var(--safe-bottom)) !important;
+  }
+  #screen-coaches .coach-layout {
     grid-template-columns: 1fr !important;
-    grid-template-rows: minmax(180px, 1fr) minmax(220px, 1.2fr);
-    flex: 1;
-    min-height: 0;
-    height: auto;
+    grid-template-rows: auto auto !important;
+    flex: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    gap: 12px;
   }
-  .coach-layout .panel {
-    min-height: 160px;
+  #screen-coaches .coach-layout .panel {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    flex: none !important;
   }
-  .coach-layout .panel-b.scroll-bank {
-    min-height: 120px;
-    max-height: none;
-    flex: 1;
+  #screen-coaches .coach-layout .panel-b,
+  #screen-coaches .coach-layout .panel-b.scroll-bank {
+    overflow: visible !important;
+    overflow-y: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    flex: none !important;
+    overscroll-behavior: auto;
   }
-  .coach-footer {
+  #screen-coaches .coach-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
     padding: 10px;
     padding-bottom: calc(10px + var(--safe-bottom));
-    padding-left: calc(10px + 100px); /* clear SAVE FAB */
+    padding-left: 10px; /* SAVE FAB is hidden on this screen */
     flex-wrap: wrap;
     gap: 8px;
+    background: var(--panel-2, #0e1620);
+    border-top: 1px solid var(--line, #243044);
+    flex-shrink: 0;
   }
   .btn-sim, #btn-sim-coaches { width: 100%; min-height: 48px; }
-  #coach-help { font-size: 13px; margin-bottom: 6px !important; }
+  #coach-help, .coach-help { font-size: 13px; margin-bottom: 8px !important; color: #d5dde8; }
+  .coach-steps {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .coach-step { padding: 8px 10px; }
+  .panel-hint { font-size: 12px; padding: 8px 10px; }
+  .team-slot {
+    min-height: 64px;
+  }
+  .btn-hire, .coach-row .btn, .coach-row button {
+    min-height: 44px !important;
+    min-width: 72px;
+    padding: 10px 14px;
+  }
+  .hired-chip {
+    min-height: 44px;
+  }
 
-  /* ---------- Draft room: reachable pool + compact chrome ---------- */
-  #screen-draft .topbar { padding: 4px 8px; gap: 4px; }
+  /* ---------- Draft room: ONE page scroll (v0.1.22) + compact chrome ----------
+   * Same pattern as coach assignment: the screen scrolls as a document.
+   * Nested pool / pick-feed / workspace overflow traps are disabled on ≤900px.
+   * Desktop (≥901px) keeps the pane layout from style.css. */
+  #screen-draft.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #screen-draft .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 35;
+    padding: 4px 8px;
+    gap: 4px;
+    background: var(--panel-2, #0e1620);
+  }
   .draft-top {
     grid-template-columns: 1fr !important;
     gap: 8px;
@@ -175,41 +251,65 @@
     height: 44px;
     font-size: 16px;
   }
-  .draft-nav {
+  #screen-draft .draft-board {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  #screen-draft .draft-nav {
     gap: 4px;
     padding: 6px 8px;
     position: sticky;
-    top: 0;
-    z-index: 5;
+    top: 52px; /* under sticky topbar */
+    z-index: 30;
+    background: var(--panel-2, #0e1620);
   }
   .draft-team-label { width: 100%; }
   .draft-team-label select { min-width: 0; width: 100%; }
 
-  /* Critical: let draft layout grow so workspace can scroll to the pool */
-  #draft-workspace {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    min-height: 0;
-    flex: 1;
-    padding-bottom: calc(var(--safe-bottom) + 24px);
-  }
-  .draft-layout {
+  #screen-draft #draft-workspace {
+    overflow: visible !important;
+    flex: 0 0 auto !important;
     height: auto !important;
-    min-height: 0;
+    min-height: 0 !important;
+    padding-bottom: calc(var(--safe-bottom) + 88px) !important;
+  }
+  #screen-draft .draft-layout {
+    height: auto !important;
+    min-height: 0 !important;
     grid-template-columns: 1fr !important;
-    grid-auto-rows: auto;
+    grid-auto-rows: auto !important;
     gap: 10px;
   }
-  /* Put recommendation + sim controls first on mobile, then the pool */
-  .draft-layout > .panel:first-child { order: 2; min-height: 280px; }
-  .draft-layout > #rec-box { order: 1; }
-  .draft-layout > .panel:last-child { order: 3; max-height: 260px; }
-  .draft-layout > .panel:first-child .panel-b {
-    max-height: min(55vh, 480px);
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
+  /* Recommendation / sim first, then full player pool in page flow, then pick feed */
+  #screen-draft .draft-layout > #rec-box { order: 1; }
+  #screen-draft .draft-layout > .panel:first-child {
+    order: 2;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    flex: none !important;
   }
-  .panel-b { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #screen-draft .draft-layout > .panel:last-child {
+    order: 3;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    flex: none !important;
+  }
+  #screen-draft .draft-layout .panel-b {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+    flex: none !important;
+    min-height: 0 !important;
+  }
+  /* Horizontal scroll only for wide tables — never trap vertical page scroll */
+  #screen-draft .panel-b { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .player-table { min-width: 0; width: 100%; }
   .player-table th, .player-table td { padding: 8px 6px; }
   .div-table-wrap, .table-scroll {
@@ -221,14 +321,18 @@
   .div-table { min-width: 480px; }
   .standings-wrap, .depth, .trade-grid, .sign-grid { grid-template-columns: 1fr; }
 
-  /* Draft tabs with empty content still need space */
   .draft-tab-view {
     min-height: 200px;
     padding-bottom: 24px;
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  /* Hide floating Draft Room/Board pill while already in the draft room */
-  body.screen-draft-active .draft-fab { display: none !important; }
+  /* Header already has Save — never let the floating SAVE cover OVR/names in the pool */
+  body.screen-draft-active .save-fab,
+  body.screen-draft-active .draft-fab {
+    display: none !important;
+  }
 
   /* Hub nav → bottom tab bar (primary) + overflow hamburger */
   .hub-nav {
@@ -368,11 +472,12 @@
   body.screen-story-active .draft-fab {
     display: none !important;
   }
-  /* On pre-hub screens without tab bar, park FAB lower */
+  /* Pre-hub: hide SAVE FAB wherever the screen already has a Save control.
+   * (Coach + draft headers have Save; FAB was covering names/OVR on iPhone.) */
   body.screen-mode-active .save-fab,
   body.screen-coaches-active .save-fab,
   body.screen-draft-active .save-fab {
-    bottom: calc(12px + var(--safe-bottom));
+    display: none !important;
   }
   body.screen-mode-active .draft-fab,
   body.screen-coaches-active .draft-fab {

@@ -57,7 +57,7 @@
 
   function freshState() {
     return {
-      version: "0.1.21",
+      version: "0.1.22",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -169,9 +169,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.21";
+      state.version = "0.1.22";
       const payload = {
-        version: "0.1.21",
+        version: "0.1.22",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -198,9 +198,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.21";
+      state.version = "0.1.22";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -731,16 +731,63 @@
       }
       if (!ui.selectedTeam && !state.coachAssign[state.userTeamId]) ui.selectedTeam = state.userTeamId;
     }
+    const hired = assignedCount();
+    const openRaw = openTeams();
+    const single = state.mode === "single" && state.userTeamId;
+    const userHired = single && !!state.coachAssign[state.userTeamId];
+    // Put the player's club first so the "do this now" desk is never buried under the other 31
+    const open = openRaw.slice().sort((a, b) => {
+      if (!single) return 0;
+      if (a.id === state.userTeamId) return -1;
+      if (b.id === state.userTeamId) return 1;
+      return 0;
+    });
+    const free = availableCoaches();
+    const selTeam = ui.selectedTeam ? teamById(ui.selectedTeam) : null;
     const help = $("coach-help");
     if (help) {
-      help.innerHTML = state.mode === "single" && state.userTeamId
-        ? ("Hire the head coach for <strong>" + displayName(teamById(state.userTeamId)) + "</strong>. Then hit <strong>Simulate</strong> to let the CPU fill the other 31 desks — or hire them yourself.")
-        : "Pick a club from the open bank, then hire a 2026 NFL head coach. Hired clubs drop out of the bank; coaches disappear once signed. Use <strong>Simulate</strong> at the bottom to auto-fill whatever is left.";
+      if (single) {
+        const club = displayName(teamById(state.userTeamId));
+        if (!userHired) {
+          help.innerHTML = "<strong>Step 1 of 3 — Hire your head coach</strong> for <strong>" + club + "</strong> (highlighted as Your club). Select a coach on the right and tap <strong>Hire</strong>. The other open desks are CPU/other clubs — optional.";
+        } else if (hired < 32) {
+          help.innerHTML = "<strong>Step 2 of 3 — Fill the other clubs</strong>. Your " + club + " desk is set. Hire more yourself, tap <strong>Assist</strong> for one pick, or <strong>Sim other 31</strong> to auto-fill every remaining desk.";
+        } else {
+          help.innerHTML = "<strong>Step 3 of 3 — Lock hires</strong>. All 32 desks are filled. Tap <strong>Lock hires · go to draft</strong> (or Next) to open the AFA Draft.";
+        }
+      } else {
+        help.innerHTML = hired < 32
+          ? "<strong>Commissioner mode:</strong> pick any open club, then Hire a 2026 NFL head coach. Or tap <strong>Simulate</strong> / <strong>Assist</strong> to auto-fill. When every desk is filled, <strong>Lock hires · go to draft</strong>."
+          : "<strong>Step 3 — Lock hires.</strong> All 32 desks are filled. Go to the AFA Draft.";
+      }
     }
-    const hired = assignedCount();
-    const open = openTeams();
-    const free = availableCoaches();
+    // Progress accents on the 3-step strip (visual + not color-only: data-state text via CSS ::)
+    const steps = $("coach-steps");
+    if (steps) {
+      const s1 = !single ? (hired > 0) : userHired;
+      const s2 = hired >= 32 || (single && userHired && hired > 1) || (!single && hired >= 16);
+      const s3 = hired >= 32;
+      steps.querySelectorAll(".coach-step").forEach((el) => {
+        const n = el.getAttribute("data-step");
+        let st = "todo";
+        if (n === "1") st = s1 ? "done" : "current";
+        else if (n === "2") st = s3 ? "done" : (s1 ? "current" : "todo");
+        else if (n === "3") st = s3 ? "current" : "todo";
+        el.setAttribute("data-state", st);
+        el.setAttribute("aria-current", st === "current" ? "step" : "false");
+      });
+    }
+    const clubsHint = $("open-clubs-hint");
+    if (clubsHint) {
+      clubsHint.hidden = !single;
+      if (single && userHired) {
+        clubsHint.innerHTML = "Your club already has a head coach. Remaining desks are <span class=\"badge-cpu\">Other club</span> — hire them yourself or use <strong>Sim other 31</strong>.";
+      } else if (single) {
+        clubsHint.innerHTML = "Start with <span class=\"badge-yours\">Your club</span>. Other open desks are <span class=\"badge-cpu\">Other club</span> (CPU unless you hire them).";
+      }
+    }
     $("coach-count").textContent = hired + " / 32 hired";
+    $("coach-count").setAttribute("aria-label", hired + " of 32 head coaches hired");
     if ($("open-team-count")) $("open-team-count").textContent = open.length + " left";
     if ($("open-coach-count")) $("open-coach-count").textContent = free.length + " available";
 
@@ -752,9 +799,11 @@
         strip.innerHTML = "";
       } else {
         strip.hidden = false;
-        strip.innerHTML = pairs.map(({ team: t, coach: c }) =>
-          `<div class="hired-chip" title="Click to reopen this desk">${logoImg(t, "sm")}<span><strong>${t.nick}</strong> · ${c ? c.name : "?"}</span></div>`
-        ).join("");
+        strip.innerHTML = pairs.map(({ team: t, coach: c }) => {
+          const yours = single && t.id === state.userTeamId;
+          const label = (yours ? "Your club: " : "Other club: ") + t.nick + " hired " + (c ? c.name : "?") + ". Activate to reopen this desk.";
+          return `<button type="button" class="hired-chip${yours ? " yours" : ""}" role="listitem" aria-label="${label}">${logoImg(t, "sm")}<span><strong>${t.nick}</strong> · ${c ? c.name : "?"}${yours ? ' <em class="chip-tag">You</em>' : ""}</span></button>`;
+        }).join("");
         strip.querySelectorAll(".hired-chip").forEach((el, i) => {
           el.onclick = () => {
             const tid = pairs[i].team.id;
@@ -775,41 +824,53 @@
 
     const grid = $("team-assign-grid");
     grid.innerHTML = open.map((t) => {
+      const isYours = single && t.id === state.userTeamId;
       const sel = ui.selectedTeam === t.id ? " selected" : "";
-      const yours = state.mode === "single" && t.id === state.userTeamId ? " yours" : "";
-      const who = state.mode === "single" && t.id === state.userTeamId ? "Your franchise" : "Needs a head coach";
-      return `<div class="team-slot${sel}${yours}" data-team="${t.id}">
+      const yours = isYours ? " yours" : " cpu";
+      const badge = isYours
+        ? '<span class="slot-badge badge-yours">Your club</span>'
+        : '<span class="slot-badge badge-cpu">Other club</span>';
+      const who = isYours ? "Hire your head coach here first" : "Optional — CPU fills if you Sim";
+      const aria = (isYours ? "Your club: " : "Other club: ") + displayName(t) + (ui.selectedTeam === t.id ? ", selected" : "");
+      return `<div class="team-slot${sel}${yours}" data-team="${t.id}" role="option" tabindex="0" aria-selected="${ui.selectedTeam === t.id ? "true" : "false"}" aria-label="${aria}">
         ${logoImg(t)}
         <div class="slot-meta">
           <div class="nick">${t.nick}</div>
           <div class="city">${t.city}</div>
+          ${badge}
           <div class="who">${who}</div>
         </div>
       </div>`;
-    }).join("") || `<p class="help">Every club has a head coach. The AFA Draft opens automatically.</p>`;
+    }).join("") || `<p class="help" role="status">Every club has a head coach. The AFA Draft opens automatically.</p>`;
     grid.querySelectorAll("[data-team]").forEach((el) => {
-      el.onclick = () => {
+      const activate = () => {
         ui.selectedTeam = el.getAttribute("data-team");
         if (ui.selectedCoach) tryAssign();
         else renderCoaches();
       };
+      el.onclick = activate;
+      el.onkeydown = (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); activate(); }
+      };
     });
 
+    const hireTarget = selTeam ? displayName(selTeam) : "the selected club";
     const list = $("coach-list");
     list.innerHTML = free.map((c) => {
       const rec = ui.selectedCoach === c.id ? " selected" : "";
-      return `<div class="coach-row${rec}" data-coach="${c.id}">
-        <div class="${ovrClass(c.ovr)}">${c.ovr}</div>
+      const hireLabel = "Hire " + c.name + " for " + hireTarget + ", overall " + c.ovr;
+      return `<div class="coach-row${rec}" data-coach="${c.id}" role="listitem" aria-label="${c.name}, overall ${c.ovr}, ${c.prev}, ${c.style}">
+        <div class="${ovrClass(c.ovr)}" aria-hidden="true">${c.ovr}</div>
         <div>
           <div class="name">${c.name}</div>
           <div class="prev">${c.prev} · ${c.style}</div>
         </div>
-        <button class="btn btn-sm" data-hire="${c.id}">Hire</button>
+        <button class="btn btn-sm btn-hire" type="button" data-hire="${c.id}" aria-label="${hireLabel}">Hire</button>
       </div>`;
-    }).join("") || `<p class="help">Every 2026 NFL head coach has a desk.</p>`;
+    }).join("") || `<p class="help" role="status">Every 2026 NFL head coach has a desk.</p>`;
     list.querySelectorAll("[data-coach]").forEach((el) => {
       el.onclick = (ev) => {
-        if (ev.target.getAttribute("data-hire")) return;
+        if (ev.target.closest("[data-hire]")) return;
         ui.selectedCoach = el.getAttribute("data-coach");
         if (ui.selectedTeam) tryAssign();
         else renderCoaches();
@@ -820,7 +881,7 @@
         ev.stopPropagation();
         ui.selectedCoach = el.getAttribute("data-hire");
         if (!ui.selectedTeam) {
-          toast("Select an open club first, then hire.");
+          toast(single && !userHired ? "Select your club first (highlighted Your club), then Hire." : "Select an open club first, then hire.");
           renderCoaches();
           return;
         }
@@ -828,31 +889,40 @@
       };
     });
 
-    $("btn-lock-coaches").disabled = hired < 32;
+    const lockBtn = $("btn-lock-coaches");
+    if (lockBtn) {
+      lockBtn.disabled = hired < 32;
+      lockBtn.setAttribute("aria-disabled", hired < 32 ? "true" : "false");
+    }
     const sim = $("btn-sim-coaches");
     const note = $("coach-footer-note");
     if (sim) {
       const done = hired >= 32;
-      const single = state.mode === "single" && state.userTeamId;
       const othersOpen = single ? TEAMS.filter((t) => t.id !== state.userTeamId && !state.coachAssign[t.id]).length : open.length;
       sim.disabled = false;
       if (done) {
-        sim.textContent = "Next";
+        sim.textContent = "Next · go to draft";
         sim.classList.add("next");
         sim.setAttribute("data-mode", "next");
+        sim.setAttribute("aria-label", "All coaches hired. Go to the AFA Draft");
       } else if (single) {
         sim.textContent = othersOpen ? "Sim other 31" : "Simulate";
         sim.classList.remove("next");
         sim.setAttribute("data-mode", "sim");
         if (!othersOpen && !state.coachAssign[state.userTeamId]) sim.textContent = "Simulate";
+        sim.setAttribute("aria-label", othersOpen
+          ? "Simulate: auto-hire head coaches for the other " + othersOpen + " open clubs"
+          : "Simulate remaining coach hires");
       } else {
         sim.textContent = "Simulate";
         sim.classList.remove("next");
         sim.setAttribute("data-mode", "sim");
+        sim.setAttribute("aria-label", "Simulate: auto-hire head coaches for every remaining open club");
       }
       if (note) {
         if (done) note.textContent = "All 32 desks are filled — opening the AFA Draft…";
-        else if (single) note.textContent = "Hire your HC and we auto-fill the other 31, then open the AFA Draft. Or use Sim other 31 first.";
+        else if (single && !userHired) note.textContent = "Tip: hire your HC first, then Sim other 31 — or hire every desk yourself.";
+        else if (single) note.textContent = "Your desk is set. Sim other 31 fills every remaining open sideline, then you can Lock hires.";
         else note.textContent = "Simulate fills every remaining open sideline with the best available 2026 HCs.";
       }
       if (done) maybeAutoStartDraft();

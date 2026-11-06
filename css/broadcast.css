@@ -96,8 +96,9 @@ h1, .menu-card h1, .story-copy h2, .draft-intro h2, #draft-intro-title {
   .eyebrow { box-shadow: 2px 2px 0 var(--ember); }
 }
 
-/* v0.1.21 glitch pass: on iPhone the floating SAVE pill covered rows and Sim Draft.
- * These screens already have a Save button in their top bar, so the FAB is hidden there. */
+/* v0.1.21/v0.1.22: on iPhone the floating SAVE pill covered rows and Sim Draft.
+ * These screens already have a Save button in their top bar, so the FAB is hidden there.
+ * Coach assignment also uses a sticky footer Sim — keep FAB hidden so it does not overlay. */
 @media (max-width: 900px) {
   body.screen-mode-active .save-fab,
   body.screen-coaches-active .save-fab,

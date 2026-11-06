@@ -16,14 +16,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=031">
-  <link rel="stylesheet" href="css/mobile.css?v=031">
-  <link rel="stylesheet" href="css/broadcast.css?v=031">
-  <link rel="stylesheet" href="stadiums/stadium.css?v=031">
-  <link rel="stylesheet" href="dynasty/dynasty.css?v=031">
-  <link rel="stylesheet" href="gameday/gameday.css?v=031">
-  <link rel="stylesheet" href="careers/careers.css?v=031">
-  <link rel="stylesheet" href="careers/players-tab.css?v=031">
+  <link rel="stylesheet" href="css/style.css?v=032">
+  <link rel="stylesheet" href="css/mobile.css?v=032">
+  <link rel="stylesheet" href="css/broadcast.css?v=032">
+  <link rel="stylesheet" href="stadiums/stadium.css?v=032">
+  <link rel="stylesheet" href="dynasty/dynasty.css?v=032">
+  <link rel="stylesheet" href="gameday/gameday.css?v=032">
+  <link rel="stylesheet" href="careers/careers.css?v=032">
+  <link rel="stylesheet" href="careers/players-tab.css?v=032">
 </head>
 <body>
   <div id="app">
@@ -37,7 +37,7 @@
     <section id="screen-menu" class="screen">
       <div class="menu-card">
         <img class="menu-logo" src="assets/gm-franchise-builder-logo.jpg" alt="GM Franchise Builder">
-        <p class="eyebrow">Working title · v0.1.21</p>
+        <p class="eyebrow">Working title · v0.1.22</p>
         <h1>GM Franchise Builder</h1>
         <p class="sub">The NFL is gone. The Alliance Football Association is yours to build — 32 cities, one founding draft, total roster control.</p>
         <div class="btn-row">
@@ -85,37 +85,44 @@
       </div>
     </section>
 
-    <section id="screen-coaches" class="screen">
-      <header class="topbar">
+    <section id="screen-coaches" class="screen" aria-labelledby="coach-screen-title">
+      <header class="topbar" role="banner">
         <div class="brand-lock">
           <img src="assets/gm-franchise-builder-logo.jpg" alt="">
-          <div class="titles"><strong>GM Franchise Builder</strong><span>Alliance Football Association</span></div>
+          <div class="titles"><strong id="coach-screen-title">GM Franchise Builder</strong><span>Alliance Football Association</span></div>
         </div>
-        <span class="phase-chip">Coach assignment</span>
+        <span class="phase-chip" aria-current="step">Coach assignment</span>
         <div class="grow"></div>
-        <span id="coach-count">0 / 32 hired</span>
-        <button class="btn btn-sm" id="btn-save-coaches">Save</button>
-        <button class="btn btn-sm" id="btn-assist-coach">Assist</button>
-        <button class="btn btn-sm" id="btn-clear-coach">Undo last hire</button>
-        <button class="btn btn-primary btn-sm" id="btn-lock-coaches">Lock hires · go to draft</button>
+        <span id="coach-count" aria-live="polite">0 / 32 hired</span>
+        <button class="btn btn-sm" id="btn-save-coaches" type="button" aria-label="Save franchise progress">Save</button>
+        <button class="btn btn-sm" id="btn-assist-coach" type="button" aria-label="Assist: recommend a head coach for the selected club">Assist</button>
+        <button class="btn btn-sm" id="btn-clear-coach" type="button" aria-label="Undo the last head coach hire">Undo last hire</button>
+        <button class="btn btn-primary btn-sm" id="btn-lock-coaches" type="button" aria-label="Lock all hires and go to the draft">Lock hires · go to draft</button>
       </header>
-      <div class="workspace coach-workspace">
-        <p class="help" style="margin-top:0" id="coach-help">Hire your head coach — once your sideline is set we auto-fill the other desks and open the AFA Draft. No Next spam. You can still <strong>Simulate</strong> the other clubs first if you want.</p>
-        <div id="hired-strip" class="hired-strip" hidden></div>
+      <div class="workspace coach-workspace" role="main">
+        <ol class="coach-steps" id="coach-steps" aria-label="How coach assignment works">
+          <li class="coach-step" data-step="1"><span class="coach-step-num" aria-hidden="true">1</span><span class="coach-step-body"><strong>Hire your HC</strong><em>Select your highlighted club, then Hire a coach</em></span></li>
+          <li class="coach-step" data-step="2"><span class="coach-step-num" aria-hidden="true">2</span><span class="coach-step-body"><strong>Fill the other 31</strong><em>Optional — hire them yourself, or tap Sim other 31 / Assist</em></span></li>
+          <li class="coach-step" data-step="3"><span class="coach-step-num" aria-hidden="true">3</span><span class="coach-step-body"><strong>Lock hires</strong><em>When all 32 desks are filled, go to the AFA Draft</em></span></li>
+        </ol>
+        <p class="help coach-help" id="coach-help">Hire your head coach first. Then fill the other clubs or use <strong>Sim other 31</strong>, and finish with <strong>Lock hires · go to draft</strong>.</p>
+        <div id="hired-strip" class="hired-strip" hidden role="list" aria-label="Hired head coaches — activate a chip to reopen that desk"></div>
         <div class="coach-layout">
-          <div class="panel">
-            <div class="panel-h"><strong>Open clubs</strong><span id="open-team-count">32 left</span></div>
-            <div class="panel-b scroll-bank"><div id="team-assign-grid" class="team-assign-grid"></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-h"><strong>2026 NFL head coaches</strong><span id="open-coach-count">32 available</span></div>
-            <div class="panel-b scroll-bank"><div id="coach-list" class="coach-list"></div></div>
-          </div>
+          <section class="panel" aria-labelledby="open-clubs-heading">
+            <div class="panel-h"><strong id="open-clubs-heading">Open clubs</strong><span id="open-team-count">32 left</span></div>
+            <p class="panel-hint" id="open-clubs-hint">Your franchise is marked <span class="badge-yours">Your club</span>. Other open desks are <span class="badge-cpu">Other club</span> (CPU unless you hire them).</p>
+            <div class="panel-b scroll-bank"><div id="team-assign-grid" class="team-assign-grid" role="listbox" aria-labelledby="open-clubs-heading" aria-describedby="open-clubs-hint"></div></div>
+          </section>
+          <section class="panel" aria-labelledby="coach-pool-heading">
+            <div class="panel-h"><strong id="coach-pool-heading">2026 NFL head coaches</strong><span id="open-coach-count">32 available</span></div>
+            <p class="panel-hint" id="coach-pool-hint">Pick a coach, then tap <strong>Hire</strong> for the selected club. Overall rating is shown as a number beside each name.</p>
+            <div class="panel-b scroll-bank"><div id="coach-list" class="coach-list" role="list" aria-labelledby="coach-pool-heading" aria-describedby="coach-pool-hint"></div></div>
+          </section>
         </div>
       </div>
-      <footer class="coach-footer">
-        <div class="footer-note" id="coach-footer-note">Simulate fills every remaining open sideline with the best available 2026 HCs.</div>
-        <button class="btn btn-sim" id="btn-sim-coaches">Simulate</button>
+      <footer class="coach-footer" role="contentinfo">
+        <div class="footer-note" id="coach-footer-note" aria-live="polite">Simulate fills every remaining open sideline with the best available 2026 HCs.</div>
+        <button class="btn btn-sim" id="btn-sim-coaches" type="button">Simulate</button>
       </footer>
     </section>
 
@@ -247,32 +254,32 @@
   <button type="button" class="save-fab" id="btn-save-anywhere" title="Save exactly where you are">Save</button>
   <div id="scout-card" class="scout-card" hidden></div>
   <div id="toast" class="toast"></div>
-  <script src="js/players-nfl.js?v=031"></script>
-  <script src="js/prospects-college.js?v=031"></script>
-  <script src="js/data.js?v=031"></script>
-  <script src="js/sleeper-2026.js?v=031"></script>
-  <script src="js/sleeper-leagues.js?v=031"></script>
-  <script src="js/scout.js?v=031"></script>
-  <script src="js/grading.js?v=031"></script>
-  <script src="js/stats-2025.js?v=031"></script>
-  <script src="js/systems-data-bundle.js?v=031"></script>
-  <script src="js/systems-market.js?v=031"></script>
-  <script src="js/systems-rookie-scale.js?v=031"></script>
-  <script src="js/systems-injuries.js?v=031"></script>
-  <script src="stadiums/stadium-data.js?v=031"></script>
-  <script src="stadiums/stadiums.js?v=031"></script>
-  <script src="stadiums/stadium-ui.js?v=031"></script>
-  <script src="dynasty/coaches.js?v=031"></script>
-  <script src="dynasty/dynasty.js?v=031"></script>
-  <script src="gameday/engine.js?v=031"></script>
-  <script src="gameday/replay.js?v=031"></script>
-  <script src="gameday/gameday-ui.js?v=031"></script>
-  <script src="careers/careers-data.js?v=031"></script>
-  <script src="careers/careers-ui.js?v=031"></script>
-  <script src="careers/players-tab.js?v=031"></script>
-  <script src="js/bridge-v024.js?v=031"></script>
-  <script src="js/bridge-v025.js?v=031"></script>
-  <script src="js/mobile.js?v=031"></script>
-  <script src="js/app.js?v=031"></script>
+  <script src="js/players-nfl.js?v=032"></script>
+  <script src="js/prospects-college.js?v=032"></script>
+  <script src="js/data.js?v=032"></script>
+  <script src="js/sleeper-2026.js?v=032"></script>
+  <script src="js/sleeper-leagues.js?v=032"></script>
+  <script src="js/scout.js?v=032"></script>
+  <script src="js/grading.js?v=032"></script>
+  <script src="js/stats-2025.js?v=032"></script>
+  <script src="js/systems-data-bundle.js?v=032"></script>
+  <script src="js/systems-market.js?v=032"></script>
+  <script src="js/systems-rookie-scale.js?v=032"></script>
+  <script src="js/systems-injuries.js?v=032"></script>
+  <script src="stadiums/stadium-data.js?v=032"></script>
+  <script src="stadiums/stadiums.js?v=032"></script>
+  <script src="stadiums/stadium-ui.js?v=032"></script>
+  <script src="dynasty/coaches.js?v=032"></script>
+  <script src="dynasty/dynasty.js?v=032"></script>
+  <script src="gameday/engine.js?v=032"></script>
+  <script src="gameday/replay.js?v=032"></script>
+  <script src="gameday/gameday-ui.js?v=032"></script>
+  <script src="careers/careers-data.js?v=032"></script>
+  <script src="careers/careers-ui.js?v=032"></script>
+  <script src="careers/players-tab.js?v=032"></script>
+  <script src="js/bridge-v024.js?v=032"></script>
+  <script src="js/bridge-v025.js?v=032"></script>
+  <script src="js/mobile.js?v=032"></script>
+  <script src="js/app.js?v=032"></script>
 </body>
 </html>
