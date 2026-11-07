@@ -5,6 +5,7 @@
 (function (root) {
   "use strict";
   var HIDE_KEY = "afa-real-news-ticker-hidden";
+  var CRAWL_PX_PER_SEC = 24;
   var hiddenPref = false;
   var headlines = [];
   var status = "";
@@ -143,6 +144,12 @@
       viewport.appendChild(track);
       row.appendChild(viewport);
       row.appendChild(staticList);
+      setCrawlSpeed(track);
+      track.querySelectorAll("img").forEach(function (img) {
+        if (img.complete) return;
+        img.addEventListener("load", function () { setCrawlSpeed(track); });
+        img.addEventListener("error", function () { setCrawlSpeed(track); });
+      });
     }
     var hideBtn = el("button", "rnt-btn");
     hideBtn.type = "button";
@@ -155,6 +162,21 @@
     });
     row.appendChild(hideBtn);
     void hide;
+  }
+
+  function crawlDurationSeconds(trackWidthPx, pxPerSec) {
+    var speed = pxPerSec || CRAWL_PX_PER_SEC;
+    var width = Number(trackWidthPx);
+    if (!width || !speed) return 0;
+    return (width / 2) / speed;
+  }
+
+  function setCrawlSpeed(track) {
+    if (!track) return;
+    var width = track.scrollWidth || track.offsetWidth;
+    var seconds = crawlDurationSeconds(width);
+    if (!seconds) return;
+    track.style.setProperty("--rnt-dur", seconds.toFixed(2) + "s");
   }
 
   function bindHold(bar) {
@@ -233,6 +255,13 @@
     } catch (e) {}
     loadCache();
     armRefresh();
+    if (!root.__rntResize) {
+      root.__rntResize = true;
+      root.addEventListener("resize", function () {
+        var track = document.querySelector("#real-news-ticker .rnt-track");
+        if (track) setCrawlSpeed(track);
+      });
+    }
   }
 
   root.AFANewsTicker = {
@@ -243,8 +272,12 @@
     setFreshness: setFreshness,
     show: show,
     loadCache: loadCache,
+    CRAWL_PX_PER_SEC: CRAWL_PX_PER_SEC,
+    crawlDurationSeconds: crawlDurationSeconds,
     stopped: function () { return stopped; }
   };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
-  else start();
+  if (typeof document !== "undefined") {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  }
 })(window);

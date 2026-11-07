@@ -58,6 +58,16 @@ check(!/aria-live/.test(tickerSrc), "ticker announces continuously");
 check(tickerSrc.includes('"Hide"') && !tickerSrc.includes('"Pause"') && !tickerSrc.includes('"News"'), "ticker still shows Pause or News");
 check(tickerSrc.includes("localStorage.removeItem(HIDE_KEY)"), "hidden ticker cannot be restored");
 check(/:hover[\s\S]*focus-within[\s\S]*animation-play-state:\s*paused/.test(css), "crawl does not pause on hover or focus");
+check(!/rnt-marquee\s+90s/.test(css), "crawl still uses one fixed duration");
+check(/animation-duration:\s*var\(--rnt-dur/.test(css), "crawl duration is not driven by track width");
+vm.runInContext(fs.readFileSync(root + "js/news-ticker.js", "utf8"), sandbox);
+const ticker = sandbox.AFANewsTicker;
+check(ticker.CRAWL_PX_PER_SEC >= 20 && ticker.CRAWL_PX_PER_SEC <= 30, "crawl speed is outside 20–30 px/s");
+const shortDur = ticker.crawlDurationSeconds(2400);
+const longDur = ticker.crawlDurationSeconds(9600);
+const shortSpeed = (2400 / 2) / shortDur;
+const longSpeed = (9600 / 2) / longDur;
+check(Math.abs(shortSpeed - longSpeed) < 0.01 && Math.abs(shortSpeed - ticker.CRAWL_PX_PER_SEC) < 0.01, "a longer track would move faster");
 
 if (failures.length) {
   console.error("FAILED " + failures.length);
