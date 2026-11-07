@@ -5,7 +5,7 @@
 (function (root) {
   "use strict";
   var HIDE_KEY = "afa-real-news-ticker-hidden";
-  var paused = false;
+  var CRAWL_PX_PER_SEC = 24;
   var hiddenPref = false;
   var headlines = [];
   var status = "";
@@ -104,8 +104,8 @@
     }
     bar.hidden = false;
     document.body.classList.add("has-real-ticker");
-    if (paused) bar.classList.add("is-paused"); else bar.classList.remove("is-paused");
     if (prefersStill()) bar.classList.add("is-still"); else bar.classList.remove("is-still");
+    bindHold(bar);
 
     bar.setAttribute("aria-label", "Real NFL and college headlines");
     bar.appendChild(el("p", "rnt-fresh", freshnessText));
@@ -133,11 +133,8 @@
           link.target = "_blank";
           link.rel = "noopener noreferrer";
           link.textContent = item.title;
+          if (item.publishedAt) link.title = "Published " + item.publishedAt + (item.retrievedAt ? ". Retrieved " + item.retrievedAt : "");
           piece.appendChild(link);
-          if (!duplicate) {
-            var when = el("span", "rnt-when", (item.publishedAt ? "Published " + item.publishedAt : "Published time not on record") + (item.retrievedAt ? " · Retrieved " + item.retrievedAt : ""));
-            piece.appendChild(when);
-          }
           target.appendChild(piece);
         });
       }
@@ -147,27 +144,56 @@
       viewport.appendChild(track);
       row.appendChild(viewport);
       row.appendChild(staticList);
+      setCrawlSpeed(track);
+      track.querySelectorAll("img").forEach(function (img) {
+        if (img.complete) return;
+        img.addEventListener("load", function () { setCrawlSpeed(track); });
+        img.addEventListener("error", function () { setCrawlSpeed(track); });
+      });
     }
-    var pauseBtn = el("button", "rnt-btn", paused ? "Play" : "Pause");
-    pauseBtn.type = "button";
-    pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
-    pauseBtn.addEventListener("click", function () { paused = !paused; render(); });
-    var hideBtn = el("button", "rnt-btn", "Hide");
+    var hideBtn = el("button", "rnt-btn");
     hideBtn.type = "button";
+    hideBtn.setAttribute("aria-label", "Hide the news bar");
+    hideBtn.appendChild(el("span", "rnt-btn-label", "Hide"));
     hideBtn.addEventListener("click", function () {
       hiddenPref = true;
       try { localStorage.setItem(HIDE_KEY, "1"); } catch (e) {}
       render();
     });
-    var more = el("button", "rnt-btn", "News");
-    more.type = "button";
-    more.addEventListener("click", function () {
-      if (root.AFAWorkspaceHooks && root.AFAWorkspaceHooks.openRealNews) root.AFAWorkspaceHooks.openRealNews();
-    });
-    row.appendChild(pauseBtn);
     row.appendChild(hideBtn);
-    row.appendChild(more);
     void hide;
+  }
+
+  function crawlDurationSeconds(trackWidthPx, pxPerSec) {
+    var speed = pxPerSec || CRAWL_PX_PER_SEC;
+    var width = Number(trackWidthPx);
+    if (!width || !speed) return 0;
+    return (width / 2) / speed;
+  }
+
+  function setCrawlSpeed(track) {
+    if (!track) return;
+    var width = track.scrollWidth || track.offsetWidth;
+    var seconds = crawlDurationSeconds(width);
+    if (!seconds) return;
+    track.style.setProperty("--rnt-dur", seconds.toFixed(2) + "s");
+  }
+
+  function bindHold(bar) {
+    if (!bar || bar.getAttribute("data-hold") === "1") return;
+    bar.setAttribute("data-hold", "1");
+    function down() { bar.classList.add("is-held"); }
+    function up() { bar.classList.remove("is-held"); }
+    bar.addEventListener("pointerdown", down);
+    bar.addEventListener("pointerup", up);
+    bar.addEventListener("pointercancel", up);
+    bar.addEventListener("pointerleave", up);
+  }
+
+  function show() {
+    hiddenPref = false;
+    try { localStorage.removeItem(HIDE_KEY); } catch (e) {}
+    render();
   }
 
   function setFreshness(text) {
@@ -195,7 +221,8 @@
       if (data && data.fetchedAt && items.length) note = "";
       setHeadlines(items, note);
       if (root.AFANews && root.AFANews.freshness) {
-        setFreshness(root.AFANews.freshness({ snapshotAt: data && data.fetchedAt, lastSuccessAt: null, lastError: null }).banner);
+        var fresh = root.AFANews.freshness({ snapshotAt: data && data.fetchedAt, lastSuccessAt: null, lastError: null });
+        setFreshness(fresh.short || fresh.banner);
       }
       if (data && data.errors && data.errors.length && !items.length) {
         status = "Headline feeds failed (" + data.errors.map(function (e) { return e.league || e.error || "error"; }).join(", ") + "). No sample stories are shown.";
@@ -228,6 +255,13 @@
     } catch (e) {}
     loadCache();
     armRefresh();
+    if (!root.__rntResize) {
+      root.__rntResize = true;
+      root.addEventListener("resize", function () {
+        var track = document.querySelector("#real-news-ticker .rnt-track");
+        if (track) setCrawlSpeed(track);
+      });
+    }
   }
 
   root.AFANewsTicker = {
@@ -236,9 +270,14 @@
     onScreen: render,
     setHeadlines: setHeadlines,
     setFreshness: setFreshness,
+    show: show,
     loadCache: loadCache,
+    CRAWL_PX_PER_SEC: CRAWL_PX_PER_SEC,
+    crawlDurationSeconds: crawlDurationSeconds,
     stopped: function () { return stopped; }
   };
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
-  else start();
+  if (typeof document !== "undefined") {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
+  }
 })(window);

@@ -96,7 +96,9 @@
   body.has-real-ticker.screen-hub-active #screen-hub { padding-bottom: calc(var(--rnt-h) + var(--mobile-tab-h) + env(safe-area-inset-bottom, 0px)); }
   body.has-real-ticker #screen-coaches .coach-footer { bottom: var(--rnt-h); }
   body.has-real-ticker #screen-draft #draft-workspace { padding-bottom: calc(var(--safe-bottom) + 88px + var(--rnt-h)) !important; }
-  .rnt-btn { min-height: 44px; }
+  .rnt-btn { min-height: 44px; min-width: 44px; }
+  .rnt-link { font-size: 12px; }
+  .rnt-btn-label { font-size: 10px; padding: 1px 4px; }
   .home-study { grid-template-columns: 1fr; }
   .ws-split { grid-template-columns: 1fr; }
   .ws-list { max-height: none; }
@@ -782,4 +784,6 @@
 @media (max-width: 380px) {
   .hub-nav .btn { min-width: 52px; font-size: 9px; padding: 6px 4px; max-width: 68px; }
   .eyebrow { letter-spacing: 0.18em; font-size: 10px; }
+  .rnt-kicker { letter-spacing: 0; }
+  .rnt-link { font-size: 12px; }
 }

@@ -2053,7 +2053,7 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 #screen-directory .workspace, #screen-scouting .workspace { padding: 16px; overflow: auto; }
 
 /* Real NFL/college ticker. Separate from .draft-open-ticker (AFA fiction). */
-:root { --rnt-h: 64px; --rnt-bottom: env(safe-area-inset-bottom, 0px); }
+:root { --rnt-h: 58px; --rnt-bottom: env(safe-area-inset-bottom, 0px); }
 .real-news-ticker {
   position: fixed;
   left: 0;
@@ -2065,8 +2065,8 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  gap: 2px;
-  padding: 2px 8px;
+  gap: 0;
+  padding: 0 2px;
   box-sizing: border-box;
   background: #10160f;
   color: #f4f1e4;
@@ -2082,25 +2082,32 @@ body.screen-directory-active .save-fab,
 body.screen-scouting-active .save-fab,
 body.screen-directory-active .draft-fab,
 body.screen-scouting-active .draft-fab { display: none; }
-.rnt-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.rnt-fresh { margin: 0; font-size: 11px; line-height: 1.2; color: #d5ddcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rnt-kicker { flex: 0 0 auto; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; }
+.rnt-row { display: flex; align-items: center; gap: 2px; min-width: 0; min-height: 44px; }
+.rnt-fresh { margin: 0; height: 12px; font-size: 10px; line-height: 12px; color: #d5ddcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rnt-kicker { flex: 0 0 auto; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; }
 .rnt-viewport { flex: 1; min-width: 0; overflow: hidden; }
 .rnt-track { display: inline-block; white-space: nowrap; }
-.rnt-track .rnt-item { display: inline-flex; align-items: center; gap: 6px; margin-right: 28px; }
-.real-news-ticker:not(.is-paused):not(.is-still) .rnt-track { animation: rnt-marquee 90s linear infinite; }
-.real-news-ticker.is-paused .rnt-track { animation-play-state: paused; }
+.rnt-track .rnt-item { display: inline-flex; align-items: center; gap: 4px; margin-right: 22px; }
+.real-news-ticker:not(.is-still) .rnt-track {
+  animation-name: rnt-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: var(--rnt-dur, 240s);
+}
+.real-news-ticker:hover .rnt-track,
+.real-news-ticker:focus-within .rnt-track,
+.real-news-ticker.is-held .rnt-track { animation-play-state: paused; }
 @keyframes rnt-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .rnt-static { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0; padding: 0; list-style: none; }
-.rnt-cat, .rnt-flag { flex: 0 0 auto; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--gold-dim); color: var(--gold-2); border-radius: 999px; padding: 2px 6px; }
+.rnt-cat, .rnt-flag { flex: 0 0 auto; font-size: 9px; letter-spacing: .03em; line-height: 14px; text-transform: uppercase; border: 1px solid var(--gold-dim); color: var(--gold-2); border-radius: 999px; padding: 0 4px; }
 .rnt-flag { border-color: #8a5a22; color: #ffb86b; }
-.rnt-link { color: #f4f1e4; text-decoration: none; }
+.rnt-link { color: #f4f1e4; text-decoration: none; font-size: 13px; line-height: 1.2; }
 .rnt-link:hover, .rnt-link:focus-visible { text-decoration: underline; }
-.rnt-when { color: #b7c0b0; font-size: 11px; margin-left: 6px; }
-.rnt-logo, .rnt-logo-fallback { width: 20px; height: 20px; flex: 0 0 20px; object-fit: contain; }
+.rnt-logo, .rnt-logo-fallback { width: 14px; height: 14px; flex: 0 0 14px; object-fit: contain; }
 .rnt-logo-fallback, .rnt-empty { font-size: 12px; color: #d5ddcf; }
 .rnt-empty { flex: 1; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rnt-btn { flex: 0 0 auto; min-height: 36px; min-width: 44px; border: 1px solid var(--gold-dim); background: transparent; color: var(--gold-2); border-radius: 8px; cursor: pointer; }
+.rnt-btn { flex: 0 0 auto; min-height: 44px; min-width: 44px; padding: 0; border: 0; background: transparent; color: var(--gold-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.rnt-btn-label { font-size: 11px; line-height: 1; padding: 2px 5px; border: 1px solid var(--gold-dim); border-radius: 6px; pointer-events: none; }
 .rnt-btn:focus-visible, .rnt-link:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .real-news-ticker .rnt-viewport { display: none; }

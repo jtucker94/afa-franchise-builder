@@ -102,6 +102,7 @@ const fresh = News.freshness({ snapshotAt: "2026-11-07T00:38:44Z", lastError: "C
 check(fresh.guaranteedFiveMinute === false, "freshness claims a five-minute guarantee");
 check(/Snapshot 2026-11-07T00:38:44Z/.test(fresh.banner) && /not a freshness guarantee/.test(fresh.banner), "banner hid the snapshot or overclaimed freshness");
 check(News.backoffMs(0) === 300000 && News.backoffMs(1) === 600000 && News.backoffMs(8) === 30 * 60 * 1000, "backoff is not capped");
+check(fresh.short && fresh.short.length < fresh.banner.length && !/freshness guarantee/.test(fresh.short) && /Snapshot/.test(fresh.short), "ticker status row is still the long banner");
 
 if (failures.length) {
   console.error("FAILED " + failures.length);

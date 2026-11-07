@@ -416,6 +416,8 @@
       '<p class="help">' + esc(cov ? cov.check + ' ' + cov.notGuaranteed : '') + '</p>' +
       '<p class="help">' + esc(cov ? cov.ncaaf : '') + ' ' + esc(cov ? cov.dailySeparated : '') + '</p>' +
       '<button type="button" class="btn btn-primary" id="btn-news-now">Check headlines now</button>' +
+      '<button type="button" class="btn" id="btn-show-ticker">Show the bottom news bar</button>' +
+      '<p class="help">Hide on the bar only stores that choice in this browser. This button brings the bar back. A headline still opens its source.</p>' +
       '<div id="news-status" class="help">' + esc(scoutState.newsStatus || "") + '</div>' + rows;
   }
 
@@ -461,6 +463,7 @@
       return;
     }
     if (e.target.id === "btn-news-now") checkNews(true);
+    if (e.target.id === "btn-show-ticker" && root.AFANewsTicker && root.AFANewsTicker.show) root.AFANewsTicker.show();
     if (e.target.id === "btn-load-rosters") loadLeagueRosters();
   }
 
@@ -490,7 +493,8 @@
       newsItems = data.items;
       scoutState.snapshotAt = data.fetchedAt || null;
       if (root.AFANewsTicker && root.AFANewsTicker.setFreshness && root.AFANews) {
-        root.AFANewsTicker.setFreshness(root.AFANews.freshness({ snapshotAt: data.fetchedAt }).banner);
+        var freshBar = root.AFANews.freshness({ snapshotAt: data.fetchedAt });
+        root.AFANewsTicker.setFreshness(freshBar.short || freshBar.banner);
       }
       if (scoutState.tab === "news") paintScouting();
     }).catch(function () {});
@@ -499,12 +503,13 @@
   function publishFreshness(errorText) {
     if (!root.AFANews || !root.AFANewsTicker || !root.AFANewsTicker.setFreshness) return;
     var until = root.__newsBackoffUntil ? new Date(root.__newsBackoffUntil).toISOString() : null;
-    root.AFANewsTicker.setFreshness(root.AFANews.freshness({
+    var barFresh = root.AFANews.freshness({
       snapshotAt: scoutState.snapshotAt,
       lastSuccessAt: newsCursor && newsCursor.lastSuccessAt,
       lastError: errorText || (newsCursor && newsCursor.lastError && newsCursor.lastError.message) || null,
       backoffUntil: until
-    }).banner);
+    });
+    root.AFANewsTicker.setFreshness(barFresh.short || barFresh.banner);
   }
 
   function checkNews(force) {

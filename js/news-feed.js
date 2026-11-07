@@ -177,6 +177,14 @@
     parts.push("Public ESPN RSS is requested directly. A failed check keeps the snapshot. Five minutes is the target interval while the page is open, not a freshness guarantee");
     var banner = parts.join(". ");
     if (!/\.$/.test(banner)) banner += ".";
+    function clip(iso) {
+      return String(iso || "").replace("T", " ").replace(/\.\d+Z$/, "Z").slice(0, 20);
+    }
+    var shortBits = [];
+    shortBits.push(snap ? "Snapshot " + clip(snap) : "No snapshot time");
+    if (error) shortBits.push("live check failed");
+    else if (live) shortBits.push("live " + clip(live));
+    else shortBits.push("no live response yet");
     return {
       guaranteedFiveMinute: false,
       snapshotAt: snap,
@@ -184,7 +192,8 @@
       lastError: error || null,
       backoffUntil: opts.backoffUntil || null,
       browserFeed: "https://www.espn.com/espn/rss/nfl/news and https://www.espn.com/espn/rss/ncf/news",
-      banner: banner
+      banner: banner,
+      short: shortBits.join(" · ")
     };
   }
 
