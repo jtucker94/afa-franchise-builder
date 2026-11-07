@@ -1,0 +1,513 @@
+{
+  "supply": {
+    "DT": 230,
+    "DE": 158,
+    "WR": 315,
+    "RB": 194,
+    "TE": 179,
+    "S": 192,
+    "LB": 357,
+    "QB": 110,
+    "CB": 282,
+    "OT": 198,
+    "K": 38,
+    "C": 81,
+    "OG": 164,
+    "P": 34
+  },
+  "realClassYears": [
+    2027,
+    2028
+  ],
+  "class2027": 205,
+  "class2028": 155,
+  "duplicateListingsDropped": [
+    "col_2027_kelly_jones",
+    "col_2027_oj_frederique_jr"
+  ],
+  "vetAsRookie": [],
+  "seeds": [
+    {
+      "seed": 1,
+      "summary": {
+        "QB": {
+          "min": 2,
+          "max": 4,
+          "avg": 2.41,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "RB": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "WR": {
+          "min": 5,
+          "max": 8,
+          "avg": 6.75,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "TE": {
+          "min": 2,
+          "max": 6,
+          "avg": 3.56,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OT": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OG": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "C": {
+          "min": 2,
+          "max": 2,
+          "avg": 2,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DE": {
+          "min": 4,
+          "max": 5,
+          "avg": 4.03,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DT": {
+          "min": 3,
+          "max": 8,
+          "avg": 5.66,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "LB": {
+          "min": 5,
+          "max": 12,
+          "avg": 7.34,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "CB": {
+          "min": 5,
+          "max": 10,
+          "avg": 6.28,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "S": {
+          "min": 3,
+          "max": 6,
+          "avg": 3.97,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "K": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "P": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        }
+      },
+      "sizes": [
+        53,
+        53
+      ],
+      "picks": 1696,
+      "left": 836,
+      "stopped": null
+    },
+    {
+      "seed": 7,
+      "summary": {
+        "QB": {
+          "min": 2,
+          "max": 4,
+          "avg": 2.41,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "RB": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "WR": {
+          "min": 5,
+          "max": 9,
+          "avg": 6.75,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "TE": {
+          "min": 2,
+          "max": 6,
+          "avg": 3.56,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OT": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OG": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "C": {
+          "min": 2,
+          "max": 2,
+          "avg": 2,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DE": {
+          "min": 4,
+          "max": 5,
+          "avg": 4.03,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DT": {
+          "min": 3,
+          "max": 9,
+          "avg": 5.66,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "LB": {
+          "min": 5,
+          "max": 11,
+          "avg": 7.34,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "CB": {
+          "min": 5,
+          "max": 11,
+          "avg": 6.28,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "S": {
+          "min": 3,
+          "max": 7,
+          "avg": 3.97,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "K": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "P": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        }
+      },
+      "sizes": [
+        53,
+        53
+      ],
+      "picks": 1696,
+      "left": 836,
+      "stopped": null
+    },
+    {
+      "seed": 42,
+      "summary": {
+        "QB": {
+          "min": 2,
+          "max": 5,
+          "avg": 2.41,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "RB": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "WR": {
+          "min": 5,
+          "max": 10,
+          "avg": 6.75,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "TE": {
+          "min": 2,
+          "max": 7,
+          "avg": 3.56,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OT": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OG": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "C": {
+          "min": 2,
+          "max": 2,
+          "avg": 2,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DE": {
+          "min": 4,
+          "max": 5,
+          "avg": 4.03,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DT": {
+          "min": 3,
+          "max": 10,
+          "avg": 5.66,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "LB": {
+          "min": 5,
+          "max": 12,
+          "avg": 7.34,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "CB": {
+          "min": 5,
+          "max": 10,
+          "avg": 6.28,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "S": {
+          "min": 3,
+          "max": 6,
+          "avg": 3.97,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "K": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "P": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        }
+      },
+      "sizes": [
+        53,
+        53
+      ],
+      "picks": 1696,
+      "left": 836,
+      "stopped": null
+    },
+    {
+      "seed": 2026,
+      "summary": {
+        "QB": {
+          "min": 2,
+          "max": 4,
+          "avg": 2.41,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "RB": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "WR": {
+          "min": 5,
+          "max": 9,
+          "avg": 6.75,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "TE": {
+          "min": 2,
+          "max": 7,
+          "avg": 3.56,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OT": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "OG": {
+          "min": 3,
+          "max": 3,
+          "avg": 3,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "C": {
+          "min": 2,
+          "max": 2,
+          "avg": 2,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DE": {
+          "min": 4,
+          "max": 5,
+          "avg": 4.03,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "DT": {
+          "min": 3,
+          "max": 9,
+          "avg": 5.66,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "LB": {
+          "min": 5,
+          "max": 11,
+          "avg": 7.34,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "CB": {
+          "min": 4,
+          "max": 11,
+          "avg": 6.28,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "S": {
+          "min": 3,
+          "max": 7,
+          "avg": 3.97,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "K": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        },
+        "P": {
+          "min": 1,
+          "max": 1,
+          "avg": 1,
+          "underStarter": 0,
+          "underDepth": 0
+        }
+      },
+      "sizes": [
+        53,
+        53
+      ],
+      "picks": 1696,
+      "left": 836,
+      "stopped": null
+    }
+  ],
+  "import": {
+    "og": 30,
+    "dd": 20,
+    "ogOnly": 29,
+    "ddOnly": 19,
+    "userSize": 53
+  },
+  "college2027": {
+    "picks": 205,
+    "unfilled": 19,
+    "class": 205
+  },
+  "generated2030": {
+    "count": 260,
+    "positions": {
+      "RB": 18,
+      "QB": 15,
+      "TE": 16,
+      "DE": 22,
+      "K": 7,
+      "LB": 26,
+      "WR": 34,
+      "CB": 26,
+      "P": 7,
+      "S": 17,
+      "DT": 18,
+      "OG": 20,
+      "OT": 22,
+      "C": 12
+    },
+    "ovr": [
+      60,
+      82
+    ]
+  },
+  "exhausted": {
+    "picks": 80,
+    "pool": 80,
+    "minRoster": 2,
+    "maxRoster": 3
+  },
+  "failures": []
+}

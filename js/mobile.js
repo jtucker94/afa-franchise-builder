@@ -1,4 +1,4 @@
-/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.23) */
+/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.24) */
 (function () {
   const MQ = window.matchMedia("(max-width: 900px)");
   const COARSE = window.matchMedia("(hover: none), (pointer: coarse)");

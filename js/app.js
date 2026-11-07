@@ -16,6 +16,10 @@
   let clockLeft = 15;
   let lastClockPick = -1;
   let draftOpenTimer = null;
+  let draftRunning = false;
+  let lastPickRefuse = null;
+  let lastPickKeeperId = null;
+  let proClashIds = null;
   const CLOCK_PRESETS = [
     { label: "15s", sec: 15 },
     { label: "30s", sec: 30 },
@@ -57,7 +61,7 @@
 
   function freshState() {
     return {
-      version: "0.1.23",
+      version: "0.1.24",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -148,30 +152,78 @@
   /* v0.1.21 HARD RULE: one NFL player can exist in exactly one place.
    * Identity = Sleeper player_id when known, else GMFB id. Order of ownership: user club first,
    * then other clubs (fixed TEAMS order), then FA, then draft board. Later copies are dropped (never cloned). */
-  function playerKey(id) { const p = playerById(id); return p && p.sleeperId ? "s:" + String(p.sleeperId) : "g:" + id; }
+  function playerKey(id) {
+    const p = playerById(id);
+    if (!p) return "g:" + id;
+    if (p.sleeperId) return "s:" + String(p.sleeperId);
+    if (p.espnId) return "e:" + String(p.espnId);
+    return "g:" + id;
+  }
+  /* One person, one place. Priority: user club, other clubs, free agency, draft board.
+   * Sleeper id, ESPN id, verified listing aliases, or the same name+position+college.
+   * Distinct people who only share a name stay. Pick history drops a later selection of
+   * someone already picked; it does not erase a player who was later traded. */
   function enforceUniquePlayers() {
-    if (!state || !state.rosters) return 0;
-    const seen = new Set(); let fixed = 0;
-    const keep = (id) => { const k = playerKey(id); if (seen.has(k)) { fixed++; return false; } seen.add(k); return true; };
+    if (!state || !state.rosters || !window.AFADraft) return 0;
+    const kept = [];
+    let fixed = 0;
+    const apply = (ids) => {
+      const r = AFADraft.dedupeIds(ids, playerById, kept);
+      fixed += r.removed;
+      return r.ids;
+    };
     const order = TEAMS.map((t) => t.id).sort((a, b) => (a === state.userTeamId ? -1 : b === state.userTeamId ? 1 : 0));
-    order.forEach((tid) => { if (Array.isArray(state.rosters[tid])) state.rosters[tid] = state.rosters[tid].filter(keep); });
-    Object.keys(state.rosters).forEach((tid) => { if (!order.includes(tid) && Array.isArray(state.rosters[tid])) state.rosters[tid] = state.rosters[tid].filter(keep); });
-    if (Array.isArray(state.fa)) state.fa = state.fa.filter(keep);
-    if (Array.isArray(state.board) && state.phase === "draft") state.board = state.board.filter(keep);
+    order.forEach((tid) => { if (Array.isArray(state.rosters[tid])) state.rosters[tid] = apply(state.rosters[tid]); });
+    Object.keys(state.rosters).forEach((tid) => {
+      if (order.indexOf(tid) < 0 && Array.isArray(state.rosters[tid])) state.rosters[tid] = apply(state.rosters[tid]);
+    });
+    if (Array.isArray(state.fa)) state.fa = apply(state.fa);
+    if (Array.isArray(state.board)) state.board = apply(state.board);
+    if (state.collegeDraft && Array.isArray(state.collegeDraft.board)) state.collegeDraft.board = apply(state.collegeDraft.board);
+    const pickKept = [];
+    if (Array.isArray(state.picks)) {
+      state.picks = state.picks.filter((pk) => {
+        if (!pk) return false;
+        const p = playerById(pk.playerId) || { id: pk.playerId };
+        if (AFADraft.clashesWithAny(p, pickKept)) { fixed++; return false; }
+        pickKept.push(p);
+        return true;
+      });
+    }
+    if (Array.isArray(state.collegeDrafted)) {
+      const draftedKept = [];
+      const hist = AFADraft.dedupeIds(state.collegeDrafted, playerById, draftedKept);
+      state.collegeDrafted = hist.ids;
+      fixed += hist.removed;
+    }
+    if (state.sleeperImport && Array.isArray(state.sleeperImport.ids)) {
+      const importKept = [];
+      const r = AFADraft.dedupeIds(state.sleeperImport.ids, playerById, importKept);
+      state.sleeperImport.ids = r.ids;
+      fixed += r.removed;
+    }
     if (fixed) { state.dupFixes = (state.dupFixes || 0) + fixed; console.warn("AFA: removed " + fixed + " duplicate player entries"); }
     return fixed;
   }
   function isOwned(id) {
-    const k = playerKey(id);
-    return Object.values(state.rosters || {}).some((r) => Array.isArray(r) && r.some((x) => playerKey(x) === k));
+    if (!window.AFADraft) {
+      const k = playerKey(id);
+      return Object.values(state.rosters || {}).some((r) => Array.isArray(r) && r.some((x) => playerKey(x) === k));
+    }
+    const p = playerById(id) || { id: id };
+    const owned = [];
+    Object.keys(state.rosters || {}).forEach((tid) => {
+      (state.rosters[tid] || []).forEach((x) => { const q = playerById(x); if (q) owned.push(q); });
+    });
+    return AFADraft.clashesWithAny(p, owned);
   }
   function save() {
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.23";
+      state.version = "0.1.24";
       const payload = {
-        version: "0.1.23",
+        version: "0.1.24",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -198,9 +250,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.23";
+      state.version = "0.1.24";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -226,6 +278,8 @@
       if (!Array.isArray(ui.offerPicks)) ui.offerPicks = [];
       if (!Array.isArray(ui.askPicks)) ui.askPicks = [];
       if (state.phase === "hub" || state.seasonStarted) ensurePicks();
+      try { rehydrateGeneratedClasses(); } catch (e) { console.warn("generated class", e); }
+      try { enforceUniquePlayers(); } catch (e) { console.warn("dedupe", e); }
       return true;
     } catch (e) {
       return false;
@@ -1101,15 +1155,21 @@
   }
 
   function needsList(teamId) {
-    const counts = posCounts(teamId);
-    return POS_NEED.filter((pos) => !counts[pos]);
+    if (!window.AFADraft) {
+      const counts = posCounts(teamId);
+      return POS_NEED.filter((pos) => !counts[pos]);
+    }
+    return AFADraft.rosterPhase(posCounts(teamId)).starterHoles;
+  }
+  function depthNeedsList(teamId) {
+    if (!window.AFADraft) return [];
+    return AFADraft.rosterPhase(posCounts(teamId)).depthHoles;
   }
 
-  // Madden / NFL starter targets for a founding 53-man style build
-  const STARTER_NEED = { QB: 1, RB: 1, WR: 2, TE: 1, OT: 2, OG: 2, C: 1, DE: 2, DT: 2, LB: 3, CB: 2, S: 2, K: 1, P: 1 };
-  const DEPTH_NEED = { QB: 2, RB: 3, WR: 5, TE: 2, OT: 3, OG: 3, C: 2, DE: 4, DT: 3, LB: 5, CB: 4, S: 3, K: 1, P: 1 };
-  // Early-round premium (NFL draft market + Madden CPU): OL/EDGE/CB/WR/QB over RB/K/P
-  const POS_PREMIUM = { QB: 1.22, OT: 1.18, DE: 1.16, CB: 1.14, WR: 1.12, DT: 1.08, TE: 1.06, OG: 1.05, C: 1.05, LB: 1.04, S: 1.03, RB: 0.86, K: 0.35, P: 0.32 };
+  // Targets live in js/draft-engine.js (starter coverage, then depth, then best player).
+  const STARTER_NEED = window.AFADraft ? AFADraft.STARTER_NEED : { QB: 1, RB: 1, WR: 2, TE: 1, OT: 2, OG: 2, C: 1, DE: 2, DT: 2, LB: 3, CB: 2, S: 2, K: 1, P: 1 };
+  const DEPTH_NEED = window.AFADraft ? AFADraft.DEPTH_NEED : { QB: 2, RB: 3, WR: 5, TE: 2, OT: 3, OG: 3, C: 2, DE: 4, DT: 3, LB: 5, CB: 4, S: 3, K: 1, P: 1 };
+  const POS_PREMIUM = window.AFADraft ? AFADraft.POS_PREMIUM : { QB: 1.22, OT: 1.18, DE: 1.16, CB: 1.14, WR: 1.12, DT: 1.08, TE: 1.06, OG: 1.05, C: 1.05, LB: 1.04, S: 1.03, RB: 0.86, K: 0.35, P: 0.32 };
 
   function draftRound() {
     return Math.floor((state.draftPick || 0) / 32) + 1;
@@ -1117,94 +1177,37 @@
 
   function rosterPhase(teamId) {
     const counts = posCounts(teamId);
+    if (window.AFADraft) return AFADraft.rosterPhase(counts);
     let startersFilled = 0;
     let startersTotal = 0;
     Object.keys(STARTER_NEED).forEach((pos) => {
       startersTotal += STARTER_NEED[pos];
       startersFilled += Math.min(counts[pos] || 0, STARTER_NEED[pos]);
     });
-    return { counts, startersFilled, startersTotal, holes: startersTotal - startersFilled };
+    return { counts, startersFilled, startersTotal, holes: startersTotal - startersFilled, starterHoles: [], depthHoles: [] };
   }
 
-  function ageCurve(player, round) {
-    const age = Number(player.age) || 27;
-    // Early: prefer ascending talent. Late: vets OK for depth (NFL / Madden).
-    if (round <= 8) {
-      if (age <= 24) return 1.12;
-      if (age <= 27) return 1.05;
-      if (age <= 30) return 0.95;
-      if (age <= 33) return 0.72;
-      return 0.45;
-    }
-    if (round <= 25) {
-      if (age <= 26) return 1.08;
-      if (age <= 30) return 1.0;
-      if (age <= 33) return 0.9;
-      return 0.7;
-    }
-    // late rounds: experienced backups fine
-    if (age >= 34 && player.ovr >= 80) return 0.85;
-    return 1.0;
-  }
-
-  function needMultiplier(player, teamId, round) {
-    const { counts, holes } = rosterPhase(teamId);
-    const have = counts[player.pos] || 0;
-    const starters = STARTER_NEED[player.pos] || 1;
-    const depth = DEPTH_NEED[player.pos] || starters + 1;
-
-    // Still missing a starter at this position — big bump (Madden "fill the holes")
-    if (have < starters) {
-      const urgency = starters - have;
-      let m = 1.35 + urgency * 0.18;
-      // Don't draft K/P until most of the roster skeleton exists (NFL common sense)
-      if ((player.pos === "K" || player.pos === "P") && holes > 6 && round < 30) m *= 0.15;
-      // Don't take a 2nd QB before offensive line / weapons exist
-      if (player.pos === "QB" && have >= 1 && round <= 20) m *= 0.55;
-      return m;
-    }
-
-    // Starter filled — depth only after skeleton is close
-    if (have < depth) {
-      if (holes >= 5 && round <= 18) return 0.55; // still plugging starters elsewhere
-      if (player.pos === "RB" && round <= 12 && have >= 1) return 0.5; // NFL: RB early is a reach unless elite
-      return 0.95;
-    }
-
-    // Already deep — only take true elite leftovers
-    if (player.ovr >= 90) return 0.7;
-    if (player.ovr >= 85 && round >= 35) return 0.55;
-    return 0.25;
+  function schemeContext(teamId) {
+    const C = window.AFACoaches;
+    const co = state.dynasty && state.dynasty.coaches && state.dynasty.coaches[teamId];
+    if (!C || !co || !C.OFF_SCHEMES[co.offScheme] || !C.DEF_SCHEMES[co.defScheme]) return null;
+    return {
+      offScheme: co.offScheme,
+      defScheme: co.defScheme,
+      offKeys: C.OFF_SCHEMES[co.offScheme].keys,
+      defKeys: C.DEF_SCHEMES[co.defScheme].keys
+    };
   }
 
   function scorePlayerForTeam(player, teamId) {
-    const round = draftRound();
-    const premium = POS_PREMIUM[player.pos] || 1;
-    const need = needMultiplier(player, teamId, round);
-    const age = ageCurve(player, round);
-    // BPA core (Madden board) with need / market overlays
-    let score = player.ovr * premium * need * age;
-
-    // Elite talent override early: never pass a 96+ at a premium spot just to fill K
-    if (round <= 5 && player.ovr >= 96 && premium >= 1.05) score += 18;
-    // Avoid silly reaches: mid OVR specialty positions early
-    if (round <= 10 && (player.pos === "K" || player.pos === "P")) score *= 0.08;
-    if (round <= 6 && player.pos === "RB" && player.ovr < 94) score *= 0.75;
-
-    // v0.1.21 coach identity: the HC's offensive + defensive scheme (dynasty/coaches.js, also used for
-    // play-calling pass rate) tilts CPU drafting toward that identity (≤ +8%), so a Wide-9 coach stacks
-    // edge rushers, a Power Run coach builds OL/RB, Air Raid hoards QB/WR, Man Press buys corners.
-    const C = window.AFACoaches, co = state.dynasty && state.dynasty.coaches && state.dynasty.coaches[teamId];
-    if (C && co && C.OFF_SCHEMES[co.offScheme] && C.DEF_SCHEMES[co.defScheme]) {
-      const w = (C.OFF_SCHEMES[co.offScheme].keys[player.pos] || 0) + (C.DEF_SCHEMES[co.defScheme].keys[player.pos] || 0);
-      score *= 1 + 0.06 * Math.min(1.4, w);
-      // Run-first staffs want a complementary RB2 (bell-cow + change-of-pace), not a clone of RB1
-      if (player.pos === "RB" && /Power Run|Shanahan/.test(co.offScheme)) {
-        const rb1 = (state.rosters[teamId] || []).map(playerById).filter((x) => x && x.pos === "RB").sort((a, b) => b.ovr - a.ovr)[0];
-        if (rb1 && rb1.weight && player.weight) score *= Math.abs(rb1.weight - player.weight) >= 15 ? 1.06 : 0.95;
-      }
-    }
-    return score;
+    const roster = rosterOf(teamId);
+    if (!window.AFADraft) return player ? player.ovr : 0;
+    return AFADraft.scorePlayer(player, {
+      counts: posCounts(teamId),
+      round: draftRound(),
+      scheme: schemeContext(teamId),
+      roster: roster
+    });
   }
 
   /* v0.1.21 Sleeper import (keeper rounds): Jordan's imported fantasy roster is reserved for his club;
@@ -1217,53 +1220,57 @@
     return r.filter((id) => onBoard.has(id)).map(playerById).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
   }
   function recommendPlayer(teamId) {
-    const pool = [];
     const isUser = state.sleeperImport && teamId === state.userTeamId;
     if (isUser) { const k = pendingKeepers(); if (k.length) return k[0]; }
     const reserved = !isUser && state.sleeperImport ? new Set(importReserved()) : null;
+    const pool = [];
     for (let i = 0; i < state.board.length; i++) {
       if (reserved && reserved.has(state.board[i])) continue;
       const p = playerById(state.board[i]);
       if (p) pool.push(p);
     }
-    if (!pool.length) return null;
-    // Shortlist: top overalls + best available at current holes (keeps sim fast + logical)
-    const { counts } = rosterPhase(teamId);
-    const holePos = Object.keys(STARTER_NEED).filter((pos) => (counts[pos] || 0) < STARTER_NEED[pos]);
-    let short = pool.slice().sort((a, b) => b.ovr - a.ovr).slice(0, 160);
-    holePos.forEach((pos) => {
-      pool.filter((p) => p.pos === pos).sort((a, b) => b.ovr - a.ovr).slice(0, 8).forEach((p) => {
-        if (!short.includes(p)) short.push(p);
-      });
+    if (!pool.length || !window.AFADraft) return pool[0] || null;
+    const league = {};
+    TEAMS.forEach((t) => { league[t.id] = rosterOf(t.id); });
+    return AFADraft.recommend({
+      board: pool,
+      roster: rosterOf(teamId),
+      teamId: teamId,
+      pickIndex: state.draftPick,
+      scheme: schemeContext(teamId),
+      leagueRosters: league
     });
-    let best = short[0];
-    let bestScore = scorePlayerForTeam(best, teamId);
-    for (let i = 1; i < short.length; i++) {
-      const s = scorePlayerForTeam(short[i], teamId);
-      // tiny deterministic jitter so clubs don't all clone the same board path
-      const jitter = ((hashStr(teamId + ":" + short[i].id + ":" + state.draftPick) % 1000) / 1000) * 1.5;
-      if (s + jitter > bestScore) { best = short[i]; bestScore = s + jitter; }
-    }
-    return best;
   }
 
   function makePick(teamId, playerId, quiet) {
-    if (state.draftPick >= TOTAL_PICKS) return false;
-    if (snakeTeamId(state.draftPick) !== teamId) return false;
-    if (state.sleeperImport && teamId !== state.userTeamId && importReserved().includes(playerId)) return false;
-    if (state.sleeperImport && teamId === state.userTeamId) {
-      const k = pendingKeepers();
-      if (k.length && !k.some((p) => p.id === playerId)) playerId = k[0].id; // keeper round
+    lastPickRefuse = null;
+    lastPickKeeperId = null;
+    if (!window.AFADraft) return false;
+    const keepers = (state.sleeperImport && teamId === state.userTeamId) ? pendingKeepers() : [];
+    const res = AFADraft.commitPick({
+      draftPick: state.draftPick,
+      board: state.board,
+      rosters: state.rosters,
+      picks: state.picks
+    }, {
+      teamId: teamId,
+      playerId: playerId,
+      expectedTeamId: snakeTeamId(state.draftPick),
+      totalPicks: TOTAL_PICKS,
+      requiredPlayerId: keepers.length ? keepers[0].id : null,
+      blockedIds: (state.sleeperImport && teamId !== state.userTeamId) ? importReserved() : null,
+      lookup: playerById
+    });
+    lastPickRefuse = res.reason;
+    lastPickKeeperId = res.keeperId || null;
+    if (res.reason === "owned" && res.draft) state.board = res.draft.board;
+    if (!res.ok) return false;
+    if (res.reason !== "idempotent") {
+      state.board = res.draft.board;
+      state.rosters = res.draft.rosters;
+      state.picks = res.draft.picks;
+      state.draftPick = res.draft.draftPick;
     }
-    const bi = state.board.indexOf(playerId);
-    if (bi < 0) return false;
-    if (isOwned(playerId)) { state.board.splice(bi, 1); return false; } // never clone an owned player
-    state.board.splice(bi, 1);
-    state.rosters[teamId].push(playerId);
-    const overall = state.draftPick + 1;
-    const round = Math.floor(state.draftPick / 32) + 1;
-    state.picks.push({ pick: overall, overall, round, teamId, playerId });
-    state.draftPick += 1;
     if (!quiet) save();
     return true;
   }
@@ -1274,20 +1281,28 @@
     return makePick(teamId, rec.id, quiet);
   }
 
-  function processAutoRun() {
-    let guard = 0;
-    while (state.draftPick < TOTAL_PICKS && guard++ < TOTAL_PICKS + 2) {
-      const tid = snakeTeamId(state.draftPick);
-      if (state.sleeperImport && tid === state.userTeamId && pendingKeepers().length) { if (!aiPick(tid, true)) break; continue; }
-      if ((state.desks[tid] || "manual") !== "auto") break;
-      if (!aiPick(tid, true)) break;
-    }
+  function finishDraftLoop() {
     save();
     if (state.draftPick >= TOTAL_PICKS) {
       lockDraft();
       return;
     }
     renderDraft();
+  }
+
+  function processAutoRun() {
+    if (draftRunning) return;
+    draftRunning = true;
+    try {
+      let guard = 0;
+      while (state.draftPick < TOTAL_PICKS && guard++ < TOTAL_PICKS + 2) {
+        const tid = snakeTeamId(state.draftPick);
+        if (state.sleeperImport && tid === state.userTeamId && pendingKeepers().length) { if (!aiPick(tid, true)) break; continue; }
+        if ((state.desks[tid] || "manual") !== "auto") break;
+        if (!aiPick(tid, true)) break;
+      }
+      finishDraftLoop();
+    } finally { draftRunning = false; }
   }
 
   function setDeskMode(teamId, mode) {
@@ -1320,15 +1335,31 @@
   }
 
   function autoCompleteDraft() {
-    toast("Simulating the rest of the founding draft…");
-    let guard = 0;
-    while (state.draftPick < TOTAL_PICKS && guard++ < TOTAL_PICKS + 2) {
-      const tid = snakeTeamId(state.draftPick);
-      if (!aiPick(tid, true)) break;
-    }
-    save();
-    if (state.draftPick >= TOTAL_PICKS) lockDraft();
-    else renderDraft();
+    if (draftRunning) return;
+    draftRunning = true;
+    try {
+      toast("Simulating the rest of the founding draft…");
+      let guard = 0;
+      while (state.draftPick < TOTAL_PICKS && guard++ < TOTAL_PICKS + 2) {
+        const tid = snakeTeamId(state.draftPick);
+        if (!aiPick(tid, true)) break;
+      }
+      finishDraftLoop();
+    } finally { draftRunning = false; }
+  }
+
+  function simDraftRound() {
+    if (draftRunning) return;
+    draftRunning = true;
+    try {
+      const target = Math.min(TOTAL_PICKS, (Math.floor((state.draftPick || 0) / 32) + 1) * 32);
+      let guard = 0;
+      while (state.draftPick < target && guard++ < 40) {
+        const tid = snakeTeamId(state.draftPick);
+        if (!aiPick(tid, true)) break;
+      }
+      finishDraftLoop();
+    } finally { draftRunning = false; }
   }
 
   function simDraftRemaining() {
@@ -1342,27 +1373,37 @@
   }
 
   function simToManual() {
-    let guard = 0;
-    while (state.draftPick < TOTAL_PICKS && guard++ < TOTAL_PICKS + 2) {
-      const tid = snakeTeamId(state.draftPick);
-      if ((state.desks[tid] || "manual") !== "auto") break;
-      if (!aiPick(tid, true)) break;
-    }
-    save();
-    if (state.draftPick >= TOTAL_PICKS) lockDraft();
-    else renderDraft();
+    if (draftRunning) return;
+    draftRunning = true;
+    try {
+      let guard = 0;
+      while (state.draftPick < TOTAL_PICKS && guard++ < TOTAL_PICKS + 2) {
+        const tid = snakeTeamId(state.draftPick);
+        if ((state.desks[tid] || "manual") !== "auto") break;
+        if (!aiPick(tid, true)) break;
+      }
+      finishDraftLoop();
+    } finally { draftRunning = false; }
   }
 
   function userDraft(playerId) {
+    if (draftRunning) return;
     if (state.draftPick >= TOTAL_PICKS) return;
     const team = currentDraftTeam();
     if (state.mode === "single" && state.userTeamId && team.id !== state.userTeamId) {
       toast("That's a CPU pick. Wait for your club — or hit Sim to your pick.");
       return;
     }
-    if (!makePick(team.id, playerId)) { toast("Can't draft that player."); return; }
-    const p = playerById(playerId);
-    toast(displayName(team) + " select " + p.name);
+    if (!makePick(team.id, playerId)) {
+      if (lastPickRefuse === "keeper") {
+        const k = playerById(lastPickKeeperId);
+        toast(k ? ("Keeper round — next imported player is " + k.name + ". That pick was not changed.") : "Keeper round — that player isn't the next imported player.");
+      } else toast("Can't draft that player.");
+      return;
+    }
+    const pickedId = state.picks.length ? state.picks[state.picks.length - 1].playerId : playerId;
+    const p = playerById(pickedId);
+    toast(displayName(team) + " select " + (p ? p.name : "a player"));
     processAutoRun();
   }
 
@@ -1885,34 +1926,41 @@
 
   /** Rebuild FA from anyone not on a roster, then fill each club toward 53 by positional need. */
   function rebuildFreeAgency() {
-    const taken = new Set();
-    TEAMS.forEach((t) => (state.rosters[t.id] || []).forEach((id) => taken.add(id)));
-    state.fa = allPlayersList().filter((p) => p && !p.retired && !taken.has(p.id)).map((p) => p.id);
+    const owned = [];
+    TEAMS.forEach((t) => (state.rosters[t.id] || []).forEach((id) => { const p = playerById(id); if (p) owned.push(p); }));
+    const pool = allPlayersList().filter((p) => p && !p.retired && !(window.AFADraft && AFADraft.clashesWithAny(p, owned)));
+    const kept = owned.slice();
+    if (window.AFADraft) {
+      const r = AFADraft.dedupeIds(pool.map((p) => p.id), playerById, kept);
+      state.fa = r.ids;
+    } else {
+      const taken = new Set(owned.map((p) => p.id));
+      state.fa = pool.filter((p) => !taken.has(p.id)).map((p) => p.id);
+    }
     return state.fa.length;
   }
 
   function refillRostersFromFA() {
     rebuildFreeAgency();
-    const needPos = ["QB","RB","WR","TE","OT","OG","C","DE","DT","LB","CB","S","K","P"];
-    const mins = { QB:2, RB:3, WR:5, TE:2, OT:3, OG:3, C:2, DE:3, DT:3, LB:4, CB:4, S:3, K:1, P:1 };
     TEAMS.forEach((t) => {
-      let roster = state.rosters[t.id] || [];
+      let roster = (state.rosters[t.id] || []).slice();
       let n = 0;
       while (roster.length < 53 && n++ < 80) {
-        const counts = {};
-        roster.forEach((id) => { const p = playerById(id); if (p) counts[p.pos] = (counts[p.pos] || 0) + 1; });
-        let want = needPos.find((pos) => (counts[pos] || 0) < (mins[pos] || 1));
-        if (!want) want = needPos.slice().sort((x, y) => (counts[x] || 0) - (counts[y] || 0))[0];
-        const faPlayers = (state.fa || []).map(playerById).filter((p) => p && !p.retired);
-        const byWant = faPlayers.filter((p) => p.pos === want).sort((a, b) => b.ovr - a.ovr);
-        let pick = byWant.find((p) => p.ovr >= 60) || byWant[0];
-        if (!pick) {
-          const any = faPlayers.slice().sort((a, b) => b.ovr - a.ovr);
-          pick = any.find((p) => p.ovr >= 60) || any[0];
-        }
+        const mine = roster.map(playerById).filter(Boolean);
+        const owned = mine.slice();
+        TEAMS.forEach((tm) => {
+          if (tm.id === t.id) return;
+          (state.rosters[tm.id] || []).forEach((id) => { const p = playerById(id); if (p) owned.push(p); });
+        });
+        const faPlayers = (state.fa || []).map(playerById).filter((p) => p && !p.retired && !(window.AFADraft && AFADraft.clashesWithAny(p, owned)));
+        const pick = window.AFADraft ? AFADraft.pickFreeAgent(mine, faPlayers) : faPlayers[0];
         if (!pick) break;
         roster.push(pick.id);
-        state.fa = state.fa.filter((id) => id !== pick.id);
+        state.fa = (state.fa || []).filter((id) => {
+          if (id === pick.id) return false;
+          const p = playerById(id);
+          return !(p && window.AFADraft && AFADraft.peopleClash(p, pick));
+        });
         if (!pick.contract) {
           try {
             if (window.AFABridge && AFABridge.veteranContractFor) pick.contract = AFABridge.veteranContractFor(pick, state.seasonYear || 2026);
@@ -2605,12 +2653,14 @@
     });
 
     const needs = needsList(team.id);
+    const depthNeeds = depthNeedsList(team.id);
+    const keeperLeft = pendingKeepers();
     $("rec-box").innerHTML = `
       <div class="rec-card">
-        <div class="kicker">${desk === "assisted" ? "Recommended pick" : "Best available by need"}</div>
+        <div class="kicker">${keeperLeft.length && state.userTeamId === team.id ? "Imported keeper" : (desk === "assisted" ? "Recommended pick" : "Best available by need")}</div>
         ${rec ? `<h3>${rec.name}</h3>
-          <div><span class="pos-pill pos-${rec.pos}">${rec.pos}</span> · <span class="${ovrClass(rec.ovr)}">${rec.ovr} OVR</span> · Age ${rec.age}</div>` : "<p>Board is empty.</p>"}
-        <div class="needs">${needs.slice(0, 8).map((p) => `<span class="pos-pill pos-${p}">${p}</span>`).join("") || "<span class='help'>Depth picks</span>"}</div>
+          <div><span class="pos-pill pos-${rec.pos}">${rec.pos}</span> · <span class="${ovrClass(rec.ovr)}">${rec.ovr} OVR</span> · Age ${rec.age}${rec.fictional ? " · Fictional" : ""}</div>` : "<p>Board is empty.</p>"}
+        <div class="needs">${needs.length ? "<span class='help'>Starters open</span> " + needs.map((p) => `<span class="pos-pill pos-${p}">${p}</span>`).join("") : ""}${depthNeeds.length ? " <span class='help'>Depth</span> " + depthNeeds.slice(0, 6).map((p) => `<span class="pos-pill pos-${p}">${p}</span>`).join("") : ""}${!needs.length && !depthNeeds.length ? "<span class='help'>Starter groups filled</span>" : ""}</div>
         <div class="btn-row" style="justify-content:flex-start;margin-top:10px">
           <button class="btn btn-primary btn-sm" id="btn-take-rec" ${rec ? "" : "disabled"}>Draft ${rec ? rec.name.split(" ").slice(-1)[0] : ""}</button>
         </div>
@@ -2622,6 +2672,7 @@
         <button class="btn btn-sim-draft" id="btn-sim-draft" title="Fill every remaining pick">Sim Draft</button>
         <div class="btn-row" style="justify-content:flex-start;margin:0;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm btn-primary" id="btn-sim-manual">${state.mode === "single" ? "Sim to your pick" : "Sim to next manual"}</button>
+          <button class="btn btn-sm" id="btn-sim-round">Sim this round</button>
           <button class="btn btn-sm" id="btn-auto-rest">${state.mode === "single" ? "Auto-pick my remaining" : "Auto-complete draft"}</button>
           ${state.mode === "single" ? "" : '<button class="btn btn-sm" id="btn-all-auto">Set remaining desks to Auto</button>'}
         </div>
@@ -2632,6 +2683,8 @@
     $("btn-take-rec").onclick = () => { if (yourTurn && rec) userDraft(rec.id); };
     $("btn-take-rec").disabled = !rec || !yourTurn;
     $("btn-sim-draft").onclick = () => simDraftRemaining();
+    const simRoundBtn = $("btn-sim-round");
+    if (simRoundBtn) simRoundBtn.onclick = () => simDraftRound();
     $("btn-sim-manual").onclick = () => {
       if (state.mode === "single") ensureSingleDesks();
       simToManual();
@@ -4480,28 +4533,108 @@
     if (window.AFA && typeof window.AFA.registerPlayers === "function") window.AFA.registerPlayers(collegePool());
   }
   function collegeYear() { return state.draftYear || state.seasonYear || 2027; }
+  function rehydrateGeneratedClasses() {
+    const gc = state && state.generatedClasses;
+    if (!gc || !window.AFA || typeof AFA.registerPlayers !== "function") return;
+    Object.keys(gc).forEach((y) => { if (Array.isArray(gc[y])) AFA.registerPlayers(gc[y]); });
+  }
+  function ensureGeneratedClass(year) {
+    if (!state.generatedClasses) state.generatedClasses = {};
+    if (!Array.isArray(state.generatedClasses[year]) || !state.generatedClasses[year].length) {
+      const avoid = [];
+      (PLAYERS || []).forEach((p) => avoid.push(p));
+      collegePool().forEach((p) => avoid.push(p));
+      Object.keys(state.generatedClasses).forEach((y) => (state.generatedClasses[y] || []).forEach((p) => avoid.push(p)));
+      state.generatedClasses[year] = window.AFADraft ? AFADraft.generateProspectClass(year, avoid) : [];
+    }
+    if (window.AFA && typeof AFA.registerPlayers === "function") AFA.registerPlayers(state.generatedClasses[year]);
+    return state.generatedClasses[year];
+  }
+  function identityBlocked() {
+    const list = [];
+    const pushId = (id) => { const p = playerById(id); if (p) list.push(p); };
+    TEAMS.forEach((t) => (state.rosters[t.id] || []).forEach(pushId));
+    (state.fa || []).forEach(pushId);
+    (state.picks || []).forEach((pk) => { if (pk) pushId(pk.playerId); });
+    (state.collegeDrafted || []).forEach(pushId);
+    (PLAYERS || []).forEach((p) => { if (p && p.retired) list.push(p); });
+    if (state.collegeDraft && state.collegeDraft.picks) state.collegeDraft.picks.forEach((pk) => pushId(pk.playerId));
+    return list;
+  }
+  function prospectsClashingWithPros() {
+    if (proClashIds) return proClashIds;
+    proClashIds = new Set();
+    if (!window.AFADraft) return proClashIds;
+    const byNpc = new Map();
+    const bySleeper = new Map();
+    (PLAYERS || []).forEach((p) => {
+      if (!p) return;
+      if (p.sleeperId) bySleeper.set(String(p.sleeperId), p);
+      const key = AFADraft.foldName(p.name) + "|" + p.pos + "|" + AFADraft.schoolKey(p.college);
+      if (!byNpc.has(key)) byNpc.set(key, []);
+      byNpc.get(key).push(p);
+    });
+    collegePool().forEach((p) => {
+      if (!p || AFADraft.isDuplicateListing(p.id)) return;
+      if (p.sleeperId && bySleeper.has(String(p.sleeperId))) { proClashIds.add(p.id); return; }
+      const key = AFADraft.foldName(p.name) + "|" + p.pos + "|" + AFADraft.schoolKey(p.college);
+      const hits = byNpc.get(key) || [];
+      if (hits.some((h) => AFADraft.peopleClash(p, h))) proClashIds.add(p.id);
+    });
+    return proClashIds;
+  }
   function prospectsForYear(year) {
-    const used = new Set(state.collegeDrafted || []);
-    return collegePool().filter((p) => (p.year || p.draftClass) === year && !used.has(p.id));
+    if (!window.AFADraft) {
+      const used = new Set(state.collegeDrafted || []);
+      return collegePool().filter((p) => (p.year || p.draftClass) === year && !used.has(p.id));
+    }
+    const policy = AFADraft.classPolicy(year, collegePool());
+    let source = [];
+    if (policy === "real") {
+      source = collegePool().filter((p) => Number(p.year || p.draftClass) === Number(year) && !p.generated && !p.fictional && p.real !== false && !AFADraft.isDuplicateListing(p.id));
+    } else if (policy === "generated") {
+      source = (state.generatedClasses && state.generatedClasses[year]) || [];
+    } else return [];
+    const blocked = identityBlocked();
+    const pros = prospectsClashingWithPros();
+    return source.filter((p) => p && !pros.has(p.id) && !AFADraft.clashesWithAny(p, blocked));
   }
   function collegeCtaHTML() {
     if (!state.seasonDone && !state.collegeDraft) return "";
     const year = state.collegeDraft ? state.collegeDraft.year : collegeYear();
-    const has = state.collegeDraft || prospectsForYear(year).length > 0;
+    const policy = window.AFADraft ? AFADraft.classPolicy(year, collegePool()) : "real";
+    const available = prospectsForYear(year);
+    const has = !!state.collegeDraft || policy === "generated" || available.length > 0;
+    const realYears = window.AFADraft ? AFADraft.realClassYears(collegePool()) : [];
+    const lastReal = realYears.length ? realYears[realYears.length - 1] : null;
+    let help = "7 rounds · reverse standings. Traded picks follow their owners.";
+    if (!state.collegeDraft && policy === "real") help = "7 rounds · reverse standings · real " + year + " prospects (" + available.length + " still available). Traded picks follow their owners.";
+    else if (!state.collegeDraft && policy === "generated") help = "No real " + year + " class is on file. Entering uses labeled fictional prospects only — no biography and no stats.";
+    else if (!state.collegeDraft) help = "No compiled class for " + year + (lastReal ? " (last real class on file: " + lastReal + ")" : "") + ". Nothing is invented for this season.";
     return `<div class="panel college-cta" style="margin:12px 0">
       <div class="panel-b" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <div style="flex:1;min-width:220px"><div class="eyebrow">Offseason</div>
           <strong>${year} AFA College Draft</strong>
-          <div class="help">${has ? "7 rounds · reverse standings · real college prospects. Traded picks follow their owners." : "Real prospect data ends here — no " + year + " class is on file yet."}</div></div>
+          <div class="help">${help}</div></div>
         ${has ? `<button class="btn btn-primary" id="btn-enter-college">${state.collegeDraft ? "Resume" : "Enter"} AFA College Draft</button>` : `<button class="btn btn-primary" id="btn-skip-college">Skip to next season</button>`}
       </div></div>`;
   }
   function startCollegeDraft() {
     ensurePicks();
     const year = collegeYear();
+    const policy = window.AFADraft ? AFADraft.classPolicy(year, collegePool()) : "real";
+    if (policy === "unavailable") {
+      const years = AFADraft.realClassYears(collegePool());
+      const last = years.length ? years[years.length - 1] : "none";
+      toast("No compiled " + year + " prospect class. Last real class on file: " + last + ". No players were invented.");
+      ui.hubTab = "home";
+      renderHub();
+      return;
+    }
+    if (policy === "generated") ensureGeneratedClass(year);
     const pool = prospectsForYear(year);
     if (!pool.length) {
-      toast("Real prospect data ends at " + (year - 1) + " — skip to next season.");
+      toast(policy === "real" ? ("Real " + year + " prospects are already in the league — none left to draft.") : "No prospects available.");
       ui.hubTab = "home";
       renderHub();
       return;
@@ -4526,45 +4659,59 @@
     return true; // all-32 commissioner: you pick for whoever is on the clock
   }
   function collegeScore(p, teamId) {
-    const counts = posCounts(teamId);
-    const need = (counts[p.pos] || 0) < (STARTER_NEED[p.pos] || 1) ? 1.12 : ((counts[p.pos] || 0) < (DEPTH_NEED[p.pos] || 2) ? 1.03 : 0.92);
-    const jitter = (hashStr(teamId + ":" + p.id) % 1000) / 1000 * 2.5;
-    return p.ovr * (POS_PREMIUM[p.pos] || 1) * need + jitter;
+    if (!window.AFADraft) return p ? p.ovr : 0;
+    const cd = state.collegeDraft;
+    const round = cd && cd.order && cd.order[cd.idx] ? cd.order[cd.idx].round : 1;
+    return AFADraft.scoreProspect(p, rosterOf(teamId), round, schemeContext(teamId));
   }
   function collegeMakePick(playerId) {
     const cd = state.collegeDraft;
-    if (!cd || cd.idx >= cd.order.length) return false;
-    const bi = cd.board.indexOf(playerId);
-    if (bi < 0) return false;
+    if (!cd || !window.AFADraft || cd.idx >= cd.order.length) return false;
     const slot = cd.order[cd.idx];
-    cd.board.splice(bi, 1);
-    if (!state.rosters[slot.ownerTeamId]) state.rosters[slot.ownerTeamId] = [];
-    state.rosters[slot.ownerTeamId].push(playerId);
-    state.collegeDrafted.push(playerId);
-    const pl = playerById(playerId);
-    if (pl) {
-      attachRookieContract(pl, slot.overall, cd.year);
-      if (pl.ovrBase == null) pl.ovrBase = pl.ovr;
-      try {
-        if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onCollegePick", { player: pl, slot, year: cd.year });
-      } catch (e) {}
-    }
-    cd.picks.push({ overall: slot.overall, round: slot.round, pick: slot.pick, teamId: slot.ownerTeamId, originalTeamId: slot.originalTeamId, playerId });
-    cd.idx += 1;
+    const already = (cd.picks || []).some((pk) => pk && pk.playerId === playerId);
+    const res = AFADraft.commitCollegePick({
+      year: cd.year, order: cd.order, idx: cd.idx, board: cd.board, picks: cd.picks, rosters: state.rosters
+    }, {
+      playerId: playerId,
+      expectedTeamId: slot.ownerTeamId,
+      lookup: playerById,
+      ownedPlayers: identityBlocked()
+    });
+    if (res.reason === "owned" && res.draft) cd.board = res.draft.board;
+    if (!res.ok) return false;
+    if (res.reason !== "idempotent") {
+      cd.board = res.draft.board;
+      cd.picks = res.draft.picks;
+      cd.idx = res.draft.idx;
+      state.rosters = res.draft.rosters;
+      if (state.collegeDrafted.indexOf(playerId) < 0) state.collegeDrafted.push(playerId);
+      const pl = playerById(playerId);
+      if (pl) {
+        attachRookieContract(pl, slot.overall, cd.year);
+        if (pl.ovrBase == null) pl.ovrBase = pl.ovr;
+        try {
+          if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onCollegePick", { player: pl, slot: slot, year: cd.year });
+        } catch (e) {}
+      }
+    } else if (!already) return true;
     return true;
   }
   function collegeAiPick() {
     const cd = state.collegeDraft;
+    if (!cd || cd.idx >= cd.order.length) return false;
     const slot = cd.order[cd.idx];
-    let best = null, bs = -1;
-    cd.board.forEach((id) => { const p = playerById(id); if (!p) return; const s = collegeScore(p, slot.ownerTeamId); if (s > bs) { bs = s; best = p; } });
+    const board = cd.board.map(playerById).filter(Boolean);
+    const best = window.AFADraft ? AFADraft.recommendProspect({
+      board: board, roster: rosterOf(slot.ownerTeamId), teamId: slot.ownerTeamId, round: slot.round, scheme: schemeContext(slot.ownerTeamId)
+    }) : null;
     return best ? collegeMakePick(best.id) : false;
   }
   function collegeSim(untilUser) {
     const cd = state.collegeDraft;
     if (!cd) return;
     let guard = 0;
-    while (cd.idx < cd.order.length && cd.board.length && guard++ < 400) {
+    while (cd.idx < cd.order.length && guard++ < 400) {
+      if (!cd.board.length) { cd.exhausted = cd.idx < cd.order.length; break; }
       if (untilUser && state.mode === "single" && cd.order[cd.idx].ownerTeamId === state.userTeamId) break;
       if (untilUser && state.mode !== "single" && guard > 1) break;
       if (!collegeAiPick()) break;
@@ -4588,25 +4735,31 @@
   function finishCollegeDraft(skipped) {
     ensurePicks();
     const year = state.collegeDraft ? state.collegeDraft.year : collegeYear();
-    // Undrafted college players hit free agency
+    const policy = window.AFADraft ? AFADraft.classPolicy(year, collegePool()) : "real";
+    const made = state.collegeDraft && state.collegeDraft.picks ? state.collegeDraft.picks.length : 0;
+    const slots = state.collegeDraft && state.collegeDraft.order ? state.collegeDraft.order.length : 0;
+    const unfilled = Math.max(0, slots - made);
+    // Undrafted college players hit free agency. Real classes are not backfilled.
     if (state.collegeDraft) {
-      (state.collegeDraft.board || []).forEach((id) => { if (!state.fa.includes(id)) state.fa.push(id); state.collegeDrafted.push(id); });
+      (state.collegeDraft.board || []).forEach((id) => {
+        if (state.fa.indexOf(id) < 0) state.fa.push(id);
+        if (state.collegeDrafted.indexOf(id) < 0) state.collegeDrafted.push(id);
+      });
     }
     state.ownedPicks = (state.ownedPicks || []).filter((pk) => pk.year !== year);
     const maxYear = state.ownedPicks.reduce((m, pk) => Math.max(m, pk.year), year);
     for (let y = maxYear + 1; y <= year + PICK_YEARS_AHEAD; y++) state.ownedPicks = state.ownedPicks.concat(buildPicksForYear(y));
-    state.lastCollegeDraft = state.collegeDraft ? { year, picks: state.collegeDraft.picks } : null;
+    state.lastCollegeDraft = state.collegeDraft ? { year: year, picks: state.collegeDraft.picks, unfilled: unfilled, policy: policy } : null;
     state.collegeDraft = null;
-    // Enforce 53-man active roster after the college haul (lowest OVR extras → FA)
+    // Back to 53. Cut surplus bodies before the last starter at a position.
     TEAMS.forEach((tm) => {
-      const ids = (state.rosters[tm.id] || []).slice();
-      if (ids.length <= 53) return;
-      const ranked = ids.map((id) => ({ id, ovr: (playerById(id) || {}).ovr || 0 }))
-        .sort((a, b) => a.ovr - b.ovr);
-      const cut = ranked.slice(0, ids.length - 53).map((x) => x.id);
-      const keep = new Set(ranked.slice(ids.length - 53).map((x) => x.id));
-      state.rosters[tm.id] = ids.filter((id) => keep.has(id));
-      cut.forEach((id) => { if (!state.fa.includes(id)) state.fa.push(id); });
+      const players = (state.rosters[tm.id] || []).map(playerById).filter(Boolean);
+      if (players.length <= 53 || !window.AFADraft) return;
+      const trimmed = AFADraft.trimRoster(players, 53);
+      const keep = {};
+      trimmed.keep.forEach((p) => { keep[p.id] = true; });
+      state.rosters[tm.id] = (state.rosters[tm.id] || []).filter((id) => keep[id]);
+      trimmed.cut.forEach((p) => { if (state.fa.indexOf(p.id) < 0) state.fa.push(p.id); });
     });
     state.seasonYear = (state.seasonYear || year) + 1;
     state.draftYear = state.seasonYear;
@@ -4625,7 +4778,10 @@
     ui.askPicks = [];
     ui.hubTab = "home";
     save();
-    toast((skipped ? year + " College Draft skipped" : year + " College Draft complete") + " · " + state.seasonYear + " season underway");
+    let msg = skipped ? (year + " College Draft skipped") : (year + " College Draft complete");
+    if (!skipped && unfilled > 0 && policy === "real") msg += ". Real class exhausted — " + unfilled + " picks unfilled. No fictional players were added";
+    if (!skipped && policy === "generated") msg += " (fictional class, labeled)";
+    toast(msg + " · " + state.seasonYear + " season underway");
     renderHub();
   }
   function renderCollegeDraftHTML() {
@@ -4643,7 +4799,7 @@
     const myNext = state.mode === "single" ? cd.order.slice(cd.idx).filter((s) => s.ownerTeamId === state.userTeamId).slice(0, 7) : [];
     const feed = cd.picks.slice().reverse().slice(0, 16).map((pk) => {
       const t = teamById(pk.teamId), pl = playerById(pk.playerId);
-      return `<div class="pick-item" data-scout="${pk.playerId}"><div class="n">${pk.overall}</div>${logoImg(t, "sm")}<div><strong>${pl ? pl.name : "?"}</strong><div class="city">${t.abbr}${pk.originalTeamId !== pk.teamId ? " (via " + teamById(pk.originalTeamId).abbr + ")" : ""} · ${pl ? pl.pos + " · " + pl.college : ""}</div></div></div>`;
+      return `<div class="pick-item" data-scout="${pk.playerId}"><div class="n">${pk.overall}</div>${logoImg(t, "sm")}<div><strong>${pl ? pl.name : "?"}${pl && pl.fictional ? " (Fictional)" : ""}</strong><div class="city">${t.abbr}${pk.originalTeamId !== pk.teamId ? " (via " + teamById(pk.originalTeamId).abbr + ")" : ""} · ${pl ? pl.pos + " · " + (pl.fictional ? "Fictional" : (pl.college || "—")) : ""}</div></div></div>`;
     }).join("") || `<p class="help">Picks will land here.</p>`;
     return `<div class="college-draft">
       <div class="panel"><div class="panel-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
@@ -4664,7 +4820,7 @@
           <div class="panel-b">
             <div class="chips">${["ALL"].concat(POSITIONS).map((p) => `<button class="chip ${pos === p ? "on" : ""}" data-cpos="${p}">${p}</button>`).join("")}</div>
             <table class="player-table"><thead><tr><th>OVR</th><th>Prospect</th><th>Pos</th><th>College</th></tr></thead><tbody>
-              ${pool.slice(0, 120).map((p) => `<tr data-cpick="${p.id}" data-scout="${p.id}" data-player-id="${p.id}" class="${mine ? "" : "dim"}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td>${p.name} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.college}</td></tr>`).join("") || "<tr><td colspan='4' class='help'>No prospects match.</td></tr>"}
+              ${pool.slice(0, 120).map((p) => `<tr data-cpick="${p.id}" data-scout="${p.id}" data-player-id="${p.id}" class="${mine ? "" : "dim"}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td>${p.name}${p.fictional ? " <span class='help'>(Fictional)</span>" : ""} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.fictional ? "Fictional" : (p.college || "—")}</td></tr>`).join("") || "<tr><td colspan='4' class='help'>No prospects match.</td></tr>"}
             </tbody></table>
           </div></div>
         <div class="panel"><div class="panel-h"><strong>Pick feed</strong></div><div class="panel-b">${feed}</div></div>
