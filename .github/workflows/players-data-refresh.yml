@@ -1,0 +1,36 @@
+# Full NFL/player dataset refresh. Once a day, every day, at 5:00 AM America/New_York.
+# GitHub Actions schedules are UTC and do not follow Eastern daylight saving time.
+# 5:00 AM EST = 10:00 UTC. 5:00 AM EDT = 09:00 UTC. Both hours are scheduled.
+# The gate runs the dataset step only when the clock in America/New_York is 05.
+# 05:00 UTC is intentionally not a schedule (that would be midnight or 1:00 AM Eastern).
+# Saturday and Sunday are included: day-of-week is *.
+# This workflow does not check news every 5 minutes and does not commit on that cadence.
+name: Players data refresh
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decide whether this UTC slot is 5:00 AM Eastern
+        id: gate
+        run: node scripts/refresh-clock.mjs daily-gate >> "$GITHUB_OUTPUT"
+
+      - name: Full dataset refresh
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.run == 'true'
+        run: |
+          echo "Daily full refresh is due (5:00 AM America/New_York, or a manual run)."
+          echo "DATASET_FETCH=not_run"
+          echo "This workflow is the schedule gate. It does not rebuild or commit the player dataset until the fetch step is attached."
+          echo "News is a separate in-app check and is not run here."

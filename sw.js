@@ -48,6 +48,8 @@ const SHELL_URLS = [
   "./js/bridge-v024.js?v=034",
   "./js/bridge-v025.js?v=034",
   "./js/draft-engine.js?v=034",
+  "./js/refresh-clock.js?v=034",
+  "./js/news-feed.js?v=034",
   "./js/app.js?v=034"
 ];
 
