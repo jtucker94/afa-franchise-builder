@@ -444,14 +444,8 @@
     player = ensureScout(player);
     if (!player || !player.scout) return "";
     const s = player.scout;
-    const keys = (s.madden.keys || []).slice(0, 8);
-    const attrs = keys.map(([code, label]) => {
-      const v = s.madden.attrs[code];
-      const pct = Math.max(0, Math.min(100, v));
-      const tone = attrTone(v);
-      return `<div class="scout-attr"><span class="k">${label}</span><div class="scout-mini-bar"><span class="fill ${tone}" style="width:${pct}%"></span></div><span class="v ${tone}">${v}</span></div>`;
-    }).join("");
-    const pffEst = s.pff.estimated !== false;
+    const madden = (player.externalRatings && player.externalRatings.madden) || (window.AFARatings && AFARatings.lookup ? AFARatings.lookup(player) : null);
+    const basis = player.ratingBasis === "madden-nfl27-list" ? "Madden NFL 27 list" : "AFA pool";
     return `
       <div class="scout-card-top">
         ${s.face}
@@ -459,10 +453,10 @@
           <h3 class="name">${player.name}</h3>
           <div class="meta">#${player.number || "—"} · ${player.pos} · Age ${player.age}</div>
           <div class="scout-grades">
-            <div class="scout-grade pff"><span class="g-label">PFF${pffEst ? " est." : ""}</span><span class="g-val">${s.pff.overall.toFixed(1)}</span><span class="g-sub">${s.pff.label}${pffEst ? " · estimate" : ""}</span></div>
-            <div class="scout-grade madden"><span class="g-label">Madden</span><span class="g-val">${s.madden.ovr}</span><span class="g-sub">OVR</span></div>
-            <div class="scout-grade gmfb"><span class="g-label">GMFB</span><span class="g-val">${s.gmfb.ovr}</span><span class="g-sub">algo v${s.gmfb.version}${s.gmfb.sleeper ? " · Sleeper " + (s.gmfb.sleeper.adj > 0 ? "+" : "") + s.gmfb.sleeper.adj : ""}</span></div>
-            ${player.grade ? `<div class="scout-grade afa"><span class="g-label">AFA Grade</span><span class="g-val">${player.grade.overall}</span><span class="g-sub">base ${player.ovrBase != null ? player.ovrBase : "—"} · conf ${Math.round((player.grade.confidence || 0) * 100)}%</span></div>` : ""}
+            <div class="scout-grade pff"><span class="g-label">PFF</span><span class="g-val">—</span><span class="g-sub">Not on record</span></div>
+            <div class="scout-grade madden"><span class="g-label">Madden NFL 27</span><span class="g-val">${madden ? madden.ovr : "—"}</span><span class="g-sub">${madden ? "list · " + madden.retrievedAt : "Not on record"}</span></div>
+            <div class="scout-grade gmfb"><span class="g-label">AFA overall</span><span class="g-val">${player.ovr}</span><span class="g-sub">${basis}</span></div>
+            ${player.grade && player.grade.statRating != null ? `<div class="scout-grade afa"><span class="g-label">Counting stats</span><span class="g-val">${player.grade.overall}</span><span class="g-sub">not the overall</span></div>` : ""}
           </div>
         </div>
       </div>
@@ -474,16 +468,9 @@
           <span><b>College</b> ${player.college || "—"}</span>
         </div>
         ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
-        <div class="scout-section-label">PFF-style splits <span class="est-tag">estimate</span></div>
-        <div class="scout-pff-row">
-          <div class="scout-pff-cell"><span class="t">${s.pff.label}</span><span class="n">${s.pff.grade.toFixed(1)}</span></div>
-          <div class="scout-pff-cell"><span class="t">Pass</span><span class="n">${s.pff.pass.toFixed(1)}</span></div>
-          <div class="scout-pff-cell"><span class="t">Run</span><span class="n">${s.pff.run.toFixed(1)}</span></div>
-        </div>
-        <div class="scout-section-label">Madden attributes</div>
-        <div class="scout-attrs">${attrs}</div>
+        <p class="help">${madden ? "Madden NFL 27 overall " + madden.ovr + " is from " + (madden.compiler || "the published list") + (madden.sourceUrl ? " (" + madden.sourceUrl + ")" : "") + ". It is not an EA roster file. Attribute bars are not shown." : "No Madden overall is stored for this player. The AFA number is not relabeled as Madden."} PFF grades are not stored and are not estimated.</p>
         ${window.AFACareersUI ? `<div class="scout-section-label">NFL career</div>${AFACareersUI.statsHtml(player.id)}` : ""}
-        <div class="scout-foot">${s.gmfb.label}: ${s.gmfb.note}
+        <div class="scout-foot">The AFA overall is the draft and lineup number. ${player.ratingBasis === "madden-nfl27-list" ? "It was set from the Madden NFL 27 list and the counting-stat grade did not replace it." : "Where no list match exists, it stays the AFA pool number."}
           ${window.AFAPlayersTab ? ` · <button type="button" class="btn btn-sm" data-profile="${player.id}">Full profile</button>` : ""}
         </div>
       </div>`;
@@ -1719,22 +1706,32 @@
     return out;
   }
 
+  function sourcedMadden(p) {
+    return window.AFARatings && AFARatings.lookup ? AFARatings.lookup(p) : null;
+  }
+
   function seedGradesAndContracts(force) {
     const statsPack = window.AFA_STATS_2025 || {};
     const G = window.AFAGrading;
     const vet = (window.AFABridge && window.AFABridge.veteranContractFor) || null;
     allPlayersList().forEach((p) => {
-      if (force || p.ovrBase == null) p.ovrBase = p.ovr;
-      if (G && (force || !p.grade)) {
+      const fresh = !!force;
+      if (!fresh && p.ovrBase == null) p.ovrBase = p.ovr;
+      const applied = fresh && window.AFARatings && AFARatings.applyFresh ? AFARatings.applyFresh(p) : null;
+      if (!fresh) p.externalRatings = { madden: sourcedMadden(p), pff: null };
+      if (G && (fresh || !p.grade)) {
         const lines = statsPack[p.id] || [];
-        let g = G.gradePlayer({ pos: p.pos, age: p.age, ovr: p.ovrBase }, lines, { applyAge: false });
+        const prior = p.ovrBase != null ? p.ovrBase : p.ovr;
+        let g = G.gradePlayer({ pos: p.pos, age: p.age, ovr: prior }, lines, { applyAge: false });
         if ((p.pos === "K" || p.pos === "P") && g && g.statRating != null && g.confidence >= 0.35) {
           const blended = Math.round(0.25 * (p.ovrBase || 70) + 0.75 * g.statRating);
           g = Object.assign({}, g, { overall: Math.max(40, Math.min(99, blended)), explanation: (g.explanation || "") + " K/P stat lean applied." });
         }
         p.grade = g;
-        if (state.useStatGrades && g && g.confidence > 0) p.ovr = g.overall;
-        else p.ovr = p.ovrBase;
+        // A sourced Madden overall stays the game rating. The counting-stat grade is kept beside it.
+        if (applied && applied.locked) p.ovr = applied.src.ovr;
+        else if (state.useStatGrades && g && g.confidence > 0) p.ovr = g.overall;
+        else if (fresh) p.ovr = p.ovrBase;
       }
       if (!p.contract) p.contract = vet ? vet(p) : { apy: 1500000, capHit: 1500000, yearsRemaining: 2, kind: "veteran-founding" };
     });

@@ -68,8 +68,32 @@
     }).join("");
   }
 
+  function listed(p) {
+    return root.AFARatings && p ? AFARatings.lookup(p) : null;
+  }
+  function ratingLabel(p) {
+    var src = listed(p);
+    if (src) return "Madden NFL 27 list " + esc(src.ovr);
+    return "AFA pool " + esc(p && p.ovr != null ? p.ovr : "Not on record");
+  }
+  function ratingHelp(p) {
+    var src = listed(p);
+    if (src) return "Madden NFL 27 overall " + src.ovr + " from " + (src.compiler || "the published list") + ", retrieved " + src.retrievedAt + ". Not an EA file. PFF is not on record.";
+    return "No Madden list match. The number is the AFA pool overall, not a Madden or PFF grade.";
+  }
+  function withListedRatings(rows) {
+    if (!root.AFARatings) return rows;
+    var ids = byId();
+    rows.forEach(function (r) {
+      var src = AFARatings.lookup(ids[r.id]);
+      if (!src) { r.basis = "afa-pool"; return; }
+      r.ovr = src.ovr;
+      r.basis = "madden-nfl27-list";
+    });
+    return rows;
+  }
   function rowsNow() {
-    return D().filterSort(D().directoryRows(players(), sleeperMap(), root.AFA_NFL_AVAIL || null), dirState);
+    return D().filterSort(withListedRatings(D().directoryRows(players(), sleeperMap(), root.AFA_NFL_AVAIL || null)), dirState);
   }
 
   function mountDirectory(el) {
@@ -188,7 +212,7 @@
     host.innerHTML = '<article class="ws-card">' +
       photoHtml(p) +
       '<div><p class="eyebrow">Real NFL · ' + esc(team.source) + '</p><h2>' + esc(p.name) + '</h2>' +
-      '<p>' + logoHtml(team.abbr) + ' <strong>' + esc(team.label) + '</strong> · <span class="pos-pill pos-' + esc(p.pos) + '">' + esc(p.pos) + '</span> · Game rating ' + esc(p.ovr == null ? "Not on record" : p.ovr) + '</p>' +
+      '<p>' + logoHtml(team.abbr) + ' <strong>' + esc(team.label) + '</strong> · <span class="pos-pill pos-' + esc(p.pos) + '">' + esc(p.pos) + '</span> · ' + ratingLabel(p) + '</p>' +
       '<p class="help">Status: ' + esc(avail.text) + '. ' + (avail.kind === "unknown" ? "Unknown is not healthy. " : "") + (club ? 'In this save only: AFA ' + esc(club) + '. ' : '') + '</p>' +
       '<p class="help">Photo: ' + (shot.url ? esc(shot.source) : 'No photo id on file.') + '</p></div></article>' +
       '<h3>2025 regular-season stats</h3>' +
@@ -197,7 +221,7 @@
         return '<div><span>' + esc(c.label) + '</span><b class="ws-' + c.cell.kind + '">' + esc(c.cell.text) + '</b></div>';
       }).join("") + '</div>' +
       '<h3>2026 Sleeper snapshot</h3>' + sleeperStatsHtml(sl) +
-      '<p class="help">Game rating is the stored GMFB number. ' + esc((root.AFARealStatus ? root.AFARealStatus.formAdjustment() : { reason: "No evidence to adjust." }).reason) + ' It is not an official PFF or ESPN grade. Sleeper ADP is a market signal. Popularity is not skill.</p>';
+      '<p class="help">' + ratingHelp(p) + ' ' + esc((root.AFARealStatus ? root.AFARealStatus.formAdjustment() : { reason: "No evidence to adjust." }).reason) + ' Sleeper ADP is a market signal. Popularity is not skill.</p>';
   }
 
   function sleeperStatsHtml(sl) {

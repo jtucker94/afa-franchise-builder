@@ -23,3 +23,5 @@ jobs:
         run: node tests/real-status.test.mjs
       - name: League scouting
         run: node tests/league-scout.test.mjs
+      - name: Rating sources
+        run: node tests/rating-sources.test.mjs
