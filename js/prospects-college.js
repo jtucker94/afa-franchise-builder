@@ -2,6 +2,8 @@
  * Compiled Nov 2026 from public big boards: NFL Draft Countdown, Sporting News, SI,
  * NFL Mock Draft Database consensus, NFLDraftBuzz, PFN college pages, school athletics sites.
  * OVR is a game rating derived from consensus rank. No 2029+ class yet.
+ * v0.1.24 removed two duplicate listings of real prospects: Kelly Jones (same CB as Kelley Jones)
+ * and the nickname-only OJ Frederique Jr. row. Alias ids are still recognized by the draft engine.
  * Colleges cross-checked vs PFN / athletics rosters where previously missing (v0.1.13).
  */
 (function (g) {
@@ -702,22 +704,6 @@
   "height": "6'0\"",
   "weight": 180,
   "college": "Mississippi",
-  "ovr": 76,
-  "number": null,
-  "real": true,
-  "prospect": true,
-  "draftClass": 2027,
-  "year": 2027,
-  "sleeperId": null
- },
- {
-  "id": "col_2027_kelly_jones",
-  "name": "Kelly Jones",
-  "pos": "CB",
-  "age": 21,
-  "height": "6'0\"",
-  "weight": 190,
-  "college": "Mississippi State",
   "ovr": 76,
   "number": null,
   "real": true,
@@ -2062,22 +2048,6 @@
   "height": "6'1\"",
   "weight": 195,
   "college": "Tennessee",
-  "ovr": 67,
-  "number": null,
-  "real": true,
-  "prospect": true,
-  "draftClass": 2027,
-  "year": 2027,
-  "sleeperId": null
- },
- {
-  "id": "col_2027_oj_frederique_jr",
-  "name": "OJ Frederique Jr.",
-  "pos": "CB",
-  "age": 21,
-  "height": "6'0\"",
-  "weight": 190,
-  "college": "Miami",
   "ovr": 67,
   "number": null,
   "real": true,

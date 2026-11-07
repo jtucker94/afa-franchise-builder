@@ -1,0 +1,45 @@
+# Full NFL/player dataset refresh. Once a day, every day, at 5:00 AM America/New_York.
+# GitHub Actions schedules are UTC and do not follow Eastern daylight saving time.
+# 5:00 AM EST = 10:00 UTC. 5:00 AM EDT = 09:00 UTC. Both hours are scheduled.
+# The gate runs the dataset step only when the clock in America/New_York is 05.
+# 05:00 UTC is intentionally not a schedule (that would be midnight or 1:00 AM Eastern).
+# Saturday and Sunday are included: day-of-week is *.
+# This workflow does not check news every 5 minutes and does not commit on that cadence.
+name: Players data refresh
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decide whether this UTC slot is 5:00 AM Eastern
+        id: gate
+        run: node scripts/refresh-clock.mjs daily-gate >> "$GITHUB_OUTPUT"
+
+      - name: Refresh public snapshots
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.run == 'true'
+        run: node scripts/players-data-refresh.mjs --write
+
+      - name: Publish changed snapshots
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.run == 'true'
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add data/refresh-status.json data/league-settings.json data/news-cache.json data/nfl-availability.json
+          if git diff --cached --quiet; then
+            echo "No snapshot change to publish."
+          else
+            git commit -m "Daily public snapshot (5:00 AM America/New_York)"
+            git push
+          fi
