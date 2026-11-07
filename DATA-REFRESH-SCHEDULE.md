@@ -34,3 +34,13 @@ This path:
 It does **not** rebuild or commit the player dataset every 5 minutes. GitHub Actions is a poor fit for that cadence: runs are UTC, can be dropped or delayed, only work from the default branch, and a commit every 5 minutes would republish the site all afternoon. The separate Grok bot news monitor is not this workflow.
 
 Coverage is not exhaustive. The college feed is national and FBS-leaning. FCS, Division II, and Division III are outside it. A missed fetch, a closed tab, or a blocked feed is an outage, not an empty news day and not proof that nothing happened.
+
+## On-screen ticker
+
+After the boot screen, a bottom bar crawls the cached real headlines. It is not the gold AFA draft ticker. Each item is labeled NFL or COLLEGE, keeps rumor / verified / unknown, and shows published and retrieved times in the static list. The headline opens the source URL. **News** opens the Scouting news tab.
+
+Team marks use ESPN's logo files only for canonical abbreviations (current roster) or unambiguous nicknames and school names in the headline. A mention is not the player's current team. Trades and transfers can show two marks. "Brown", "New York", "Los Angeles", and bare "Washington" do not get a logo. A missing or broken image falls back to the abbreviation. Logos are 20px, lazy-loaded, and do not change the bar height.
+
+The crawl is CSS only. It does not refetch on every frame. A new check still waits for the 5-minute Eastern window. Pause and Hide are in the bar. Hide is remembered in this browser. Reduced motion replaces the crawl with a sideways list. The moving text is hidden from assistive tech. The list is not an aria-live region.
+
+The bar is hidden during boot, the draft-open intro, the draft-complete panel, and the scout card. On a phone it sits above the hub tab bar and the home-indicator inset. Coach and draft screens keep extra room so Sim and footer buttons can scroll clear of it.

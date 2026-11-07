@@ -1,0 +1,38 @@
+{
+  "fetchedAt": "2026-11-07T00:38:44.924Z",
+  "ok": true,
+  "pieces": {
+    "pool": {
+      "count": 2532,
+      "withSleeperId": 2492
+    },
+    "state": {
+      "season": "2026",
+      "week": 9,
+      "season_type": "regular"
+    },
+    "leagues": {
+      "ogffl": {
+        "players": 31,
+        "starters": 20,
+        "owner": "jtuck94"
+      },
+      "dd": {
+        "players": 21,
+        "starters": 14,
+        "owner": "jtuck94"
+      }
+    },
+    "NFL": {
+      "headlines": 25
+    },
+    "NCAAF": {
+      "headlines": 21
+    },
+    "availability": {
+      "matched": 2492,
+      "poolWithSleeperId": 2492
+    }
+  },
+  "errors": []
+}

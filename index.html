@@ -46,6 +46,18 @@
           <button class="btn" id="btn-save-menu">Save</button>
           <button class="btn btn-danger" id="btn-reset-menu">Reset save</button>
         </div>
+        <div class="home-study" role="navigation" aria-label="Real NFL study">
+          <button type="button" class="study-card" id="btn-open-players">
+            <span class="eyebrow">Directory</span>
+            <strong>Players</strong>
+            <span>Every real NFL player, with the real NFL team, stats, and photos.</span>
+          </button>
+          <button type="button" class="study-card" id="btn-open-scouting">
+            <span class="eyebrow">Workspace</span>
+            <strong>Scouting</strong>
+            <span>NFL grades, then OGFFL or Dynasty Domination. The leagues stay separate.</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -212,6 +224,30 @@
       </div>
     </section>
 
+    <section id="screen-directory" class="screen" aria-labelledby="directory-title">
+      <header class="topbar">
+        <div class="brand-lock">
+          <img src="assets/gm-franchise-builder-logo.jpg" alt="">
+          <div class="titles"><strong id="directory-title">Players</strong><span>Real NFL directory</span></div>
+        </div>
+        <div class="grow"></div>
+        <button class="btn btn-sm" id="btn-directory-back" type="button">Back</button>
+      </header>
+      <div class="workspace" id="directory-root"></div>
+    </section>
+
+    <section id="screen-scouting" class="screen" aria-labelledby="scouting-title">
+      <header class="topbar">
+        <div class="brand-lock">
+          <img src="assets/gm-franchise-builder-logo.jpg" alt="">
+          <div class="titles"><strong id="scouting-title">Scouting</strong><span>NFL and your leagues</span></div>
+        </div>
+        <div class="grow"></div>
+        <button class="btn btn-sm" id="btn-scouting-back" type="button">Back</button>
+      </header>
+      <div class="workspace" id="scouting-root"></div>
+    </section>
+
     <section id="screen-hub" class="screen">
       <header class="topbar">
         <div class="brand-lock">
@@ -254,6 +290,7 @@
   <button type="button" class="save-fab" id="btn-save-anywhere" title="Save exactly where you are">Save</button>
   <div id="scout-card" class="scout-card" hidden></div>
   <div id="toast" class="toast"></div>
+  <aside id="real-news-ticker" class="real-news-ticker" hidden></aside>
   <script src="js/players-nfl.js?v=034"></script>
   <script src="js/prospects-college.js?v=034"></script>
   <script src="js/data.js?v=034"></script>
@@ -283,6 +320,10 @@
   <script src="js/draft-engine.js?v=034"></script>
   <script src="js/refresh-clock.js?v=034"></script>
   <script src="js/news-feed.js?v=034"></script>
+  <script src="js/team-logos.js?v=034"></script>
+  <script src="js/news-ticker.js?v=034"></script>
+  <script src="js/workspace-data.js?v=034"></script>
+  <script src="js/workspace-ui.js?v=034"></script>
   <script src="js/app.js?v=034"></script>
 </body>
 </html>

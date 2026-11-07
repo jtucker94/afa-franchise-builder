@@ -1,0 +1,197 @@
+/* Real NFL / college headline ticker. Not the AFA draft ticker.
+ * The crawl is animation only. A fresh fetch happens on the existing
+ * 5-minute Eastern window, or when the reader asks. Headlines are not invented.
+ */
+(function (root) {
+  "use strict";
+  var HIDE_KEY = "afa-real-news-ticker-hidden";
+  var paused = false;
+  var hiddenPref = false;
+  var headlines = [];
+  var status = "";
+  var timer = null;
+  var rendering = false;
+
+  function prefersStill() {
+    return root.matchMedia && root.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function suppressed() {
+    var body = document.body;
+    if (!body) return true;
+    if (body.classList.contains("screen-boot-active")) return true;
+    if (hiddenPref) return true;
+    var intro = document.getElementById("draft-intro");
+    if (intro && !intro.hidden && body.classList.contains("screen-draft-active")) return true;
+    var done = document.getElementById("draft-complete");
+    if (done && !done.hidden) return true;
+    var scout = document.getElementById("scout-card");
+    if (scout && !scout.hidden) return true;
+    return false;
+  }
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function markNodes(teams) {
+    var wrap = el("span", "rnt-marks");
+    (teams || []).slice(0, 2).forEach(function (team) {
+      var slot = el("span", "rnt-mark");
+      slot.title = team.label + " · " + team.source + " · " + (team.role === "current" ? "current team" : "named in the headline, not a current-team assignment");
+      if (team.url) {
+        var img = document.createElement("img");
+        img.className = "rnt-logo";
+        img.alt = team.label + " logo";
+        img.width = 20;
+        img.height = 20;
+        img.decoding = "async";
+        img.loading = "lazy";
+        img.referrerPolicy = "no-referrer";
+        img.src = team.url;
+        img.addEventListener("error", function () {
+          img.remove();
+          slot.appendChild(el("span", "rnt-logo-fallback", team.abbr || team.label));
+        });
+        slot.appendChild(img);
+      } else {
+        slot.appendChild(el("span", "rnt-logo-fallback", team.abbr || team.label));
+      }
+      wrap.appendChild(slot);
+    });
+    return wrap;
+  }
+
+  function render() {
+    if (rendering) return;
+    rendering = true;
+    try { renderNow(); } finally { rendering = false; }
+  }
+
+  function renderNow() {
+    var bar = document.getElementById("real-news-ticker");
+    if (!bar) return;
+    bar.textContent = "";
+    var hide = suppressed() || !headlines.length && status === "";
+    if (suppressed()) {
+      bar.hidden = true;
+      document.body.classList.remove("has-real-ticker");
+      return;
+    }
+    bar.hidden = false;
+    document.body.classList.add("has-real-ticker");
+    if (paused) bar.classList.add("is-paused"); else bar.classList.remove("is-paused");
+    if (prefersStill()) bar.classList.add("is-still"); else bar.classList.remove("is-still");
+
+    bar.setAttribute("aria-label", "Real NFL and college headlines");
+    bar.appendChild(el("span", "rnt-kicker", "Real news"));
+    if (!headlines.length) {
+      var empty = el("p", "rnt-empty", status || "Real NFL and college headlines are unavailable. No sample stories are shown.");
+      bar.appendChild(empty);
+    } else {
+      var viewport = el("div", "rnt-viewport");
+      var track = el("div", "rnt-track");
+      track.setAttribute("aria-hidden", "true");
+      var staticList = el("ul", "rnt-static");
+      function fill(target, duplicate) {
+        headlines.forEach(function (item) {
+          var piece = el(target.tagName === "UL" ? "li" : "span", "rnt-item");
+          piece.appendChild(el("span", "rnt-cat", item.category));
+          if (item.flag === "rumor") piece.appendChild(el("span", "rnt-flag", "Rumor"));
+          else if (item.flag === "verified") piece.appendChild(el("span", "rnt-flag", "Verified"));
+          piece.appendChild(markNodes(item.teams));
+          var link = document.createElement("a");
+          link.className = "rnt-link";
+          link.href = item.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = item.title;
+          piece.appendChild(link);
+          if (!duplicate) {
+            var when = el("span", "rnt-when", (item.publishedAt ? "Published " + item.publishedAt : "Published time not on record") + (item.retrievedAt ? " · Retrieved " + item.retrievedAt : ""));
+            piece.appendChild(when);
+          }
+          target.appendChild(piece);
+        });
+      }
+      fill(track, true);
+      fill(track, true);
+      fill(staticList, false);
+      viewport.appendChild(track);
+      bar.appendChild(viewport);
+      bar.appendChild(staticList);
+    }
+    var pauseBtn = el("button", "rnt-btn", paused ? "Play" : "Pause");
+    pauseBtn.type = "button";
+    pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
+    pauseBtn.addEventListener("click", function () { paused = !paused; render(); });
+    var hideBtn = el("button", "rnt-btn", "Hide");
+    hideBtn.type = "button";
+    hideBtn.addEventListener("click", function () {
+      hiddenPref = true;
+      try { localStorage.setItem(HIDE_KEY, "1"); } catch (e) {}
+      render();
+    });
+    var more = el("button", "rnt-btn", "News");
+    more.type = "button";
+    more.addEventListener("click", function () {
+      if (root.AFAWorkspaceHooks && root.AFAWorkspaceHooks.openRealNews) root.AFAWorkspaceHooks.openRealNews();
+    });
+    bar.appendChild(pauseBtn);
+    bar.appendChild(hideBtn);
+    bar.appendChild(more);
+    void hide;
+  }
+
+  function setHeadlines(items, note) {
+    var Logos = root.AFATeamLogos;
+    headlines = Logos ? Logos.prepareHeadlines(items) : [];
+    status = note || (headlines.length ? "" : "Real NFL and college headlines are unavailable. No sample stories are shown.");
+    render();
+  }
+
+  function loadCache() {
+    return fetch("data/news-cache.json").then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (data) {
+      var items = (data && data.items) || [];
+      items.forEach(function (item) { if (!item.retrievedAt && data.fetchedAt) item.retrievedAt = data.fetchedAt; });
+      var note = items.length ? "" : "The saved headline cache is empty. No sample stories are shown.";
+      if (data && data.fetchedAt && items.length) note = "";
+      setHeadlines(items, note);
+      if (data && data.errors && data.errors.length && !items.length) {
+        status = "Headline feeds failed (" + data.errors.map(function (e) { return e.league || e.error || "error"; }).join(", ") + "). No sample stories are shown.";
+        render();
+      }
+    }).catch(function () {
+      setHeadlines([], "Real NFL and college headlines are unavailable offline. No sample stories are shown.");
+    });
+  }
+
+  function maybeRefresh() {
+    if (!root.AFANews || !root.AFARefreshClock || !root.AFARefreshClock.inNewsWindow(new Date())) return;
+    if (root.AFAScouting && root.AFAScouting.checkNews) root.AFAScouting.checkNews(false);
+  }
+
+  function start() {
+    try { hiddenPref = localStorage.getItem(HIDE_KEY) === "1"; } catch (e) { hiddenPref = false; }
+    loadCache();
+    if (timer) clearInterval(timer);
+    var wait = root.AFARefreshClock ? root.AFARefreshClock.NEWS_INTERVAL_MS : 300000;
+    timer = setInterval(function () { maybeRefresh(); render(); }, wait);
+    var obs = new MutationObserver(function () { if (!rendering) render(); });
+    obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    ["draft-intro", "draft-complete", "scout-card"].forEach(function (id) {
+      var node = document.getElementById(id);
+      if (node) obs.observe(node, { attributes: true, attributeFilter: ["hidden"] });
+    });
+  }
+
+  root.AFANewsTicker = { start: start, render: render, setHeadlines: setHeadlines, loadCache: loadCache };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})(window);

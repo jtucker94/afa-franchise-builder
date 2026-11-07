@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   refresh:
@@ -27,10 +27,19 @@ jobs:
         id: gate
         run: node scripts/refresh-clock.mjs daily-gate >> "$GITHUB_OUTPUT"
 
-      - name: Full dataset refresh
+      - name: Refresh public snapshots
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.run == 'true'
+        run: node scripts/players-data-refresh.mjs --write
+
+      - name: Publish changed snapshots
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.run == 'true'
         run: |
-          echo "Daily full refresh is due (5:00 AM America/New_York, or a manual run)."
-          echo "DATASET_FETCH=not_run"
-          echo "This workflow is the schedule gate. It does not rebuild or commit the player dataset until the fetch step is attached."
-          echo "News is a separate in-app check and is not run here."
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add data/refresh-status.json data/league-settings.json data/news-cache.json data/nfl-availability.json
+          if git diff --cached --quiet; then
+            echo "No snapshot change to publish."
+          else
+            git commit -m "Daily public snapshot (5:00 AM America/New_York)"
+            git push
+          fi

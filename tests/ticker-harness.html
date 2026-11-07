@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Ticker harness</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/mobile.css">
+  <style>body { margin: 0; min-height: 100vh; background: #12160f; }</style>
+</head>
+<body class="screen-menu-active">
+  <main id="probe" style="padding:16px;color:#fff">Harness</main>
+  <aside id="real-news-ticker" class="real-news-ticker" hidden></aside>
+  <script src="../js/refresh-clock.js"></script>
+  <script src="../js/news-feed.js"></script>
+  <script src="../js/team-logos.js"></script>
+  <script>
+    window.AFANewsTicker = null;
+  </script>
+  <script src="../js/news-ticker.js"></script>
+  <script>
+    const items = [
+      { title: "Chiefs trade for a Cowboys defender in a blockbuster", sourceUrl: "https://www.espn.com/nfl/story/trade", league: "NFL", flag: "rumor", publishedAt: "Fri, 6 Nov 2026 15:00:00 EST", retrievedAt: "2026-11-07T00:38:44.924Z" },
+      { title: "Quarterback commits to Ohio State after leaving Texas", sourceUrl: "https://www.espn.com/college-football/story/portal", league: "NCAAF", flag: "unknown", publishedAt: "Sat, 7 Nov 2026 12:00:00 EST", retrievedAt: "2026-11-07T00:38:44.924Z" }
+    ];
+    window.AFANewsTicker.setHeadlines(items, "");
+    document.body.classList.remove("screen-boot-active");
+    window.AFANewsTicker.render();
+  </script>
+</body>
+</html>

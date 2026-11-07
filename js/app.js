@@ -99,7 +99,8 @@
       gamePlans: {},
       lastWatchedGame: null,
       playoffs: null,
-      coachPool: null
+      coachPool: null,
+      liveDataEffects: false
     };
   }
 
@@ -140,7 +141,7 @@
     const active = document.querySelector(".screen.active");
     if (!active || !active.id || active.id.indexOf("screen-") !== 0) return;
     const id = active.id.slice("screen-".length);
-    if (!id || id === "boot") return;
+    if (!id || id === "boot" || id === "directory" || id === "scouting") return;
     // Mid-draft: keep phase as draft even if you glanced at the menu
     if (draftInProgress() && (id === "menu" || id === "mode" || id === "story")) {
       state.phase = "draft";
@@ -269,6 +270,7 @@
       try { ensureDynasty(); } catch (e) { console.warn("dynasty migrate", e); }
       if (typeof state.clockLimit !== "number") state.clockLimit = 15;
       if (typeof state.clockPaused !== "boolean") state.clockPaused = state.clockLimit === 0;
+      if (typeof state.liveDataEffects !== "boolean") state.liveDataEffects = false;
       if (typeof savedState.seasonStarted !== "boolean") {
         // Week 1 after a founding draft still counts as draft era so Draft Room stays available
         state.seasonStarted = !!(state.seasonDone || ((state.week | 0) > 1));
@@ -385,7 +387,7 @@
       const ws = sc.querySelector(".workspace");
       if (ws) ws.scrollTop = 0;
     }
-    ["boot","menu","mode","story","coaches","draft","hub"].forEach((name) => {
+    ["boot","menu","mode","story","coaches","draft","hub","directory","scouting"].forEach((name) => {
       document.body.classList.toggle("screen-" + name + "-active", name === id);
     });
     if (window.AFAMobileUnpinScout) { try { window.AFAMobileUnpinScout(); } catch (e) {} }
@@ -648,6 +650,15 @@
     };
     bootTimer = setTimeout(go, 5000);
     $("screen-boot").onclick = go;
+  }
+
+  function openDirectory() {
+    showScreen("directory");
+    if (window.AFADirectory) AFADirectory.mount($("directory-root"));
+  }
+  function openScouting() {
+    showScreen("scouting");
+    if (window.AFAScouting) AFAScouting.mount($("scouting-root"));
   }
 
   function renderMenu() {
@@ -3679,6 +3690,10 @@
     ).join("") || `<p class="help">No roster yet.</p>`;
 
     return `<div class="league-home">
+      <div class="home-study" role="navigation" aria-label="Real NFL study">
+        <button type="button" class="study-card" id="btn-hub-players"><span class="eyebrow">Directory</span><strong>Players</strong><span>Real NFL teams, stats, and photos.</span></button>
+        <button type="button" class="study-card" id="btn-hub-scouting"><span class="eyebrow">Workspace</span><strong>Scouting</strong><span>NFL grades, plus OGFFL or Dynasty kept apart.</span></button>
+      </div>
       <div class="home-hero" style="--club:${team.primary}">
         <div class="home-hero-main">
           ${logoImg(team, "lg")}
@@ -4299,6 +4314,10 @@
       if (ui.hubTab === "trades") ui.tradeLeft = ui.viewTeamId;
       renderHub();
     };
+    const hubPlayers = $("btn-hub-players");
+    const hubScout = $("btn-hub-scouting");
+    if (hubPlayers) hubPlayers.onclick = openDirectory;
+    if (hubScout) hubScout.onclick = openScouting;
     document.querySelectorAll("[data-home-tab]").forEach((b) => {
       b.onclick = () => {
         ui.hubTab = b.getAttribute("data-home-tab");
@@ -5021,6 +5040,10 @@
 
   function bindChrome() {
     $("btn-play-story").onclick = confirmNewStory;
+    if ($("btn-open-players")) $("btn-open-players").onclick = openDirectory;
+    if ($("btn-open-scouting")) $("btn-open-scouting").onclick = openScouting;
+    if ($("btn-directory-back")) $("btn-directory-back").onclick = renderMenu;
+    if ($("btn-scouting-back")) $("btn-scouting-back").onclick = renderMenu;
     $("btn-continue").onclick = () => resumePhase();
     $("btn-reset-menu").onclick = resetLeague;
     const bindSave = (id) => { const el = $(id); if (el) el.onclick = manualSave; };
@@ -5100,8 +5123,22 @@
     } catch (e) { console.warn("careers hooks", e); }
     syncHubDraftTab();
     updateDraftRoomFab();
+    const params = new URLSearchParams(location.search);
+    if (params.get("screen") === "players") { openDirectory(); return; }
+    if (params.get("screen") === "scouting") { openScouting(); return; }
     startBoot();
   }
+
+  window.AFAWorkspaceHooks = {
+    setLiveEffects: function (on) {
+      state.liveDataEffects = !!on;
+      save();
+    },
+    openRealNews: function () {
+      openScouting();
+      if (window.AFAScouting && AFAScouting.showTab) AFAScouting.showTab("news");
+    }
+  };
 
   window.FB = {
     resetLeague, confirmNewStory, resumePhase,

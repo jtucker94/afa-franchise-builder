@@ -50,6 +50,10 @@ const SHELL_URLS = [
   "./js/draft-engine.js?v=034",
   "./js/refresh-clock.js?v=034",
   "./js/news-feed.js?v=034",
+  "./js/team-logos.js?v=034",
+  "./js/news-ticker.js?v=034",
+  "./js/workspace-data.js?v=034",
+  "./js/workspace-ui.js?v=034",
   "./js/app.js?v=034"
 ];
 
@@ -58,7 +62,11 @@ const ON_DEMAND_HINTS = [
   "sleeper-nfl-players.json",
   "espn-active-roster.json",
   "afa-nfl-free-agents.json",
-  "afa-college-prospects.json"
+  "afa-college-prospects.json",
+  "league-settings.json",
+  "news-cache.json",
+  "nfl-availability.json",
+  "refresh-status.json"
 ];
 
 self.addEventListener("install", (event) => {
