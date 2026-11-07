@@ -39,6 +39,8 @@
   function nflTeam(player, sleeper, avail) {
     var live = liveRow(avail, player);
     var raw = (live && live.team) || (sleeper && sleeper.team) || (player && player.nflTeam) || "";
+    if (String(raw).toUpperCase() === "WSH") raw = "WAS";
+    if (String(raw).toUpperCase() === "JAC") raw = "JAX";
     var source = live && live.team ? "sleeper-live" : (sleeper && sleeper.team ? "sleeper-snapshot" : (player && player.nflTeam ? "espn-pool" : "none"));
     if (!raw || raw === "FA" || raw === "None" || raw === "null") {
       return { abbr: "FA", label: "Free agent", source: source === "none" ? "none" : source };
@@ -66,8 +68,12 @@
   }
 
   function teamLogo(abbr) {
+    if (root.AFATeamLogos && root.AFATeamLogos.currentNfl) {
+      var mark = root.AFATeamLogos.currentNfl(abbr);
+      return mark ? mark.url : null;
+    }
     if (!abbr || abbr === "FA") return null;
-    return "https://a.espncdn.com/i/teamlogos/nfl/500/" + String(abbr).toLowerCase() + ".png";
+    return null;
   }
 
   function directoryRows(players, sleeperMap, avail) {

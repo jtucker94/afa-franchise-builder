@@ -2074,6 +2074,12 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 }
 .real-news-ticker[hidden] { display: none !important; }
 body.has-real-ticker .screen.active { padding-bottom: calc(var(--rnt-h) + var(--rnt-bottom)); }
+body.has-real-ticker .save-fab,
+body.has-real-ticker .draft-fab { bottom: calc(var(--rnt-h) + var(--rnt-bottom) + 12px); }
+body.screen-directory-active .save-fab,
+body.screen-scouting-active .save-fab,
+body.screen-directory-active .draft-fab,
+body.screen-scouting-active .draft-fab { display: none; }
 .rnt-kicker { flex: 0 0 auto; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; }
 .rnt-viewport { flex: 1; min-width: 0; overflow: hidden; }
 .rnt-track { display: inline-block; white-space: nowrap; }

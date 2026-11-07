@@ -158,7 +158,7 @@
       photoHtml(p) +
       '<div><p class="eyebrow">Real NFL · ' + esc(team.source) + '</p><h2>' + esc(p.name) + '</h2>' +
       '<p>' + logoHtml(team.abbr) + ' <strong>' + esc(team.label) + '</strong> · <span class="pos-pill pos-' + esc(p.pos) + '">' + esc(p.pos) + '</span> · Game rating ' + esc(p.ovr == null ? "Not on record" : p.ovr) + '</p>' +
-      '<p class="help">Status: ' + esc(avail.text) + '. Unknown is not healthy. ' + (club ? 'In this save only: AFA ' + esc(club) + '. ' : '') + '</p>' +
+      '<p class="help">Status: ' + esc(avail.text) + '. ' + (avail.kind === "unknown" ? "Unknown is not healthy. " : "") + (club ? 'In this save only: AFA ' + esc(club) + '. ' : '') + '</p>' +
       '<p class="help">Photo: ' + (shot.url ? esc(shot.source) : 'No photo id on file.') + '</p></div></article>' +
       '<h3>2025 regular-season stats</h3>' +
       '<p class="help">' + (sheet.season ? 'Season ' + esc(sheet.season) + ' · source file stats-2025.js' : 'No 2025 line for this id.') + ' ' + esc(sheet.note || '') + '</p>' +
@@ -402,6 +402,7 @@
       newsItems.forEach(function (n) { seen[n.id] = true; });
       added.forEach(function (n) { if (!seen[n.id]) newsItems.unshift(n); });
       scoutState.newsStatus = "Retrieved " + now.toISOString() + ". New headlines " + added.length + "." + (outages.length ? " Outage: " + outages.join("; ") + "." : "") + " Ratings and saves were not changed.";
+      if (added.length && root.AFANewsTicker && root.AFANewsTicker.setHeadlines) root.AFANewsTicker.setHeadlines(newsItems, "");
       if (scoutState.tab === "news") paintScouting();
     });
   }

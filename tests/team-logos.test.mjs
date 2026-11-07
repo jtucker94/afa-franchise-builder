@@ -14,6 +14,7 @@ function check(cond, msg) { if (!cond) failures.push(msg); }
 const kc = L.currentNfl("KC");
 check(kc && kc.role === "current" && kc.url.indexOf("/nfl/500/kc.png") > 0, "Chiefs current logo missing");
 check(L.currentNfl("WAS").url.indexOf("/wsh.png") > 0, "Washington should use the ESPN wsh slug");
+check(L.currentNfl("WSH").abbr === "WAS", "WSH was not folded into the Commanders");
 check(L.currentNfl("prov") == null && L.currentNfl("FA") == null, "AFA or free-agent abbr got a logo");
 
 const brown = L.storyTeams("Brown is questionable for Sunday");

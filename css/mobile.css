@@ -486,7 +486,11 @@
    * (Coach + draft headers have Save; FAB was covering names/OVR on iPhone.) */
   body.screen-mode-active .save-fab,
   body.screen-coaches-active .save-fab,
-  body.screen-draft-active .save-fab {
+  body.screen-draft-active .save-fab,
+  body.screen-directory-active .save-fab,
+  body.screen-scouting-active .save-fab,
+  body.screen-directory-active .draft-fab,
+  body.screen-scouting-active .draft-fab {
     display: none !important;
   }
   body.screen-mode-active .draft-fab,

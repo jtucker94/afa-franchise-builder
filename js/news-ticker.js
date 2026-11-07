@@ -11,6 +11,9 @@
   var status = "";
   var timer = null;
   var rendering = false;
+  var renders = 0;
+  var renderWindowStart = 0;
+  var stopped = false;
 
   function prefersStill() {
     return root.matchMedia && root.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -66,7 +69,24 @@
   }
 
   function render() {
-    if (rendering) return;
+    if (stopped || rendering) return;
+    var now = Date.now();
+    if (!renderWindowStart || now - renderWindowStart > 1000) {
+      renderWindowStart = now;
+      renders = 0;
+    }
+    renders += 1;
+    root.__tickerRenders = (root.__tickerRenders || 0) + 1;
+    if (renders > 8) {
+      stopped = true;
+      var bar = document.getElementById("real-news-ticker");
+      if (bar) {
+        bar.hidden = false;
+        bar.textContent = "";
+        bar.appendChild(el("p", "rnt-empty", "Ticker stopped: too many redraws. No headlines were invented."));
+      }
+      return;
+    }
     rendering = true;
     try { renderNow(); } finally { rendering = false; }
   }
@@ -177,21 +197,33 @@
     if (root.AFAScouting && root.AFAScouting.checkNews) root.AFAScouting.checkNews(false);
   }
 
-  function start() {
-    try { hiddenPref = localStorage.getItem(HIDE_KEY) === "1"; } catch (e) { hiddenPref = false; }
-    loadCache();
-    if (timer) clearInterval(timer);
+  function armRefresh() {
+    if (timer) clearTimeout(timer);
     var wait = root.AFARefreshClock ? root.AFARefreshClock.NEWS_INTERVAL_MS : 300000;
-    timer = setInterval(function () { maybeRefresh(); render(); }, wait);
-    var obs = new MutationObserver(function () { if (!rendering) render(); });
-    obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-    ["draft-intro", "draft-complete", "scout-card"].forEach(function (id) {
-      var node = document.getElementById(id);
-      if (node) obs.observe(node, { attributes: true, attributeFilter: ["hidden"] });
-    });
+    timer = setTimeout(function () {
+      timer = null;
+      maybeRefresh();
+      armRefresh();
+    }, wait);
   }
 
-  root.AFANewsTicker = { start: start, render: render, setHeadlines: setHeadlines, loadCache: loadCache };
+  function start() {
+    try { hiddenPref = localStorage.getItem(HIDE_KEY) === "1"; } catch (e) { hiddenPref = false; }
+    try {
+      if (new URLSearchParams(root.location.search).get("ticker") === "off") hiddenPref = true;
+    } catch (e) {}
+    loadCache();
+    armRefresh();
+  }
+
+  root.AFANewsTicker = {
+    start: start,
+    render: render,
+    onScreen: render,
+    setHeadlines: setHeadlines,
+    loadCache: loadCache,
+    stopped: function () { return stopped; }
+  };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })(window);

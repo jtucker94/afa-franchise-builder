@@ -118,8 +118,10 @@
     };
   }
 
+  var ABBR_ALIAS = { WSH: "WAS", JAC: "JAX" };
   function currentNfl(abbr) {
     var key = String(abbr || "").toUpperCase();
+    key = ABBR_ALIAS[key] || key;
     if (!NFL_BY_ABBR[key]) return null;
     return nflMark(NFL_BY_ABBR[key], "current");
   }

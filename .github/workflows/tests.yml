@@ -1,0 +1,21 @@
+# Pull-request tests. The daily data refresh is a separate schedule and does not run here.
+name: Tests
+on:
+  pull_request:
+  push:
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Draft regression
+        run: node tests/draft-regression.mjs
+      - name: News schedule
+        run: node tests/news-and-schedule.test.mjs
+      - name: Players and leagues
+        run: node tests/workspace.test.mjs
+      - name: Team logos
+        run: node tests/team-logos.test.mjs

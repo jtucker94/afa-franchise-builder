@@ -395,6 +395,9 @@
       try { window.AFAMobile.resetScreenScroll(id); } catch (_) {}
     }
     updateDraftRoomFab();
+    if (window.AFANewsTicker && AFANewsTicker.onScreen) {
+      try { AFANewsTicker.onScreen(); } catch (e) {}
+    }
   }
 
   function toast(msg) {
@@ -4780,6 +4783,9 @@
       state.rosters[tm.id] = (state.rosters[tm.id] || []).filter((id) => keep[id]);
       trimmed.cut.forEach((p) => { if (state.fa.indexOf(p.id) < 0) state.fa.push(p.id); });
     });
+    // Unfilled college slots stay empty. Clubs under 53 may sign real free agents
+    // already in the pool. This does not create prospects.
+    try { refillRostersFromFA(); } catch (e) { console.warn("fa refill", e); }
     state.seasonYear = (state.seasonYear || year) + 1;
     state.draftYear = state.seasonYear;
     state.seasonDone = false;
