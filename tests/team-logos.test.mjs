@@ -53,7 +53,11 @@ check(L.safeHref("http://example.com") == null && L.safeHref("javascript:alert(1
 const css = fs.readFileSync(root + "css/style.css", "utf8") + fs.readFileSync(root + "css/mobile.css", "utf8");
 check(css.includes("prefers-reduced-motion") && css.includes("--rnt-bottom"), "ticker motion or mobile offset missing");
 check(css.includes("screen-hub-active") && css.includes("--mobile-tab-h"), "ticker is not lifted above the phone tab bar");
-check(!/aria-live/.test(fs.readFileSync(root + "js/news-ticker.js", "utf8")), "ticker announces continuously");
+const tickerSrc = fs.readFileSync(root + "js/news-ticker.js", "utf8");
+check(!/aria-live/.test(tickerSrc), "ticker announces continuously");
+check(tickerSrc.includes('"Hide"') && !tickerSrc.includes('"Pause"') && !tickerSrc.includes('"News"'), "ticker still shows Pause or News");
+check(tickerSrc.includes("localStorage.removeItem(HIDE_KEY)"), "hidden ticker cannot be restored");
+check(/:hover[\s\S]*focus-within[\s\S]*animation-play-state:\s*paused/.test(css), "crawl does not pause on hover or focus");
 
 if (failures.length) {
   console.error("FAILED " + failures.length);

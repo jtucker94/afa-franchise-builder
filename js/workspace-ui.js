@@ -416,6 +416,8 @@
       '<p class="help">' + esc(cov ? cov.check + ' ' + cov.notGuaranteed : '') + '</p>' +
       '<p class="help">' + esc(cov ? cov.ncaaf : '') + ' ' + esc(cov ? cov.dailySeparated : '') + '</p>' +
       '<button type="button" class="btn btn-primary" id="btn-news-now">Check headlines now</button>' +
+      '<button type="button" class="btn" id="btn-show-ticker">Show the bottom news bar</button>' +
+      '<p class="help">Hide on the bar only stores that choice in this browser. This button brings the bar back. A headline still opens its source.</p>' +
       '<div id="news-status" class="help">' + esc(scoutState.newsStatus || "") + '</div>' + rows;
   }
 
@@ -461,6 +463,7 @@
       return;
     }
     if (e.target.id === "btn-news-now") checkNews(true);
+    if (e.target.id === "btn-show-ticker" && root.AFANewsTicker && root.AFANewsTicker.show) root.AFANewsTicker.show();
     if (e.target.id === "btn-load-rosters") loadLeagueRosters();
   }
 

@@ -5,7 +5,6 @@
 (function (root) {
   "use strict";
   var HIDE_KEY = "afa-real-news-ticker-hidden";
-  var paused = false;
   var hiddenPref = false;
   var headlines = [];
   var status = "";
@@ -104,8 +103,8 @@
     }
     bar.hidden = false;
     document.body.classList.add("has-real-ticker");
-    if (paused) bar.classList.add("is-paused"); else bar.classList.remove("is-paused");
     if (prefersStill()) bar.classList.add("is-still"); else bar.classList.remove("is-still");
+    bindHold(bar);
 
     bar.setAttribute("aria-label", "Real NFL and college headlines");
     bar.appendChild(el("p", "rnt-fresh", freshnessText));
@@ -145,29 +144,34 @@
       row.appendChild(viewport);
       row.appendChild(staticList);
     }
-    function control(label, pressed) {
-      var btn = el("button", "rnt-btn");
-      btn.type = "button";
-      btn.appendChild(el("span", "rnt-btn-label", label));
-      if (pressed != null) btn.setAttribute("aria-pressed", pressed ? "true" : "false");
-      return btn;
-    }
-    var pauseBtn = control(paused ? "Play" : "Pause", paused);
-    pauseBtn.addEventListener("click", function () { paused = !paused; render(); });
-    var hideBtn = control("Hide");
+    var hideBtn = el("button", "rnt-btn");
+    hideBtn.type = "button";
+    hideBtn.setAttribute("aria-label", "Hide the news bar");
+    hideBtn.appendChild(el("span", "rnt-btn-label", "Hide"));
     hideBtn.addEventListener("click", function () {
       hiddenPref = true;
       try { localStorage.setItem(HIDE_KEY, "1"); } catch (e) {}
       render();
     });
-    var more = control("News");
-    more.addEventListener("click", function () {
-      if (root.AFAWorkspaceHooks && root.AFAWorkspaceHooks.openRealNews) root.AFAWorkspaceHooks.openRealNews();
-    });
-    row.appendChild(pauseBtn);
     row.appendChild(hideBtn);
-    row.appendChild(more);
     void hide;
+  }
+
+  function bindHold(bar) {
+    if (!bar || bar.getAttribute("data-hold") === "1") return;
+    bar.setAttribute("data-hold", "1");
+    function down() { bar.classList.add("is-held"); }
+    function up() { bar.classList.remove("is-held"); }
+    bar.addEventListener("pointerdown", down);
+    bar.addEventListener("pointerup", up);
+    bar.addEventListener("pointercancel", up);
+    bar.addEventListener("pointerleave", up);
+  }
+
+  function show() {
+    hiddenPref = false;
+    try { localStorage.removeItem(HIDE_KEY); } catch (e) {}
+    render();
   }
 
   function setFreshness(text) {
@@ -237,6 +241,7 @@
     onScreen: render,
     setHeadlines: setHeadlines,
     setFreshness: setFreshness,
+    show: show,
     loadCache: loadCache,
     stopped: function () { return stopped; }
   };

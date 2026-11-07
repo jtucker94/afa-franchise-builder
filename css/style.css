@@ -2088,8 +2088,10 @@ body.screen-scouting-active .draft-fab { display: none; }
 .rnt-viewport { flex: 1; min-width: 0; overflow: hidden; }
 .rnt-track { display: inline-block; white-space: nowrap; }
 .rnt-track .rnt-item { display: inline-flex; align-items: center; gap: 4px; margin-right: 22px; }
-.real-news-ticker:not(.is-paused):not(.is-still) .rnt-track { animation: rnt-marquee 90s linear infinite; }
-.real-news-ticker.is-paused .rnt-track { animation-play-state: paused; }
+.real-news-ticker:not(.is-still) .rnt-track { animation: rnt-marquee 90s linear infinite; }
+.real-news-ticker:hover .rnt-track,
+.real-news-ticker:focus-within .rnt-track,
+.real-news-ticker.is-held .rnt-track { animation-play-state: paused; }
 @keyframes rnt-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 .rnt-static { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0; padding: 0; list-style: none; }
 .rnt-cat, .rnt-flag { flex: 0 0 auto; font-size: 9px; letter-spacing: .03em; line-height: 14px; text-transform: uppercase; border: 1px solid var(--gold-dim); color: var(--gold-2); border-radius: 999px; padding: 0 4px; }
@@ -2101,7 +2103,6 @@ body.screen-scouting-active .draft-fab { display: none; }
 .rnt-empty { flex: 1; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rnt-btn { flex: 0 0 auto; min-height: 44px; min-width: 44px; padding: 0; border: 0; background: transparent; color: var(--gold-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .rnt-btn-label { font-size: 11px; line-height: 1; padding: 2px 5px; border: 1px solid var(--gold-dim); border-radius: 6px; pointer-events: none; }
-.rnt-btn[aria-pressed="true"] .rnt-btn-label { background: rgba(201, 162, 39, 0.22); border-color: var(--gold-2); }
 .rnt-btn:focus-visible, .rnt-link:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .real-news-ticker .rnt-viewport { display: none; }
