@@ -2053,7 +2053,7 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 #screen-directory .workspace, #screen-scouting .workspace { padding: 16px; overflow: auto; }
 
 /* Real NFL/college ticker. Separate from .draft-open-ticker (AFA fiction). */
-:root { --rnt-h: 48px; --rnt-bottom: env(safe-area-inset-bottom, 0px); }
+:root { --rnt-h: 64px; --rnt-bottom: env(safe-area-inset-bottom, 0px); }
 .real-news-ticker {
   position: fixed;
   left: 0;
@@ -2062,9 +2062,11 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
   height: var(--rnt-h);
   z-index: 45;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 8px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px 8px;
   box-sizing: border-box;
   background: #10160f;
   color: #f4f1e4;
@@ -2080,6 +2082,8 @@ body.screen-directory-active .save-fab,
 body.screen-scouting-active .save-fab,
 body.screen-directory-active .draft-fab,
 body.screen-scouting-active .draft-fab { display: none; }
+.rnt-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rnt-fresh { margin: 0; font-size: 11px; line-height: 1.2; color: #d5ddcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rnt-kicker { flex: 0 0 auto; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; }
 .rnt-viewport { flex: 1; min-width: 0; overflow: hidden; }
 .rnt-track { display: inline-block; white-space: nowrap; }

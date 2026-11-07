@@ -66,6 +66,11 @@
         <p class="eyebrow">AFA league setup</p>
         <h1 style="font-family:var(--display);text-transform:uppercase">How do you want to build the league?</h1>
         <p class="sub">Jordan runs the founding of the Alliance. Choose a commissioner's desk or a single franchise.</p>
+        <label class="ws-toggle" for="opt-real-avail">
+          <input type="checkbox" id="opt-real-avail">
+          <span>Apply verified NFL availability to this new franchise. Out, IR, PUP, and suspensions from the dated snapshot mark those players unavailable for lineups and starter counts. Base GMFB ratings stay. Rumors, questionable tags, and blank statuses do nothing. Leave this off to ignore real-world status. This does not change a save you already have.</span>
+        </label>
+        <p class="help" id="real-status-source">Loading the availability snapshot time.</p>
         <div class="mode-grid">
           <button class="mode-tile" id="btn-mode-all32" type="button">
             <div class="tag">All 32 clubs</div>
@@ -320,6 +325,8 @@
   <script src="js/draft-engine.js?v=034"></script>
   <script src="js/refresh-clock.js?v=034"></script>
   <script src="js/news-feed.js?v=034"></script>
+  <script src="js/real-status.js?v=034"></script>
+  <script src="js/league-scout.js?v=034"></script>
   <script src="js/team-logos.js?v=034"></script>
   <script src="js/news-ticker.js?v=034"></script>
   <script src="js/workspace-data.js?v=034"></script>

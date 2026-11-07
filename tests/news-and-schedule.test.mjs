@@ -98,9 +98,14 @@ check(News.CURSOR_KEY !== "afa-gm-franchise-builder-v029", "news cursor uses the
 const app = fs.readFileSync(root + "js/app.js", "utf8");
 check(app.includes('const STORAGE = "afa-gm-franchise-builder-v029"'), "franchise save key changed");
 
+const fresh = News.freshness({ snapshotAt: "2026-11-07T00:38:44Z", lastError: "CORS or network" });
+check(fresh.guaranteedFiveMinute === false, "freshness claims a five-minute guarantee");
+check(/Snapshot 2026-11-07T00:38:44Z/.test(fresh.banner) && /not a freshness guarantee/.test(fresh.banner), "banner hid the snapshot or overclaimed freshness");
+check(News.backoffMs(0) === 300000 && News.backoffMs(1) === 600000 && News.backoffMs(8) === 30 * 60 * 1000, "backoff is not capped");
+
 if (failures.length) {
   console.error("FAILED " + failures.length);
   failures.forEach((f) => console.error(" - " + f));
   process.exit(1);
 }
-console.log("PASS " + 28);
+console.log("PASS");

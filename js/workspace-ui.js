@@ -4,7 +4,7 @@
   var D = function () { return root.AFAWorkspaceData; };
   var PAGE = 40;
   var dirState = { page: 0, pos: "", team: "", sort: "name", text: "", selected: null };
-  var scoutState = { league: "nfl", tab: "overview", compare: [], watch: [] };
+  var scoutState = { league: "nfl", tab: "overview", compare: [], watch: [], occupiedBy: {}, newsFails: 0, snapshotAt: null };
   var newsTimer = null;
   var newsItems = [];
   var newsCursor = null;
@@ -90,7 +90,8 @@
       '<select id="dir-sort" aria-label="Sort"><option value="name">Name</option><option value="ovr">Game rating</option><option value="pos">Position</option><option value="team">NFL team</option><option value="status">Status</option></select>' +
       '</div>' +
       '<p class="help" id="dir-count"></p>' +
-      '<label class="ws-toggle"><input type="checkbox" id="dir-live"' + ((saveState() && saveState().liveDataEffects) ? " checked" : "") + '> Show this save\'s AFA club beside the real NFL team. Overalls, rosters, and the draft stay unchanged.</label>' +
+      '<label class="ws-toggle"><input type="checkbox" id="dir-live"' + ((saveState() && saveState().liveDataEffects) ? " checked" : "") + '> Show this save\'s AFA club beside the real NFL team. This box does not change ratings or availability.</label>' +
+      realStatusHtml() +
       '<div class="ws-split"><div class="ws-list" id="dir-list" role="list"></div><div class="ws-detail" id="dir-detail"><p class="help">Select a player. The team shown is the real NFL team, not an AFA assignment.</p></div></div>' +
       '<div class="ws-pager"><button type="button" class="btn" id="dir-prev">Previous</button><span id="dir-page"></span><button type="button" class="btn" id="dir-next">Next</button></div>';
     $("dir-sort").value = dirState.sort;
@@ -107,6 +108,8 @@
       else st.liveDataEffects = !!$("dir-live").checked;
       paintDirectory();
     };
+    var applyBtn = $("btn-apply-real");
+    if (applyBtn) applyBtn.onclick = onApplyReal;
     $("dir-list").addEventListener("click", function (e) {
       var btn = e.target.closest("[data-dir]");
       if (!btn) return;
@@ -114,6 +117,34 @@
       paintDirectory();
     });
     paintDirectory();
+  }
+
+  function realStatusHtml() {
+    var st = saveState();
+    var rs = st && st.realWorldStatus;
+    var on = !!(rs && rs.enabled);
+    var form = root.AFARealStatus ? root.AFARealStatus.formAdjustment() : { reason: "No evidence to adjust." };
+    var line = on
+      ? "Verified availability is on for this save (" + (rs.scope || "on") + ", source " + (rs.sourceFetchedAt || "time not stored") + "). Base ratings were not rewritten. Holds: " + Object.keys(rs.holds || {}).length + "."
+      : "Verified availability is off for this save. Nothing has been written onto the AFA timeline.";
+    return '<p class="help" id="real-status-line">' + esc(line) + " " + esc(form.reason) + '</p>' +
+      '<button type="button" class="btn" id="btn-apply-real">' + (on ? "Turn off verified availability" : "Apply verified availability to this save") + '</button>';
+  }
+
+  function onApplyReal() {
+    var st = saveState();
+    var on = !!(st && st.realWorldStatus && st.realWorldStatus.enabled);
+    if (on) {
+      if (!window.confirm("Turn off the real-world availability overlay on this save? Base ratings and any AFA injury already stored stay as they are.")) return;
+      if (root.AFAWorkspaceHooks && root.AFAWorkspaceHooks.confirmRealStatus) root.AFAWorkspaceHooks.confirmRealStatus(false);
+    } else {
+      var when = (root.AFA_NFL_AVAIL && root.AFA_NFL_AVAIL.fetchedAt) || "the loaded snapshot";
+      if (!window.confirm("Apply verified NFL availability from " + when + " to this existing save?\n\nBase GMFB ratings stay the same. Rumors are ignored. Players who already have an AFA injury keep that injury record. Out, IR, PUP, and suspension marks are stored beside the save and keep those players out of the active lineup. This does not replace the season timeline.")) return;
+      var result = root.AFAWorkspaceHooks && root.AFAWorkspaceHooks.confirmRealStatus && root.AFAWorkspaceHooks.confirmRealStatus(true);
+      if (!result || !result.applied) window.alert((result && result.reason) || "The snapshot was not applied.");
+    }
+    var host = document.querySelector("#directory-root");
+    if (host) mountDirectory(host);
   }
 
   function paintDirectory() {
@@ -166,7 +197,7 @@
         return '<div><span>' + esc(c.label) + '</span><b class="ws-' + c.cell.kind + '">' + esc(c.cell.text) + '</b></div>';
       }).join("") + '</div>' +
       '<h3>2026 Sleeper snapshot</h3>' + sleeperStatsHtml(sl) +
-      '<p class="help">Game rating is the GMFB roster number. It is not an official PFF or ESPN grade. Sleeper ADP is a market signal. Popularity is not skill.</p>';
+      '<p class="help">Game rating is the stored GMFB number. ' + esc((root.AFARealStatus ? root.AFARealStatus.formAdjustment() : { reason: "No evidence to adjust." }).reason) + ' It is not an official PFF or ESPN grade. Sleeper ADP is a market signal. Popularity is not skill.</p>';
   }
 
   function sleeperStatsHtml(sl) {
@@ -260,7 +291,8 @@
     var haveHtml = Object.keys(have).sort().map(function (pos) {
       return '<div><span>' + esc(pos) + ' on roster</span><b>' + have[pos] + '</b></div>';
     }).join("");
-    var typeNote = "Sleeper settings.type is " + esc(lg.settingsType == null ? "not in this file" : lg.settingsType) + ". Taxi slots: " + esc(lg.taxiSlots == null ? "n/a" : lg.taxiSlots) + ". This screen does not rename that code into redraft or dynasty.";
+    var fmt = root.AFALeagueScout ? root.AFALeagueScout.formatLabel(lg.settingsType, lg.league || lg.name) : { note: "Format module missing.", settingsType: lg.settingsType };
+    var typeNote = "Sleeper settings.type is " + esc(fmt.settingsType == null ? "not in this file" : fmt.settingsType) + ". " + esc(fmt.note || "") + " Taxi slots: " + esc(lg.taxiSlots == null ? "n/a" : lg.taxiSlots) + ".";
     var scoreKeys = ["pass_yd", "pass_td", "pass_int", "rush_yd", "rush_td", "rec", "rec_yd", "rec_td", "sack"];
     var scoreHtml = scoreKeys.filter(function (k) { return lg.scoring && lg.scoring[k] != null; }).map(function (k) {
       return '<div><span>' + esc(k) + '</span><b>' + esc(lg.scoring[k]) + '</b></div>';
@@ -273,10 +305,67 @@
       '<p class="help">Shown only for this league. They are not added to GMFB game ratings.</p>' +
       '<h3>Lineup slots from the league settings</h3><div class="ws-stats">' + (slotHtml || '<p class="help">Roster positions were not in the file.</p>') + '</div>' +
       '<h3>Your roster by real position</h3><div class="ws-stats">' + haveHtml + '</div>' +
-      '<p class="help">Waiver wire, trade targets, and start/sit picks are not listed. This snapshot has no free-agent wire or league projection feed, so those comparisons would be invented.</p>' +
+      lineupAnalysisHtml(lg, slice.mine) +
+      '<h3>Your roster</h3>' +
       '<ul class="ws-roster">' + slice.mine.map(function (p) {
         var team = D().nflTeam(p, sleeperMap()[p.id], root.AFA_NFL_AVAIL || null);
-        return '<li><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + ' · ' + esc(p.pos) + ' · ' + esc(team.label) + ' · rating ' + esc(p.ovr) + '</li>';
+        var pts = recordedFor(p, lg);
+        return '<li><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + ' · ' + esc(p.pos) + ' · ' + esc(team.label) + ' · rating ' + esc(p.ovr) +
+          ' · recorded ' + (pts.total == null ? 'not scored' : esc(pts.total)) + (pts.season ? ' (' + esc(pts.season) + ')' : '') + '</li>';
+      }).join("") + '</ul>' +
+      faHtml(lg, slice.mine) +
+      '<h3>Advanced projections</h3><p class="help">' + esc((root.AFALeagueScout ? root.AFALeagueScout.projections() : { label: "Unavailable." }).label) + '</p>';
+  }
+
+  function recordedFor(player, lg) {
+    if (!root.AFALeagueScout) return { total: null, season: null, parts: [], note: "" };
+    var line = D().seasonLine(root.AFA_STATS_2025, player.id);
+    return root.AFALeagueScout.recordedPoints(line, lg && lg.scoring);
+  }
+
+  function lineupAnalysisHtml(lg, mine) {
+    if (!root.AFALeagueScout) return "";
+    var report = root.AFALeagueScout.analyzeLineup(lg.rosterPositions || [], mine);
+    var rows = (report.slots || []).map(function (row) {
+      var text = row.filled == null ? (row.note || "not counted") : (row.filled + " filled, " + row.short + " short");
+      return '<div><span>' + esc(row.slot) + ' (' + esc(row.slots) + ')</span><b>' + esc(text) + '</b></div>';
+    }).join("");
+    var depth = report.depth || {};
+    var depthHtml = Object.keys(depth).filter(function (k) { return depth[k]; }).map(function (k) {
+      return '<div><span>' + esc(k) + ' left after starters and flex</span><b>' + esc(depth[k]) + '</b></div>';
+    }).join("");
+    return '<h3>Lineup fit for this roster</h3><p class="help">Dedicated slots are filled first. FLEX uses leftover RB, WR, and TE. IDP_FLEX uses leftover DL, LB, and DB. Short means the roster does not cover that slot. This is not a start/sit pick.</p>' +
+      '<div class="ws-stats">' + rows + '</div>' +
+      (depthHtml ? '<h3>Depth after those slots</h3><div class="ws-stats">' + depthHtml + '</div>' : '');
+  }
+
+  function faHtml(lg, mine) {
+    var bag = scoutState.occupiedBy[lg.leagueId] || null;
+    var btn = '<p><button type="button" class="btn" id="btn-load-rosters">Load public league rosters</button></p>';
+    if (!bag) {
+      return '<h3>Available in this league</h3><p class="help">Not loaded. The snapshot has your roster only, so other clubs\' players are not labeled free agents. ' + esc(scoutState.faNote || "") + '</p>' + btn;
+    }
+    var free = root.AFALeagueScout.leagueFreeAgents(players(), bag.ids);
+    var report = root.AFALeagueScout.analyzeLineup(lg.rosterPositions || [], mine);
+    var short = {};
+    (report.slots || []).forEach(function (row) { if (row.short > 0) short[row.slot] = true; });
+    var ranked = free.players.filter(function (p) {
+      var g = root.AFALeagueScout.groupOf(p.pos);
+      if (!g) return false;
+      if (short[g]) return true;
+      if (short.FLEX && (g === "RB" || g === "WR" || g === "TE")) return true;
+      if (short.IDP_FLEX && (g === "DL" || g === "LB" || g === "DB")) return true;
+      return false;
+    });
+    var hole = ranked.length > 0;
+    if (!ranked.length) ranked = free.players.filter(function (p) { return !!root.AFALeagueScout.groupOf(p.pos); });
+    ranked.sort(function (a, b) { return (b.ovr || 0) - (a.ovr || 0) || String(a.name).localeCompare(String(b.name)); });
+    var shown = ranked.slice(0, 12);
+    return '<h3>Available in this league</h3><p class="help">' + esc(free.reason) + ' Loaded ' + esc(bag.at) + ' from api.sleeper.app. ' +
+      (hole ? 'These names can fill a short lineup slot. ' : 'No lineup slot is short, so this is the highest stored rating among unrostered pool players, not a recommendation. ') +
+      esc(free.players.length) + ' pool players are off every roster in that response. Showing ' + shown.length + '.</p>' + btn +
+      '<ul class="ws-roster">' + shown.map(function (p) {
+        return '<li><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + ' · ' + esc(p.pos) + ' · rating ' + esc(p.ovr) + '</li>';
       }).join("") + '</ul>';
   }
 
@@ -291,9 +380,19 @@
       if (!p) return '';
       var sl = sleeperMap()[p.id];
       var adp = sl && sl.adp != null && sl.adp < 999 ? sl.adp : null;
-      return '<article class="ws-card"><div><h3>' + esc(p.name) + '</h3><p>' + esc(p.pos) + ' · ' + esc(D().nflTeam(p, sl, root.AFA_NFL_AVAIL || null).label) + '</p><p>Game rating ' + esc(p.ovr) + '</p><p>Sleeper ADP ' + (adp == null ? 'Unranked' : esc(adp)) + '</p><button type="button" class="btn" data-drop="' + esc(p.id) + '">Remove</button></div></article>';
+      var lg = activeLeague();
+      var pts = recordedFor(p, lg);
+      var partHtml = (pts.parts || []).slice(0, 8).map(function (part) {
+        return '<div><span>' + esc(part.key) + ' ' + esc(part.stat) + ' × ' + esc(part.rate) + '</span><b>' + esc(part.points) + '</b></div>';
+      }).join("");
+      return '<article class="ws-card"><div><h3>' + esc(p.name) + '</h3><p>' + esc(p.pos) + ' · ' + esc(D().nflTeam(p, sl, root.AFA_NFL_AVAIL || null).label) + '</p><p>Stored game rating ' + esc(p.ovr) + '</p><p>Sleeper ADP ' + (adp == null ? 'Unranked' : esc(adp)) + '</p>' +
+        '<p>Recorded points ' + (pts.total == null ? 'not scored' : esc(pts.total)) + (pts.season ? ' in ' + esc(pts.season) : '') + '. ' + esc(pts.note || '') + '</p>' +
+        (partHtml ? '<div class="ws-stats">' + partHtml + '</div>' : '') +
+        '<p class="help">' + esc((root.AFARealStatus ? root.AFARealStatus.formAdjustment() : { reason: "No evidence to adjust." }).reason) + '</p>' +
+        '<button type="button" class="btn" data-drop="' + esc(p.id) + '">Remove</button></div></article>';
     }).join("");
-    return '<p class="help">Add up to two players from a league roster or the watchlist. Comparison is rating and ADP only.</p>' +
+    var lgName = activeLeague();
+    return '<p class="help">Add up to two players. Stored rating, ADP, and recorded points use ' + (lgName ? esc(lgName.league || lgName.name) + ' scoring only' : 'no league scoring until you open OGFFL or Dynasty Domination') + '. The two leagues are not mixed. This is not a projection.</p>' +
       (cards || '<p class="help">Nobody in the compare slots.</p>') +
       '<p class="help">Open Overview on a league and use Compare on a roster row.</p>';
   }
@@ -307,7 +406,14 @@
         (n.sourceUrl ? '<p><a href="' + esc(n.sourceUrl) + '" rel="noopener noreferrer">Source</a></p>' : '') +
         '</article>';
     }).join("");
-    return '<p class="help">' + esc(cov ? cov.check + ' ' + cov.notGuaranteed : '') + '</p>' +
+    var fresh = root.AFANews ? root.AFANews.freshness({
+      snapshotAt: scoutState.snapshotAt,
+      lastSuccessAt: newsCursor && newsCursor.lastSuccessAt,
+      lastError: newsCursor && newsCursor.lastError && newsCursor.lastError.message,
+      backoffUntil: root.__newsBackoffUntil ? new Date(root.__newsBackoffUntil).toISOString() : null
+    }) : null;
+    return '<p class="help">' + esc(fresh ? fresh.banner : '') + '</p>' +
+      '<p class="help">' + esc(cov ? cov.check + ' ' + cov.notGuaranteed : '') + '</p>' +
       '<p class="help">' + esc(cov ? cov.ncaaf : '') + ' ' + esc(cov ? cov.dailySeparated : '') + '</p>' +
       '<button type="button" class="btn btn-primary" id="btn-news-now">Check headlines now</button>' +
       '<div id="news-status" class="help">' + esc(scoutState.newsStatus || "") + '</div>' + rows;
@@ -355,23 +461,66 @@
       return;
     }
     if (e.target.id === "btn-news-now") checkNews(true);
+    if (e.target.id === "btn-load-rosters") loadLeagueRosters();
+  }
+
+  function loadLeagueRosters() {
+    var lg = activeLeague();
+    if (!lg || !lg.leagueId || !root.AFALeagueScout) return;
+    scoutState.faNote = "Loading rosters from api.sleeper.app…";
+    fetch("https://api.sleeper.app/v1/league/" + encodeURIComponent(lg.leagueId) + "/rosters").then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (rosters) {
+      scoutState.occupiedBy[lg.leagueId] = {
+        at: new Date().toISOString(),
+        ids: root.AFALeagueScout.occupiedFromRosters(rosters)
+      };
+      scoutState.faNote = "";
+      paintScouting();
+    }).catch(function (err) {
+      scoutState.faNote = "League rosters did not load (" + ((err && err.message) || "failed") + "). Other clubs' players are not labeled free agents.";
+      paintScouting();
+    });
   }
 
   function loadNewsCache() {
     fetch("data/news-cache.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
       if (!data || !data.items) return;
       newsItems = data.items;
+      scoutState.snapshotAt = data.fetchedAt || null;
+      if (root.AFANewsTicker && root.AFANewsTicker.setFreshness && root.AFANews) {
+        root.AFANewsTicker.setFreshness(root.AFANews.freshness({ snapshotAt: data.fetchedAt }).banner);
+      }
       if (scoutState.tab === "news") paintScouting();
     }).catch(function () {});
+  }
+
+  function publishFreshness(errorText) {
+    if (!root.AFANews || !root.AFANewsTicker || !root.AFANewsTicker.setFreshness) return;
+    var until = root.__newsBackoffUntil ? new Date(root.__newsBackoffUntil).toISOString() : null;
+    root.AFANewsTicker.setFreshness(root.AFANews.freshness({
+      snapshotAt: scoutState.snapshotAt,
+      lastSuccessAt: newsCursor && newsCursor.lastSuccessAt,
+      lastError: errorText || (newsCursor && newsCursor.lastError && newsCursor.lastError.message) || null,
+      backoffUntil: until
+    }).banner);
   }
 
   function checkNews(force) {
     if (!root.AFANews || !root.AFARefreshClock) return;
     var now = new Date();
+    if (!force && root.__newsBackoffUntil && Date.now() < root.__newsBackoffUntil) {
+      scoutState.newsStatus = "Last live check failed. Waiting until " + new Date(root.__newsBackoffUntil).toISOString() + " before another request. The snapshot stays on screen.";
+      publishFreshness(scoutState.newsStatus);
+      if (scoutState.tab === "news") paintScouting();
+      return;
+    }
     if (!root.AFARefreshClock.inNewsWindow(now)) {
       scoutState.newsStatus = force
         ? "Outside 8:00 AM–10:55 PM Eastern. A manual check was not sent, so a closed window is not reported as an empty news day."
         : "Outside 8:00 AM–10:55 PM Eastern. No headline check was sent.";
+      publishFreshness(null);
       if (scoutState.tab === "news") paintScouting();
       return;
     }
@@ -401,8 +550,17 @@
       var seen = {};
       newsItems.forEach(function (n) { seen[n.id] = true; });
       added.forEach(function (n) { if (!seen[n.id]) newsItems.unshift(n); });
-      scoutState.newsStatus = "Retrieved " + now.toISOString() + ". New headlines " + added.length + "." + (outages.length ? " Outage: " + outages.join("; ") + "." : "") + " Ratings and saves were not changed.";
+      var liveOk = results.some(function (res) { return res.ok; });
+      if (liveOk) {
+        scoutState.newsFails = 0;
+        root.__newsBackoffUntil = 0;
+      } else {
+        scoutState.newsFails = (scoutState.newsFails || 0) + 1;
+        root.__newsBackoffUntil = Date.now() + root.AFANews.backoffMs(scoutState.newsFails);
+      }
+      scoutState.newsStatus = (liveOk ? "Live response " + now.toISOString() : "Live request failed " + now.toISOString()) + ". New headlines " + added.length + "." + (outages.length ? " Outage: " + outages.join("; ") + "." : "") + " Snapshot " + (scoutState.snapshotAt || "not loaded") + ". Base ratings were not changed. This is not a five-minute guarantee.";
       if (added.length && root.AFANewsTicker && root.AFANewsTicker.setHeadlines) root.AFANewsTicker.setHeadlines(newsItems, "");
+      publishFreshness(liveOk ? null : outages.join("; "));
       if (scoutState.tab === "news") paintScouting();
     });
   }

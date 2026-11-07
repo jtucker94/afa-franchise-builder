@@ -2,7 +2,15 @@
 
 Branch `cursor/draft-roster-identity-57bf`. Not merged. Not deployed. Live Pages is still v0.1.23 until this branch is published.
 
-Save key remains `afa-gm-franchise-builder-v029`.
+Save key remains `afa-gm-franchise-builder-v029`. Display stays `0.1.24`. Asset query and service worker stay `v034`, and the shell cache now also lists `js/real-status.js` and `js/league-scout.js`.
+
+## Owner-approval additions
+
+Verified availability is opt-in. A new franchise checkbox applies Out, IR, PUP, and suspension marks from the Sleeper snapshot to lineup and starter counts. An existing save changes only after **Apply verified availability to this save** and a confirm dialog. Base GMFB overalls, `currentInjury`, and `onIR` are not rewritten. Rumors never apply. The 46 cached headlines have no player id, so they are not status evidence. Questionable, doubtful, and blank statuses do not make a player unavailable. Dated counting stats are not turned into a form rating: the card says there is no evidence to adjust. Fantasy import keeps injured players and drops duplicate ids.
+
+Scouting, for the selected league only, fills dedicated slots then FLEX and IDP_FLEX, shows recorded 2025 points from that league's scoring, and can load every roster from `api.sleeper.app` to label players who are not rostered there. That label is not the AFA free-agent pool. Advanced projections are marked unavailable. `settings.type` stays the integer Sleeper returned. Official docs retrieved 2026-11-07 do not define 0/1/2, and the league name is not used as the format. Both saved leagues are type 1.
+
+The ticker prints the snapshot time. A failed live RSS check backs off and keeps the cache. DevTools after these edits: ticker on and off, 3 renders, stop not tripped. OGFFL desktop showed `pass_yd` 0.04 and IDP slots, then lineup fit with DL 2 short, then 2,235 pool players off the live league rosters with DTs listed for that hole. Draft regression after this code: **PASS**, same 1,696 / 53 / 19 unfilled / exhausted 2–3.
 
 ## Draft
 
@@ -57,14 +65,17 @@ If the cache is missing, the bar says headlines are unavailable and does not inv
 
 Before the test workflow was added, `gh pr checks 1` reported **no checks**. `.github/workflows/tests.yml` runs the four node suites on pull requests. The result after this push is in the PR. The scheduled data workflow does not run on pull requests.
 
-## Not supported
+## Still limited
 
-- News and the live-data checkbox do not change ratings, availability inside a save, or the draft.
-- No waiver, trade-target, or start/sit engine.
-- `settings.type` is not renamed into redraft or dynasty.
-- 2027 leaves 19 draft slots empty. 2029 has no class. Fictional prospects start at 2030 only.
-- Browser ESPN fetches can fail CORS. The ticker then keeps the last cache.
-- Headless `--dump-dom` with a repeating timer did not exit (timeout 124). DevTools smoke after the loop fix did finish and produced the screenshots below.
+- The AFA-club checkbox only prints an abbreviation. It does not apply availability. Availability has its own confirm.
+- No form rating is derived from stats. The reason is on the card.
+- Headlines in the current cache do not name a player id, so they do not change availability.
+- No start/sit forecast, waiver ranking, or projected points.
+- `settings.type` is not labeled redraft, keeper, or dynasty.
+- 2027 leaves 19 draft slots empty. 2029 has no class. Fictional prospects start at 2030 only. An 80-player pool still ends at 2–3 per team.
+- A failed ESPN RSS read keeps the `2026-11-07T00:38:44Z` snapshot. Five minutes is not a freshness guarantee.
+- FCS, Division II, and Division III are not in the college feed.
+- The daily GitHub workflow has not been executed.
 
 ## Preview on a desktop
 

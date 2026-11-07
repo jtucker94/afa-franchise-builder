@@ -29,7 +29,10 @@ This path:
 - drops a repeat URL, and a repeat player-plus-event even if the URL changed
 - marks `verified`, `rumor`, or `unknown` (questionable is not “out” and unknown is not “healthy”)
 - keeps the last error when a feed fails
-- does not change base overalls and does not edit AFA saves
+- does not change base overalls by itself
+- on a failed browser request, waits longer before the next try (5, 10, 20, then 30 minutes) and keeps the snapshot
+
+The page requests the public ESPN RSS URLs directly. A check on 2026-11-07 found `Access-Control-Allow-Origin: *` on those URLs, so a normal browser can read them without a proxy. If a later response is blocked or fails, the ticker keeps `data/news-cache.json` and prints the snapshot time plus the failure. Five minutes is the target while the page is open and the last check worked. It is not a promise that the bar is less than five minutes old. The snapshot in this branch was fetched locally at `2026-11-07T00:38:44Z`. Verified availability is a separate opt-in (`js/real-status.js`) and is not applied by this news check.
 
 It does **not** rebuild or commit the player dataset every 5 minutes. GitHub Actions is a poor fit for that cadence: runs are UTC, can be dropped or delayed, only work from the default branch, and a commit every 5 minutes would republish the site all afternoon. The separate Grok bot news monitor is not this workflow.
 

@@ -149,9 +149,42 @@
       ncaaf: FEEDS[1].covers,
       divisionsNotClaimed: ["FCS", "NCAA Division II", "NCAA Division III", "NAIA"],
       check: "About every 5 minutes from 8:00 AM through 10:55 PM America/New_York, seven days a week, only while this page is open.",
-      notGuaranteed: "A check is not a publication deadline. Stories can appear later, be missing, or fail to load. This is not every player.",
+      notGuaranteed: "A check is not a publication deadline. Stories can appear later, be missing, or fail to load. This is not every player. A blocked browser request is not a five-minute update.",
       dailySeparated: "The full roster and stats snapshot is a different job at 5:00 AM America/New_York. News checks do not rebuild that dataset.",
       talent: "Headlines do not change base overalls and do not edit saved AFA seasons."
+    };
+  }
+
+  function backoffMs(failures, baseMs) {
+    var n = Math.max(0, failures | 0);
+    var base = baseMs || 300000;
+    var ms = base * Math.pow(2, Math.min(n, 3));
+    return Math.min(ms, 30 * 60 * 1000);
+  }
+
+  function freshness(opts) {
+    opts = opts || {};
+    var snap = opts.snapshotAt || null;
+    var live = opts.lastSuccessAt || null;
+    var error = opts.lastError || null;
+    var parts = [];
+    if (snap) parts.push("Snapshot " + snap);
+    else parts.push("No snapshot time on file");
+    if (live) parts.push("Last live response " + live);
+    else parts.push("No live response yet");
+    if (error) parts.push("Last failure " + error);
+    if (opts.backoffUntil) parts.push("Next try after " + opts.backoffUntil);
+    parts.push("Public ESPN RSS is requested directly. A failed check keeps the snapshot. Five minutes is the target interval while the page is open, not a freshness guarantee");
+    var banner = parts.join(". ");
+    if (!/\.$/.test(banner)) banner += ".";
+    return {
+      guaranteedFiveMinute: false,
+      snapshotAt: snap,
+      lastSuccessAt: live,
+      lastError: error || null,
+      backoffUntil: opts.backoffUntil || null,
+      browserFeed: "https://www.espn.com/espn/rss/nfl/news and https://www.espn.com/espn/rss/ncf/news",
+      banner: banner
     };
   }
 
@@ -209,6 +242,8 @@
     shouldCheck: shouldCheck,
     tick: tick,
     blankCursor: blankCursor,
-    refuseTalentWrite: refuseTalentWrite
+    refuseTalentWrite: refuseTalentWrite,
+    backoffMs: backoffMs,
+    freshness: freshness
   };
 })(typeof window !== "undefined" ? window : globalThis);

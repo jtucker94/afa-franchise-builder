@@ -19,3 +19,7 @@ jobs:
         run: node tests/workspace.test.mjs
       - name: Team logos
         run: node tests/team-logos.test.mjs
+      - name: Real availability
+        run: node tests/real-status.test.mjs
+      - name: League scouting
+        run: node tests/league-scout.test.mjs

@@ -276,6 +276,10 @@
     if (round <= 6 && player.pos === "RB" && player.ovr < 94 && have >= 1) score *= 0.8;
     score *= schemeFactor(player, ctx.scheme);
     score *= complementFactor(player, ctx.roster, ctx.scheme);
+    if (typeof ctx.availabilityFactor === "function") {
+      const factor = Number(ctx.availabilityFactor(player));
+      if (isFinite(factor)) score *= factor;
+    }
     const sc = ctx.scarcity;
     const depthTarget = DEPTH_NEED[player.pos] || (STARTER_NEED[player.pos] || 1);
     // Leave scarce bodies for clubs that are still short of depth. Plentiful positions stay available.
@@ -350,7 +354,7 @@
     let best = null;
     let bestScore = -Infinity;
     short.forEach((p) => {
-      const s = scorePlayer(p, { counts: counts, round: round, scheme: opts.scheme, roster: roster, scarcity: scarcityFor(p.pos) });
+      const s = scorePlayer(p, { counts: counts, round: round, scheme: opts.scheme, roster: roster, scarcity: scarcityFor(p.pos), availabilityFactor: opts.availabilityFactor });
       const jitter = ((hashStr(String(opts.teamId) + ":" + p.id + ":" + pickIndex) % 1000) / 1000) * 0.8;
       if (s + jitter > bestScore) { best = p; bestScore = s + jitter; }
     });

@@ -100,7 +100,8 @@
       lastWatchedGame: null,
       playoffs: null,
       coachPool: null,
-      liveDataEffects: false
+      liveDataEffects: false,
+      realWorldStatus: window.AFARealStatus ? AFARealStatus.blank() : { enabled: false, scope: null, holds: {}, form: null }
     };
   }
 
@@ -271,6 +272,8 @@
       if (typeof state.clockLimit !== "number") state.clockLimit = 15;
       if (typeof state.clockPaused !== "boolean") state.clockPaused = state.clockLimit === 0;
       if (typeof state.liveDataEffects !== "boolean") state.liveDataEffects = false;
+      if (window.AFARealStatus) AFARealStatus.migrate(state);
+      else if (!state.realWorldStatus) state.realWorldStatus = { enabled: false, scope: null, holds: {}, form: null };
       if (typeof savedState.seasonStarted !== "boolean") {
         // Week 1 after a founding draft still counts as draft era so Draft Room stays available
         state.seasonStarted = !!(state.seasonDone || ((state.week | 0) > 1));
@@ -688,11 +691,32 @@
     save();
     showScreen("mode");
     $("franchise-picker").style.display = "none";
+    const note = $("real-status-source");
+    fetch("data/nfl-availability.json").then((r) => r.ok ? r.json() : null).then((data) => {
+      if (data) window.AFA_NFL_AVAIL = data;
+      if (!note) return;
+      const when = data && data.fetchedAt ? data.fetchedAt : "not loaded";
+      note.textContent = "Snapshot " + when + ". Out, IR, PUP, and suspension marks can make a player unavailable. Questionable, doubtful, blank, and rumors do not. Base GMFB ratings stay. Existing saves are not changed from this checkbox.";
+    }).catch(() => {
+      if (note) note.textContent = "Availability snapshot failed to load. Leaving the box checked will not invent statuses.";
+    });
   }
 
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  function applyNewRealStatus() {
+    const box = $("opt-real-avail");
+    const on = !!(box && box.checked);
+    if (!window.AFARealStatus) {
+      state.realWorldStatus = { enabled: false, scope: null, holds: {}, form: null };
+      return;
+    }
+    const result = AFARealStatus.enableNew(state, (window.AFA && AFA.PLAYERS) || [], window.AFA_NFL_AVAIL || null, [], on);
+    if (on && !result.applied) toast("Verified availability was not loaded, so this new franchise does not use that overlay.");
+  }
+
   function chooseAll32() {
     state.mode = "all32";
+    applyNewRealStatus();
     state.sleeperImport = null;
     state.userTeamId = null;
     state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, "manual"]));
@@ -745,7 +769,17 @@
     ui.viewTeamId = teamId;
     const LG = (window.AFA_SLEEPER_LEAGUES && window.AFA_SLEEPER_LEAGUES.leagues) || {};
     const L = ui.importKey && LG[ui.importKey];
-    state.sleeperImport = L ? { key: L.key, league: L.league, teamName: L.teamName, ids: L.ids.filter((id) => playerById(id)), skipped: L.skipped.length } : null;
+    applyNewRealStatus();
+    const imported = L && window.AFARealStatus
+      ? AFARealStatus.retainImportIds(L.ids, playerById)
+      : null;
+    state.sleeperImport = L ? {
+      key: L.key,
+      league: L.league,
+      teamName: L.teamName,
+      ids: imported ? imported.ids : L.ids.filter((id) => playerById(id)),
+      skipped: L.skipped.length
+    } : null;
     save();
     toast(L ? "Imported " + state.sleeperImport.ids.length + " " + L.league + " players to the " + displayName(teamById(teamId)) + "." : "You run the " + displayName(teamById(teamId)) + ". CPU handles the other 31.");
     renderStory();
@@ -1162,22 +1196,33 @@
     return (state.rosters[teamId] || []).map(playerById).filter(Boolean);
   }
 
+  function realHoldBlocks(p) {
+    return !!(window.AFARealStatus && state.realWorldStatus && AFARealStatus.blocks(state.realWorldStatus, p));
+  }
+
+  function healthyRoster(teamId) {
+    return rosterOf(teamId).filter((p) => !realHoldBlocks(p));
+  }
+
   function posCounts(teamId) {
     const c = {};
     rosterOf(teamId).forEach((p) => { c[p.pos] = (c[p.pos] || 0) + 1; });
     return c;
   }
 
+  function healthyCounts(teamId) {
+    const c = {};
+    healthyRoster(teamId).forEach((p) => { c[p.pos] = (c[p.pos] || 0) + 1; });
+    return c;
+  }
   function needsList(teamId) {
-    if (!window.AFADraft) {
-      const counts = posCounts(teamId);
-      return POS_NEED.filter((pos) => !counts[pos]);
-    }
-    return AFADraft.rosterPhase(posCounts(teamId)).starterHoles;
+    const counts = healthyCounts(teamId);
+    if (!window.AFADraft) return POS_NEED.filter((pos) => !counts[pos]);
+    return AFADraft.rosterPhase(counts).starterHoles;
   }
   function depthNeedsList(teamId) {
     if (!window.AFADraft) return [];
-    return AFADraft.rosterPhase(posCounts(teamId)).depthHoles;
+    return AFADraft.rosterPhase(healthyCounts(teamId)).depthHoles;
   }
 
   // Targets live in js/draft-engine.js (starter coverage, then depth, then best player).
@@ -1245,14 +1290,15 @@
     }
     if (!pool.length || !window.AFADraft) return pool[0] || null;
     const league = {};
-    TEAMS.forEach((t) => { league[t.id] = rosterOf(t.id); });
+    TEAMS.forEach((t) => { league[t.id] = healthyRoster(t.id); });
     return AFADraft.recommend({
       board: pool,
-      roster: rosterOf(teamId),
+      roster: healthyRoster(teamId),
       teamId: teamId,
       pickIndex: state.draftPick,
       scheme: schemeContext(teamId),
-      leagueRosters: league
+      leagueRosters: league,
+      availabilityFactor: (p) => realHoldBlocks(p) ? 0.45 : 1
     });
   }
 
@@ -1730,7 +1776,7 @@
   }
 
   function activeRosterForSim(teamId) {
-    return rosterOf(teamId).filter((p) => !p.onIR && !(p.currentInjury && p.currentInjury.out));
+    return rosterOf(teamId).filter((p) => !p.onIR && !(p.currentInjury && p.currentInjury.out) && !realHoldBlocks(p));
   }
 
   function playerEffectiveOvr(p) {
@@ -5139,6 +5185,17 @@
     setLiveEffects: function (on) {
       state.liveDataEffects = !!on;
       save();
+    },
+    confirmRealStatus: function (on) {
+      if (!window.AFARealStatus) return { applied: false, reason: "module missing" };
+      if (!on) {
+        state.realWorldStatus = AFARealStatus.blank();
+        save();
+        return { applied: false, enabled: false };
+      }
+      const result = AFARealStatus.confirmExisting(state, (window.AFA && AFA.PLAYERS) || [], window.AFA_NFL_AVAIL || null, [], true);
+      if (result.applied) save();
+      return result;
     },
     openRealNews: function () {
       openScouting();

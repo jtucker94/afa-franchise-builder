@@ -113,9 +113,9 @@ const detailEv = await send("Runtime.evaluate", {
   returnByValue: true
 }, sessionId);
 const detailShot = await send("Page.captureScreenshot", { format: "png" }, sessionId);
-fs.writeFileSync("/tmp/smoke-players-desktop.png", Buffer.from(detailShot.data, "base64"));
+fs.writeFileSync("/tmp/smoke-ready-players-desktop.png", Buffer.from(detailShot.data, "base64"));
 const phone = await open("http://127.0.0.1:8765/?screen=players", 390, 844);
-fs.writeFileSync("/tmp/smoke-players-phone.png", Buffer.from(phone.shot, "base64"));
+fs.writeFileSync("/tmp/smoke-ready-players-phone.png", Buffer.from(phone.shot, "base64"));
 const scout = await open("http://127.0.0.1:8765/?screen=scouting", 1280, 800);
 await send("Runtime.evaluate", {
   expression: "var b=document.querySelector('[data-lg=ogffl]'); if(b) b.click();",
@@ -129,9 +129,20 @@ const scoutTextEv = await send("Runtime.evaluate", {
 scout.text = (scoutTextEv.result && scoutTextEv.result.value) || scout.text;
 const scoutShot = await send("Page.captureScreenshot", { format: "png" }, sessionId);
 scout.shot = scoutShot.data;
-fs.writeFileSync("/tmp/smoke-scouting-desktop.png", Buffer.from(scout.shot, "base64"));
+fs.writeFileSync("/tmp/smoke-ready-scouting-desktop.png", Buffer.from(scout.shot, "base64"));
 const scoutPhone = await open("http://127.0.0.1:8765/?screen=scouting", 390, 844);
-fs.writeFileSync("/tmp/smoke-scouting-phone.png", Buffer.from(scoutPhone.shot, "base64"));
+await send("Runtime.evaluate", {
+  expression: "var b=document.querySelector('[data-lg=ogffl]'); if(b) b.click();",
+  returnByValue: true
+}, sessionId);
+await wait(1200);
+const scoutPhoneTextEv = await send("Runtime.evaluate", {
+  expression: "(document.body&&document.body.innerText||'').slice(0,7000)",
+  returnByValue: true
+}, sessionId);
+scoutPhone.text = (scoutPhoneTextEv.result && scoutPhoneTextEv.result.value) || scoutPhone.text;
+const scoutPhoneShot = await send("Page.captureScreenshot", { format: "png" }, sessionId);
+fs.writeFileSync("/tmp/smoke-ready-scouting-phone.png", Buffer.from(scoutPhoneShot.data, "base64"));
 const report = {
   tickerOffRenders: off.probe.renders,
   tickerOffStopped: off.probe.stopped,
@@ -143,7 +154,12 @@ const report = {
   playersPhoneRows: phone.probe.rows,
   scoutHasOgffl: scout.text.includes("OGFFL"),
   scoutHasScoring: /pass_yd|Scoring settings/.test(scout.text),
-  scoutPhone: (scoutPhone.text || "").includes("OGFFL") || (scoutPhone.text || "").includes("Scouting"),
+  scoutHasLineupFit: /Lineup fit/.test(scout.text),
+  scoutHasTypeNote: /do not define settings\.type/.test(scout.text),
+  scoutHasProjections: /Unavailable/.test(scout.text),
+  playersHasOptIn: /Apply verified availability/.test(players.text || ""),
+  playersHasFreshness: /Snapshot|not a five-minute|freshness guarantee|Headline time/.test(players.text || ""),
+  scoutPhone: /OGFFL|Lineup fit|pass_yd/.test(scoutPhone.text || ""),
   tickerVisible: (players.text || "").includes("Real news")
 };
 const tickerEv = await send("Runtime.evaluate", {

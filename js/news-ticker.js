@@ -9,6 +9,7 @@
   var hiddenPref = false;
   var headlines = [];
   var status = "";
+  var freshnessText = "Headline time is not loaded yet. A missing live check is not a five-minute update.";
   var timer = null;
   var rendering = false;
   var renders = 0;
@@ -107,10 +108,13 @@
     if (prefersStill()) bar.classList.add("is-still"); else bar.classList.remove("is-still");
 
     bar.setAttribute("aria-label", "Real NFL and college headlines");
-    bar.appendChild(el("span", "rnt-kicker", "Real news"));
+    bar.appendChild(el("p", "rnt-fresh", freshnessText));
+    var row = el("div", "rnt-row");
+    bar.appendChild(row);
+    row.appendChild(el("span", "rnt-kicker", "Real news"));
     if (!headlines.length) {
       var empty = el("p", "rnt-empty", status || "Real NFL and college headlines are unavailable. No sample stories are shown.");
-      bar.appendChild(empty);
+      row.appendChild(empty);
     } else {
       var viewport = el("div", "rnt-viewport");
       var track = el("div", "rnt-track");
@@ -141,8 +145,8 @@
       fill(track, true);
       fill(staticList, false);
       viewport.appendChild(track);
-      bar.appendChild(viewport);
-      bar.appendChild(staticList);
+      row.appendChild(viewport);
+      row.appendChild(staticList);
     }
     var pauseBtn = el("button", "rnt-btn", paused ? "Play" : "Pause");
     pauseBtn.type = "button";
@@ -160,10 +164,17 @@
     more.addEventListener("click", function () {
       if (root.AFAWorkspaceHooks && root.AFAWorkspaceHooks.openRealNews) root.AFAWorkspaceHooks.openRealNews();
     });
-    bar.appendChild(pauseBtn);
-    bar.appendChild(hideBtn);
-    bar.appendChild(more);
+    row.appendChild(pauseBtn);
+    row.appendChild(hideBtn);
+    row.appendChild(more);
     void hide;
+  }
+
+  function setFreshness(text) {
+    var next = text || "Headline time is not loaded yet. A missing live check is not a five-minute update.";
+    if (next === freshnessText) return;
+    freshnessText = next;
+    render();
   }
 
   function setHeadlines(items, note) {
@@ -183,6 +194,9 @@
       var note = items.length ? "" : "The saved headline cache is empty. No sample stories are shown.";
       if (data && data.fetchedAt && items.length) note = "";
       setHeadlines(items, note);
+      if (root.AFANews && root.AFANews.freshness) {
+        setFreshness(root.AFANews.freshness({ snapshotAt: data && data.fetchedAt, lastSuccessAt: null, lastError: null }).banner);
+      }
       if (data && data.errors && data.errors.length && !items.length) {
         status = "Headline feeds failed (" + data.errors.map(function (e) { return e.league || e.error || "error"; }).join(", ") + "). No sample stories are shown.";
         render();
@@ -221,6 +235,7 @@
     render: render,
     onScreen: render,
     setHeadlines: setHeadlines,
+    setFreshness: setFreshness,
     loadCache: loadCache,
     stopped: function () { return stopped; }
   };
