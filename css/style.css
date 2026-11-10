@@ -2049,7 +2049,23 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .ws-roster li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--line-2); }
 .ws-note { display: flex; gap: 6px; align-items: center; flex: 1; }
 .ws-note input { min-height: 44px; flex: 1; }
-.ws-pager { margin: 12px 0 24px; }
+.pool-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pool-sort { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
+.pool-sort select { min-height: 44px; }
+.pool-sort-btn { background: transparent; color: inherit; border: 0; font: inherit; cursor: pointer; min-height: 36px; padding: 4px 2px; white-space: nowrap; }
+.pool-sort-btn.on { color: var(--gold-2); }
+.player-table .name-col { position: sticky; left: 0; background: #10161f; z-index: 1; }
+.attr-est { color: #d5ddcf; }
+.attr-na { color: #667; }
+.trade-deadline { border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+.trade-deadline.locked { border-color: #8a3b3b; }
+.trade-toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.trade-toolbar select { min-height: 44px; }
+.trade-inbox { margin-bottom: 12px; }
+.inbox-card { border: 1px solid var(--line-2); border-radius: 12px; padding: 10px; margin: 8px 0; }
+.trade-propose-bar { display: flex; gap: 8px; margin: 0 0 14px; }
+.trade-propose-bar .btn { min-height: 48px; flex: 1; }
+.inbox-card .btn { min-height: 44px; }
 #screen-directory .workspace, #screen-scouting .workspace { padding: 16px; overflow: auto; }
 
 /* Real NFL/college ticker. Separate from .draft-open-ticker (AFA fiction). */

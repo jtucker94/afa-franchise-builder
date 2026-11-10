@@ -1,4 +1,4 @@
-/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.24) */
+/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.25) */
 (function () {
   const MQ = window.matchMedia("(max-width: 900px)");
   const COARSE = window.matchMedia("(hover: none), (pointer: coarse)");
@@ -247,6 +247,8 @@
       el.addEventListener("click", (e) => {
         // Never intercept primary action buttons (Draft / Cut / Hire / etc.)
         if (e.target.closest && e.target.closest("button, a, input, select, label, .btn")) return;
+        // Trade rows have to add the player. Stopping the click left no way to offer a deal on a phone.
+        if (el.matches("[data-offer], [data-ask], [data-offerpick], [data-askpick]")) return;
         // Players-tab rows open the full profile (which already shows Sleeper + stats) — no scout overlay
         if (el.closest(".apt-row, .apt-modal")) return;
         const pid = el.getAttribute("data-pid") || el.getAttribute("data-scout");

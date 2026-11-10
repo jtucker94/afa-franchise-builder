@@ -51,6 +51,7 @@
     askPicks: [],
     draftIntro: true,
     draftTab: "board",
+    boardSort: { key: "ovr", dir: "desc" },
     draftViewTeam: null,
     lineupSide: "offense",
     formation: "11",
@@ -61,7 +62,7 @@
 
   function freshState() {
     return {
-      version: "0.1.24",
+      version: "0.1.25",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -121,6 +122,7 @@
       askPicks: (ui.askPicks || []).slice(),
       draftIntro: ui.draftIntro,
       draftTab: ui.draftTab,
+      boardSort: ui.boardSort || { key: "ovr", dir: "desc" },
       draftViewTeam: ui.draftViewTeam,
       lineupSide: ui.lineupSide,
       formation: ui.formation || "11",
@@ -223,9 +225,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.24";
+      state.version = "0.1.25";
       const payload = {
-        version: "0.1.24",
+        version: "0.1.25",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -252,9 +254,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.24";
+      state.version = "0.1.25";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -2727,6 +2729,7 @@
         : "Founding draft — every prospect is a real NFL free agent. Manual, Assisted, or Auto on each desk. Sim Draft fills the rest."}</p>
       <div class="sim-draft-bar">
         <button class="btn btn-sim-draft" id="btn-sim-draft" title="Fill every remaining pick">Sim Draft</button>
+        ${state.syscheck ? '<button type="button" class="btn" id="btn-sys-trades">Open trades</button>' : ''}
         <div class="btn-row" style="justify-content:flex-start;margin:0;gap:8px;flex-wrap:wrap">
           <button class="btn btn-sm btn-primary" id="btn-sim-manual">${state.mode === "single" ? "Sim to your pick" : "Sim to next manual"}</button>
           <button class="btn btn-sm" id="btn-sim-round">Sim this round</button>
@@ -2740,6 +2743,15 @@
     $("btn-take-rec").onclick = () => { if (yourTurn && rec) userDraft(rec.id); };
     $("btn-take-rec").disabled = !rec || !yourTurn;
     $("btn-sim-draft").onclick = () => simDraftRemaining();
+    const sysTrades = $("btn-sys-trades");
+    if (sysTrades) sysTrades.onclick = () => {
+      state.phase = "hub";
+      state.seasonStarted = true;
+      state.week = 1;
+      ui.hubTab = "trades";
+      showScreen("hub");
+      renderHub();
+    };
     const simRoundBtn = $("btn-sim-round");
     if (simRoundBtn) simRoundBtn.onclick = () => simDraftRound();
     $("btn-sim-manual").onclick = () => {
@@ -2763,7 +2775,11 @@
     let pool = state.board.map(playerById).filter(Boolean);
     if (ui.posFilter !== "ALL") pool = pool.filter((p) => p.pos === ui.posFilter);
     if (q) pool = pool.filter((p) => p.name.toLowerCase().includes(q));
-    pool.sort((a, b) => b.ovr - a.ovr);
+    if (!ui.boardSort) ui.boardSort = { key: "ovr", dir: "desc" };
+    const sortKey = ui.boardSort.key || "ovr";
+    const sortDir = ui.boardSort.dir === "asc" ? "asc" : "desc";
+    if (window.AFAAttrs) pool.sort((a, b) => AFAAttrs.comparePlayers(a, b, sortKey, sortDir));
+    else pool.sort((a, b) => b.ovr - a.ovr || String(a.name).localeCompare(String(b.name)) || String(a.id).localeCompare(String(b.id)));
     const pageSize = 80;
     if (ui.boardPage == null) ui.boardPage = 0;
     const maxPage = Math.max(0, Math.ceil(pool.length / pageSize) - 1);
@@ -2778,15 +2794,53 @@
       b.onclick = () => { ui.posFilter = b.getAttribute("data-pos"); ui.boardPage = 0; renderDraft(); };
     });
 
+    const columns = window.AFAAttrs ? AFAAttrs.COLUMNS : [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]];
+    const head = $("pool-head");
+    if (head) {
+      head.innerHTML = "<tr>" + columns.map(([key, label]) => {
+        const on = key === sortKey;
+        const arrow = on ? (sortDir === "asc" ? " ↑" : " ↓") : "";
+        return `<th><button type="button" class="pool-sort-btn${on ? " on" : ""}" data-sort="${key}" aria-sort="${on ? (sortDir === "asc" ? "ascending" : "descending") : "none"}">${label}${arrow}</button></th>`;
+      }).join("") + "</tr>";
+      head.querySelectorAll("[data-sort]").forEach((btn) => {
+        btn.onclick = () => {
+          const key = btn.getAttribute("data-sort");
+          if (ui.boardSort.key === key) ui.boardSort.dir = ui.boardSort.dir === "asc" ? "desc" : "asc";
+          else ui.boardSort = { key: key, dir: key === "name" || key === "pos" || key === "age" ? "asc" : "desc" };
+          ui.boardPage = 0;
+          renderDraft();
+        };
+      });
+    }
+    const sortSelect = $("board-sort");
+    if (sortSelect) {
+      const opts = [];
+      columns.forEach(([key, label]) => {
+        opts.push(`<option value="${key}:asc"${sortKey === key && sortDir === "asc" ? " selected" : ""}>${label} ascending</option>`);
+        opts.push(`<option value="${key}:desc"${sortKey === key && sortDir === "desc" ? " selected" : ""}>${label} descending</option>`);
+      });
+      sortSelect.innerHTML = opts.join("");
+      sortSelect.onchange = () => {
+        const parts = sortSelect.value.split(":");
+        ui.boardSort = { key: parts[0], dir: parts[1] === "asc" ? "asc" : "desc" };
+        ui.boardPage = 0;
+        renderDraft();
+      };
+    }
+
     $("player-body").innerHTML = pagePool.map((p) => {
       const recRow = rec && rec.id === p.id ? " rec" : "";
-      return `<tr class="${recRow}" data-pid="${p.id}" data-scout="${p.id}" data-player-id="${p.id}">
-        <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
-        <td><span class="jersey">#${jerseyNum(p)}</span> ${p.name} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td>
-        <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
-        <td>${p.age}</td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="4" class="help">No players match.</td></tr>`;
+      const attrs = window.AFAAttrs ? AFAAttrs.attrsFor(p) : {};
+      const cells = columns.map(([key]) => {
+        if (key === "ovr") return `<td class="${ovrClass(p.ovr)}">${p.ovr}</td>`;
+        if (key === "name") return `<td class="name-col"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td>`;
+        if (key === "pos") return `<td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>`;
+        if (key === "age") return `<td>${p.age}</td>`;
+        if (!window.AFAAttrs || !AFAAttrs.shows(p, key)) return `<td class="attr-na">—</td>`;
+        return `<td class="attr-est" title="${attrs.note}">${attrs[key]}</td>`;
+      }).join("");
+      return `<tr class="${recRow}" data-pid="${p.id}" data-scout="${p.id}" data-player-id="${p.id}">${cells}</tr>`;
+    }).join("") || `<tr><td colspan="${columns.length}" class="help">No players match.</td></tr>`;
     $("player-body").querySelectorAll("[data-pid]").forEach((row) => {
       row.onclick = () => {
         if (state.mode === "single" && state.userTeamId && currentDraftTeam().id !== state.userTeamId) {
@@ -3755,7 +3809,7 @@
       ${collegeCtaHTML()}
       <div class="home-actions">
         <button class="btn btn-primary" data-home-tab="lineup">Set Lineup</button>
-        <button class="btn" data-home-tab="trades">Make a Trade</button>
+        <button class="btn btn-primary" data-home-tab="trades">Propose Trade</button>
         <button class="btn" data-home-tab="roster">Edit Roster</button>
         <button class="btn" data-home-tab="signings">Free Agency</button>
         <button class="btn" data-home-tab="slate">View Schedule</button>
@@ -4238,6 +4292,79 @@
     return playerTradeValue(p) + Math.max(0, positionalNeedBonus(receiverId, p, []));
   }
 
+  function tradeDesk() {
+    return window.AFATradeDesk || null;
+  }
+
+  function currentTradeWindow() {
+    const desk = tradeDesk();
+    if (desk) return desk.tradeWindow(state);
+    return { open: true, label: "Trades are open", detail: "" };
+  }
+
+  function ensureTradeInbox() {
+    if (!Array.isArray(state.tradeInbox)) state.tradeInbox = [];
+    if (state.tradeInbox.length || !state.userTeamId) return;
+    const mine = rosterOf(state.userTeamId);
+    if (mine.length < 2) return;
+    const partners = TEAMS.filter((t) => t.id !== state.userTeamId && rosterOf(t.id).length);
+    if (!partners.length) return;
+    const want = mine.slice().sort((a, b) => a.ovr - b.ovr)[Math.min(2, mine.length - 1)];
+    const partner = partners[0];
+    const give = rosterOf(partner.id).slice().sort((a, b) => Math.abs(a.ovr - want.ovr) - Math.abs(b.ovr - want.ovr))[0];
+    if (give && want) {
+      state.tradeInbox.push({
+        id: "inbox-offer-1",
+        from: partner.id,
+        kind: "offer",
+        send: [give.id],
+        want: [want.id],
+        status: "pending",
+        reason: "positional need"
+      });
+    }
+    const star = mine.slice().sort((a, b) => b.ovr - a.ovr)[0];
+    const asker = partners[1] || partners[0];
+    if (star && asker) {
+      state.tradeInbox.push({
+        id: "inbox-inquiry-1",
+        from: asker.id,
+        kind: "inquiry",
+        send: [],
+        want: [star.id],
+        status: "pending",
+        reason: "inquiring about " + star.name
+      });
+    }
+  }
+
+  function inboxReply(id, decision) {
+    const windowState = currentTradeWindow();
+    if (!windowState.open) { toast(windowState.label); return; }
+    const item = (state.tradeInbox || []).find((row) => row.id === id);
+    if (!item || item.status !== "pending") return;
+    if (decision === "decline" || decision === "counter") {
+      item.status = decision === "counter" ? "countered" : "declined";
+      toast(decision === "counter" ? "Counter sent. They walked away: not enough value." : "You declined.");
+      save();
+      renderHub();
+      return;
+    }
+    if (item.kind !== "offer" || !item.send.length || !item.want.length) {
+      item.status = "declined";
+      toast("An inquiry needs a package. Open Propose Trade to build one.");
+      save();
+      renderHub();
+      return;
+    }
+    item.send.forEach((pid) => movePlayer(item.from, state.userTeamId, pid));
+    item.want.forEach((pid) => movePlayer(state.userTeamId, item.from, pid));
+    item.status = "accepted";
+    save();
+    toast("Trade accepted.");
+    renderHub();
+  }
+
   function renderTradesHTML() {
     const left = teamById(ui.tradeLeft || viewTeamId());
     const right = teamById(ui.tradeRight || TEAMS.find((t) => t.id !== left.id).id);
@@ -4278,35 +4405,43 @@
     const primary = analysis.primary;
     const statusClass = analysis.accepted ? "yes" : (primary.status === "close" ? "close" : (primary.status === "empty" ? "idle" : "no"));
     const meter = primary.meter || 0;
-    const ready = analysis.accepted && (ui.offer.length + ui.offerPicks.length) > 0 && (ui.ask.length + ui.askPicks.length) > 0;
-    const leftUser = state.mode === "single" && left.id === state.userTeamId;
-    const rightUser = state.mode === "single" && right.id === state.userTeamId;
-    const cpuName = (!rightUser ? displayName(right) : displayName(left));
-    return `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    const windowState = currentTradeWindow();
+    ensureTradeInbox();
+    const replyOf = tradeDesk() ? tradeDesk().cpuReply(analysis) : { decision: analysis.accepted ? "Accept" : "Decline", reason: primary.detail || "not enough value" };
+    const ready = windowState.open && (ui.offer.length + ui.offerPicks.length) > 0 && (ui.ask.length + ui.askPicks.length) > 0;
+    const inbox = (state.tradeInbox || []).map((item) => {
+      const from = teamById(item.from);
+      const want = (item.want || []).map(playerById).filter(Boolean).map((p) => p.name).join(", ") || "a player";
+      const send = (item.send || []).map(playerById).filter(Boolean).map((p) => p.name + " " + p.ovr).join(", ");
+      const pending = item.status === "pending";
+      return `<article class="inbox-card">
+        <p><strong>${displayName(from)}</strong> · ${item.kind === "inquiry" ? "Inquiry" : "Offer"} · ${item.reason}</p>
+        <p class="help">${item.kind === "inquiry" ? "Asking about " + want + "." : "They send " + send + " for " + want + "."}</p>
+        <p class="help">Status: ${item.status}</p>
+        ${pending && windowState.open ? `<div class="btn-row"><button type="button" class="btn btn-primary" data-inbox="accept" data-inbox-id="${item.id}">Accept</button><button type="button" class="btn" data-inbox="decline" data-inbox-id="${item.id}">Decline</button><button type="button" class="btn" data-inbox="counter" data-inbox-id="${item.id}">Counter</button></div>` : ""}
+      </article>`;
+    }).join("");
+    return `<div class="trade-deadline ${windowState.open ? "open" : "locked"}">
+        <strong>${windowState.label}</strong>
+        <p class="help">${windowState.detail}</p>
+      </div>
+      <div class="trade-toolbar">
         <label>Your side <select id="trade-left">${opts(left.id)}</select></label>
         <label>Trade partner <select id="trade-right">${opts(right.id)}</select></label>
-        <span class="help">Madden rules: CPU only accepts fair value. Cornerstones (★) need a clear overpay.</span>
       </div>
+      <div class="trade-propose-bar">
+        <button class="btn btn-primary" id="btn-propose-trade" ${ready ? "" : "disabled"}>${windowState.open ? "Propose Trade" : "Trades locked"}</button>
+        <button class="btn" id="btn-clear-trade">Clear</button>
+      </div>
+      <div class="trade-inbox"><h3>Inbox</h3>${inbox || "<p class='help'>No clubs have called yet.</p>"}</div>
       <div class="trade-grid">${side(left, ui.offer, "offer")}${side(right, ui.ask, "ask")}</div>
       <div class="verdict ${statusClass}">
         <div class="trade-analyzer">
           <div class="ta-top">
-            <strong>Trade Analyzer</strong>
-            <span class="ta-status">${analysis.accepted ? "ACCEPTED" : primary.label}</span>
+            <strong>CPU reply</strong>
+            <span class="ta-status">${replyOf.decision}</span>
           </div>
-          <div class="ta-meter" aria-label="Interest meter">
-            <div class="ta-fill" style="width:${meter}%"></div>
-            <div class="ta-mark" style="left:58%" title="Accept threshold"></div>
-          </div>
-          <div class="ta-vals">
-            <span>${displayName(left)} gets TV ${analysis.leftEval.gain} / sends ${analysis.leftEval.loss}</span>
-            <span>${displayName(right)} gets TV ${analysis.rightEval.gain} / sends ${analysis.rightEval.loss}</span>
-          </div>
-          <p class="ta-detail">${primary.detail}${analysis.accepted ? " " + cpuName + " will take this deal." : ""}</p>
-        </div>
-        <div class="btn-row" style="justify-content:flex-start;margin-top:10px">
-          <button class="btn btn-primary" id="btn-execute-trade" ${ready ? "" : "disabled"}>${ready ? "Confirm trade" : "Offer not accepted"}</button>
-          <button class="btn" id="btn-clear-trade">Clear</button>
+          <p class="ta-detail">${replyOf.reason}. ${primary.detail || ""}</p>
         </div>
       </div>`;
   }
@@ -4509,8 +4644,11 @@
     document.querySelectorAll("[data-unask]").forEach((b) => {
       b.onclick = (e) => { e.stopPropagation(); ui.ask = ui.ask.filter((id) => id !== b.getAttribute("data-unask")); renderHub(); };
     });
-    const ex = $("btn-execute-trade");
+    const ex = $("btn-propose-trade");
     if (ex) ex.onclick = executeTrade;
+    document.querySelectorAll("[data-inbox]").forEach((btn) => {
+      btn.onclick = () => inboxReply(btn.getAttribute("data-inbox-id"), btn.getAttribute("data-inbox"));
+    });
     const cl = $("btn-clear-trade");
     if (cl) cl.onclick = () => { ui.offer = []; ui.ask = []; ui.offerPicks = []; ui.askPicks = []; renderHub(); };
     const sw = $("btn-sim-week");
@@ -4912,6 +5050,8 @@
   }
 
   function executeTrade() {
+    const windowState = currentTradeWindow();
+    if (!windowState.open) { toast(windowState.label + " " + windowState.detail); return; }
     const left = ui.tradeLeft;
     const right = ui.tradeRight;
     if (left === right) { toast("Pick two different clubs."); return; }
@@ -4952,8 +5092,11 @@
       return;
     }
     const analysis = analyzeTrade(left, right, ui.offer, ui.ask, ui.offerPicks, ui.askPicks);
+    const reply = tradeDesk() ? tradeDesk().cpuReply(analysis) : null;
     if (!analysis.accepted) {
-      toast(analysis.primary.label + " — " + (analysis.primary.detail || "CPU rejected the offer."));
+      const decision = reply ? reply.decision : "Decline";
+      const reason = reply ? reply.reason : (analysis.primary.detail || "not enough value");
+      toast(decision + " — " + reason);
       renderHub();
       return;
     }
@@ -5157,6 +5300,31 @@
     $("btn-sim-now").onclick = () => { ui.hubTab = "sim"; renderHub(); };
   }
 
+  function startSyscheck() {
+    state = freshState();
+    state.mode = "single";
+    state.userTeamId = TEAMS[0].id;
+    state.phase = "draft";
+    state.syscheck = true;
+    state.week = 1;
+    state.seasonStarted = false;
+    const pool = ((window.AFA && AFA.PLAYERS) || window.AFA_NFL_PLAYERS || []).filter((p) => p && p.id);
+    const ids = pool.slice(0, 48).map((p) => p.id);
+    state.board = ids.slice(0, 30);
+    state.rosters[TEAMS[0].id] = ids.slice(30, 38);
+    state.rosters[TEAMS[1].id] = ids.slice(38, 46);
+    state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, "manual"]));
+    state.draftPick = 0;
+    ui.viewTeamId = state.userTeamId;
+    ui.selectedTeam = state.userTeamId;
+    ui.tradeLeft = state.userTeamId;
+    ui.tradeRight = TEAMS[1].id;
+    try { seedGradesAndContracts(true); } catch (e) { console.warn("syscheck seed", e); }
+    try { ensurePicks(); } catch (e) { console.warn("syscheck picks", e); }
+    showScreen("draft");
+    renderDraft();
+  }
+
   function init() {
     registerCollegeProspects();
     if (!load()) {
@@ -5173,6 +5341,7 @@
     syncHubDraftTab();
     updateDraftRoomFab();
     const params = new URLSearchParams(location.search);
+    if (params.get("syscheck") === "1") { startSyscheck(); return; }
     if (params.get("screen") === "players") { openDirectory(); return; }
     if (params.get("screen") === "scouting") { openScouting(); return; }
     startBoot();

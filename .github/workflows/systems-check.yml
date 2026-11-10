@@ -1,0 +1,39 @@
+# Headless pass of the draft pool, a trade offer, and a reload.
+# 09:00 UTC is 4:00 AM ET in standard time and 5:00 AM ET in daylight time.
+name: Systems check
+on:
+  pull_request:
+  schedule:
+    - cron: "0 9 * * *"
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: browser-actions/setup-chrome@v1
+      - name: Serve the branch
+        run: python3 -m http.server 8765 >/tmp/afa-http.log 2>&1 &
+      - name: Wait for the server
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            curl -sf -o /dev/null http://127.0.0.1:8765/ && exit 0
+            sleep 1
+          done
+          echo "server did not start" >&2
+          cat /tmp/afa-http.log >&2
+          exit 1
+      - name: Systems check
+        run: node tests/systems-check.mjs
+        env:
+          SYSTEMS_CHECK_OUT: systems-check-status.json
+          SYSTEMS_CHECK_SHOTS: /tmp
+      - name: Upload the morning summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: systems-check-status
+          path: systems-check-status.json
+          if-no-files-found: warn
