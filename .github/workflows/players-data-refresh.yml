@@ -29,6 +29,9 @@ jobs:
 
       - name: Refresh public snapshots
         if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.run == 'true'
+        # Exit 0 when Sleeper leagues and availability were fetched.
+        # A news miss is recorded on the status and does not skip publishing.
+        # The previous news-cache.json is kept when this attempt has no items.
         run: node scripts/players-data-refresh.mjs --write
 
       - name: Publish changed snapshots
