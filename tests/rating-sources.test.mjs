@@ -44,8 +44,9 @@ const progressed = { id: bucky.id, name: bucky.name, pos: "RB", ovr: 71, ovrBase
 check(R.lookup(progressed).ovr === 87, "lookup failed on a progressed save");
 check(progressed.ovr === 71, "lookup rewrote a progressed overall");
 
-const wr = players.find((p) => p.name === "Justin Jefferson" && p.pos === "WR");
-check(R.lookup(wr) && R.lookup(wr).ovr === 97, "Jefferson was not the EA 97");
+check(R.lookup(players.find((p) => p.id === "espn_5150249")).ovr === 67, "Browns LB Jefferson borrowed the receiver rating");
+check(R.lookup(players.find((p) => p.id === "nfl_6794")).ovr === 97, "Vikings WR Jefferson was not 97");
+check(R.lookup(Object.assign({}, players.find((p) => p.id === "nfl_6794"), { nflTeam: "CLE" })) == null, "team mismatch still matched");
 const unknown = { name: "Not A Real Person", pos: "QB" };
 check(R.lookup(unknown) == null, "an unknown quarterback was given a grade");
 

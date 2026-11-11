@@ -231,6 +231,28 @@ try {
   status.steps.reload = resumed;
   if (!resumed || !/accepted/i.test(resumed.inbox || "")) throw new Error("reload did not restore the accepted trade");
 
+  async function checkTheme(id, primary, tab, shotName) {
+    await evalJson("JSON.stringify((function(){var s=document.getElementById('hub-team-select'); if(!s) return false; s.value='" + id + "'; s.dispatchEvent(new Event('change')); var tab=document.querySelector('#hub-nav [data-tab=" + tab + "]'); if(tab) tab.click(); return true;})())");
+    await wait(400);
+    const theme = await evalJson("JSON.stringify((function(){var cs=getComputedStyle(document.documentElement); var logo=document.getElementById('team-corner-logo'); var save=document.getElementById('btn-save-hub'); var hide=document.querySelector('.rnt-btn'); function box(el){if(!el||el.hidden) return null; var r=el.getBoundingClientRect(); return {top:r.top,left:r.left,right:r.right,bottom:r.bottom,w:r.width,h:r.height};} function hit(a,b){if(!a||!b||a.w<2||b.w<2) return false; return !(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);} var lb=box(logo), sb=box(save), hb=box(hide); return {primary:(cs.getPropertyValue('--team-primary')||'').trim().toLowerCase(), themed:document.body.classList.contains('team-themed'), src:logo&&!logo.hidden?logo.getAttribute('src'):'', overlapSave:hit(lb,sb), overlapHide:hit(lb,hb)};})())");
+    status.steps["theme-" + id] = theme;
+    if (!theme || theme.primary !== primary) throw new Error(id + " theme was " + (theme && theme.primary));
+    if (!theme.themed || !theme.src || theme.src.indexOf("logos/") !== 0) throw new Error(id + " logo missing");
+    if (theme.overlapSave || theme.overlapHide) throw new Error(id + " logo overlaps a control");
+    await shot(shotName);
+  }
+  await metrics(1280, 900);
+  await checkTheme("prov", "#0a2a4a", "roster", "theme-providence-roster-desktop");
+  await checkTheme("hart", "#046a38", "lineup", "theme-hartford-lineup-desktop");
+  await metrics(390, 844);
+  await checkTheme("fre", "#c4a017", "home", "theme-fresno-home-iphone");
+  await metrics(360, 740);
+  await checkTheme("tuc", "#2d5a27", "roster", "theme-tucson-roster-360");
+  const cleared = await evalJson("JSON.stringify(window.AFATheme.apply(null))");
+  status.steps.themeNeutral = cleared;
+  if (!cleared || cleared.themed !== false) throw new Error("clearing the team did not restore the neutral theme");
+  await evalJson("JSON.stringify(window.AFATheme.apply({id:'hart',city:'Hartford',nick:'Whalers',primary:'#046a38',secondary:'#1c8ad4',logo:'hartford-whalers.jpg'}))");
+
   await send("Page.navigate", { url: "http://127.0.0.1:8765/?screen=players" }, sessionId);
   let directory = null;
   for (let i = 0; i < 20; i++) {

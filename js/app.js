@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.26",
+      version: "0.1.27",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.26";
+      state.version = "0.1.27";
       const payload = {
-        version: "0.1.26",
+        version: "0.1.27",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.26";
+      state.version = "0.1.27";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -387,6 +387,13 @@
 
   function $(id) { return document.getElementById(id); }
 
+  function syncTeamTheme() {
+    if (!window.AFATheme) return;
+    const id = (ui && (ui.viewTeamId || (state && state.userTeamId))) || null;
+    const team = id ? teamById(id) : null;
+    AFATheme.apply(team && team.primary && team.secondary && team.logo ? team : null);
+  }
+
   function showScreen(id) {
     document.querySelectorAll(".screen").forEach((el) => el.classList.remove("active"));
     const sc = $("screen-" + id);
@@ -404,6 +411,7 @@
       try { window.AFAMobile.resetScreenScroll(id); } catch (_) {}
     }
     updateDraftRoomFab();
+    syncTeamTheme();
     if (window.AFANewsTicker && AFANewsTicker.onScreen) {
       try { AFANewsTicker.onScreen(); } catch (e) {}
     }
@@ -712,6 +720,8 @@
     applyNewRealStatus();
     state.sleeperImport = null;
     state.userTeamId = null;
+    ui.viewTeamId = null;
+    syncTeamTheme();
     state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, "manual"]));
     save();
     renderStory();
@@ -760,6 +770,7 @@
     ui.selectedTeam = teamId;
     ui.draftViewTeam = teamId;
     ui.viewTeamId = teamId;
+    syncTeamTheme();
     const LG = (window.AFA_SLEEPER_LEAGUES && window.AFA_SLEEPER_LEAGUES.leagues) || {};
     const L = ui.importKey && LG[ui.importKey];
     applyNewRealStatus();
@@ -4476,6 +4487,7 @@
     $("hub-team-select").onchange = () => {
       ui.viewTeamId = $("hub-team-select").value;
       if (ui.hubTab === "trades") ui.tradeLeft = ui.viewTeamId;
+      syncTeamTheme();
       renderHub();
     };
     const hubPlayers = $("btn-hub-players");

@@ -24,21 +24,26 @@
     return root.AFA_MADDEN_EA || null;
   }
 
+  function nflCode(code) {
+    var c = String(code || "").toUpperCase();
+    if (c === "WAS" || c === "WSH") return "WSH";
+    if (c === "JAC") return "JAX";
+    return c;
+  }
+
   function index() {
     var book = doc();
     if (!book) return null;
     if (book._index) return book._index;
     var byKey = {};
-    var dup = {};
     var urls = {};
     (book.lists || []).forEach(function (list) { urls[list.pos] = list.url; });
     (book.players || []).forEach(function (row) {
       var key = fold(row.name) + "|" + row.pos;
-      if (byKey[key]) dup[key] = true;
-      byKey[key] = row;
+      if (!byKey[key]) byKey[key] = [];
+      byKey[key].push(row);
     });
-    Object.keys(dup).forEach(function (key) { delete byKey[key]; });
-    book._index = { byKey: byKey, dropped: Object.keys(dup), urls: urls };
+    book._index = { byKey: byKey, urls: urls };
     return book._index;
   }
 
@@ -47,12 +52,23 @@
     var ix = index();
     if (!book || !ix || !player) return null;
     var key = fold(player.name) + "|" + player.pos;
-    var row = ix.byKey[key];
-    if (!row) {
+    var rows = (ix.byKey[key] || []).slice();
+    if (!rows.length) {
       var wanted = Object.keys(ALIAS).filter(function (listKey) { return ALIAS[listKey] === key; });
-      if (wanted.length === 1) row = ix.byKey[wanted[0]];
+      if (wanted.length === 1) rows = (ix.byKey[wanted[0]] || []).slice();
     }
-    if (!row || typeof row.ovr !== "number") return null;
+    if (player.nflTeam) {
+      var teamRows = rows.filter(function (row) { return row.nfl && nflCode(player.nflTeam) === nflCode(row.nfl); });
+      var teamKnown = rows.some(function (row) { return row.nfl; });
+      if (teamRows.length) rows = teamRows;
+      else if (teamKnown) return null;
+    }
+    if (rows.length > 1 && player.college) {
+      var schoolRows = rows.filter(function (row) { return row.college && fold(player.college) === fold(row.college); });
+      if (schoolRows.length) rows = schoolRows;
+    }
+    if (rows.length !== 1 || typeof rows[0].ovr !== "number") return null;
+    var row = rows[0];
     return {
       ovr: row.ovr,
       attrs: row.attrs || {},
@@ -62,6 +78,8 @@
       publisher: book.publisher,
       compiler: "EA Sports",
       eaPos: row.eaPos,
+      nfl: row.nfl || null,
+      college: row.college || null,
       sourceUrl: ix.urls[row.eaPos] || book.source,
       scale: "madden-ovr",
       pff: null
@@ -81,7 +99,7 @@
       retrievedAt: book && book.retrievedAt,
       publisher: book && book.publisher,
       listed: book && book.players ? book.players.length : 0,
-      usable: ix ? Object.keys(ix.byKey).length : 0,
+      usable: ix ? Object.keys(ix.byKey).reduce(function (n, key) { return n + (ix.byKey[key].length === 1 ? 1 : 0); }, 0) : 0,
       positions: positions,
       pff: "Not stored. A PFF grade is a different scale and is not converted into an overall.",
       absent: "A player who is not on these EA pages has no Madden number in this build."

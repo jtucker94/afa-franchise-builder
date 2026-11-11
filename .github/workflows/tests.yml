@@ -27,5 +27,7 @@ jobs:
         run: node tests/rating-sources.test.mjs
       - name: Refresh news failure
         run: node tests/refresh-news.test.mjs
+      - name: Roster integration
+        run: node tests/roster-integration.test.mjs
       - name: Pool sort and trades
         run: node tests/pool-and-trades.test.mjs

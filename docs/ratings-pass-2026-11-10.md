@@ -41,6 +41,31 @@ Pool overall 97. EA Week 8 quarterback page 79 (https://www.ea.com/games/madden-
 
 Pool overall 95. EA Week 8 halfback page 87 (https://www.ea.com/games/madden-nfl/ratings/positions-ratings/halfback/HB), speed 89. The maddenratings.com halfback list retrieved 2026-11-07 said 86 (https://www.maddenratings.com/lists/halfbacks). A new franchise uses the EA page, 87. His 2025 counting-stat grade is 71 and stays a separate grade.
 
+## Same-name players
+
+These are different people. A match requires the folded name and the position. When the EA page names a team, that team has to agree with the pool team. A mismatch is left unmatched.
+
+| Name | Pos | Pool team | College | Pool overall | Resolved overall |
+| --- | --- | --- | --- | --- | --- |
+| Justin Jefferson | LB | CLE | Alabama | 98 | EA 67, Cleveland |
+| Justin Jefferson | WR | MIN | LSU | 98 | EA 97, Minnesota |
+| DeVonta Smith | WR | PHI | Alabama | 95 | EA 92, Philadelphia |
+| DeVonta Smith | CB | CAR | Notre Dame | 81 | not on the EA page |
+| Byron Murphy II | DT | SEA | Texas | 91 | EA 85, Seattle |
+| Byron Murphy II | CB | MIN | Washington | 87 | EA 88, Minnesota |
+| Byron Young | LB | LAR | Tennessee | 85 | not on the EA page |
+| Byron Young | DT | PHI | Alabama | 78 | EA 69, Philadelphia |
+| Marcus Harris | DT | KC | Auburn | 82 | not on the EA page |
+| Marcus Harris | CB | TEN | California | 82 | EA 71, Tennessee |
+| Jaylon Jones | CB | TEN | Texas A&M | 78 | not on the EA page |
+| Jaylon Jones | CB | JAX | Ole Miss | 77 | EA 69, Jacksonville |
+| Brandon Johnson | CB | TB | Oregon | 77 | not on the EA page |
+| Brandon Johnson | WR | PIT | UCF | 62 | not on the EA page |
+| Michael Carter | RB | TEN | North Carolina | 65 | EA 71, Tennessee |
+| Michael Carter | CB | PHI | Duke | 63 | not on the EA page |
+
+The two Justin Jeffersons both had 98 in the pool file. That shared number was not a Madden rating for the linebacker. The Browns linebacker from Alabama is EA 67. The Vikings receiver from LSU is EA 97. The receiver's team does not match the linebacker, and the linebacker's team does not match the receiver.
+
 ## Coverage by pool position
 
 NFL pool only. College prospects are not on the NFL ratings pages and are not given a Madden overall.
@@ -63,8 +88,8 @@ NFL pool only. College prospects are not on the NFL ratings pages and are not gi
 | WR | 315 | 208 | 107 |
 
 - Players in the NFL pool: 2532
-- Matched to an EA page: 1691
-- Left on the AFA pool overall: 841
+- Matched to an EA page: 1693
+- Left on the AFA pool overall: 839
 - Risers: 431
 - Fallers: 1199
 - Unchanged among matches: 61
