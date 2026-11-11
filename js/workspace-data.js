@@ -110,18 +110,30 @@
     var pos = query.pos || "";
     var team = query.team || "";
     var sort = query.sort || "name";
+    var dir = query.dir === "desc" ? -1 : 1;
+    if (sort === "ovr" && query.dir !== "asc") dir = -1;
     var list = (rows || []).filter(function (r) {
       if (text && r.search.indexOf(text) < 0) return false;
       if (pos && r.pos !== pos) return false;
       if (team && r.nfl !== team) return false;
       return true;
     });
+    function tie(a, b) {
+      var name = String(a.name || "").localeCompare(String(b.name || ""));
+      if (name) return name;
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    }
     list.sort(function (a, b) {
-      if (sort === "ovr") return (b.ovr || -1) - (a.ovr || -1) || a.name.localeCompare(b.name);
-      if (sort === "pos") return String(a.pos).localeCompare(String(b.pos)) || a.name.localeCompare(b.name);
-      if (sort === "team") return String(a.nfl).localeCompare(String(b.nfl)) || a.name.localeCompare(b.name);
-      if (sort === "status") return String(a.status).localeCompare(String(b.status)) || a.name.localeCompare(b.name);
-      return a.name.localeCompare(b.name);
+      var av = a[sort];
+      var bv = b[sort];
+      if (av == null && bv != null) return 1;
+      if (bv == null && av != null) return -1;
+      if (av !== bv) {
+        if (typeof av === "number" || typeof bv === "number") return ((Number(av) || 0) - (Number(bv) || 0)) * dir;
+        var cmp = String(av == null ? "" : av).localeCompare(String(bv == null ? "" : bv));
+        if (cmp) return cmp * (sort === "name" && query.dir !== "desc" ? 1 : dir);
+      }
+      return tie(a, b);
     });
     return list;
   }

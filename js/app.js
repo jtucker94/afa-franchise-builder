@@ -57,12 +57,13 @@
     formation: "11",
     defFormation: "base43",
     stFormation: "fg",
-    replayView: "aerial"
+    replayView: "aerial",
+    tableSort: {}
   };
 
   function freshState() {
     return {
-      version: "0.1.25",
+      version: "0.1.26",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -123,6 +124,7 @@
       draftIntro: ui.draftIntro,
       draftTab: ui.draftTab,
       boardSort: ui.boardSort || { key: "ovr", dir: "desc" },
+      tableSort: window.AFASort ? AFASort.snapshot() : (ui.tableSort || {}),
       draftViewTeam: ui.draftViewTeam,
       lineupSide: ui.lineupSide,
       formation: ui.formation || "11",
@@ -138,6 +140,8 @@
     Object.keys(snap).forEach((k) => {
       if (k in ui) ui[k] = snap[k];
     });
+    if (window.AFASort && snap.tableSort) AFASort.restore(snap.tableSort);
+    if (window.AFASort && snap.boardSort && snap.boardSort.key) AFASort.set("draft-pool", snap.boardSort.key, snap.boardSort.dir);
   }
 
   function captureActivePhase() {
@@ -225,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.25";
+      state.version = "0.1.26";
       const payload = {
-        version: "0.1.25",
+        version: "0.1.26",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -254,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.25";
+      state.version = "0.1.26";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -447,7 +451,7 @@
     if (!player || !player.scout) return "";
     const s = player.scout;
     const madden = (player.externalRatings && player.externalRatings.madden) || (window.AFARatings && AFARatings.lookup ? AFARatings.lookup(player) : null);
-    const basis = player.ratingBasis === "madden-nfl27-list" ? "Madden NFL 27 list" : "AFA pool";
+    const basis = player.ratingBasis === "madden-nfl27-ea" || player.ratingBasis === "madden-nfl27-list" ? "Madden NFL 27" : "AFA pool";
     return `
       <div class="scout-card-top">
         ${s.face}
@@ -472,7 +476,7 @@
         ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
         <p class="help">${madden ? "Madden NFL 27 overall " + madden.ovr + " is from " + (madden.compiler || "the published list") + (madden.sourceUrl ? " (" + madden.sourceUrl + ")" : "") + ". It is not an EA roster file. Attribute bars are not shown." : "No Madden overall is stored for this player. The AFA number is not relabeled as Madden."} PFF grades are not stored and are not estimated.</p>
         ${window.AFACareersUI ? `<div class="scout-section-label">NFL career</div>${AFACareersUI.statsHtml(player.id)}` : ""}
-        <div class="scout-foot">The AFA overall is the draft and lineup number. ${player.ratingBasis === "madden-nfl27-list" ? "It was set from the Madden NFL 27 list and the counting-stat grade did not replace it." : "Where no list match exists, it stays the AFA pool number."}
+        <div class="scout-foot">The AFA overall is the draft and lineup number. ${player.ratingBasis === "madden-nfl27-ea" || player.ratingBasis === "madden-nfl27-list" ? "It was set from the Madden NFL 27 ratings page and the counting-stat grade did not replace it." : "Where no Madden page match exists, it stays the AFA pool number."}
           ${window.AFAPlayersTab ? ` · <button type="button" class="btn btn-sm" data-profile="${player.id}">Full profile</button>` : ""}
         </div>
       </div>`;
@@ -2355,34 +2359,38 @@
     return (state.picks || []).filter((pk) => pk.teamId === teamId);
   }
 
+  function playerTable(screen, rows, columns, rowHtml, emptyHtml) {
+    const sorted = window.AFASort ? AFASort.sort(rows, screen, columns[0][0], "desc") : rows.slice();
+    const chrome = window.AFASort ? AFASort.select(screen, columns) : "";
+    const thead = window.AFASort ? AFASort.head(screen, columns) : "<tr>" + columns.map((col) => `<th>${col[1]}</th>`).join("") + "</tr>";
+    const body = sorted.map(rowHtml).join("") || (emptyHtml || `<tr><td colspan="${columns.length}" class="help">None.</td></tr>`);
+    return `<div class="sortable-player-table" data-sort-screen="${screen}">${chrome}<div class="pool-scroll"><table class="player-table"><thead>${thead}</thead><tbody>${body}</tbody></table></div></div>`;
+  }
+
   function renderDraftedHTML(team) {
     const picks = draftedPicksForTeam(team.id);
-    const rows = picks.map((pk) => {
+    const items = [];
+    picks.forEach((pk) => {
       const pl = playerById(pk.playerId);
-      if (!pl) return "";
+      if (!pl) return;
       const overall = pk.pick || pk.overall || 0;
-      const round = Math.floor((overall - 1) / 32) + 1;
-      const pickInRound = ((overall - 1) % 32) + 1;
-      return `<tr data-scout="${pl.id}" data-player-id="${pl.id}">
-        <td>R${round} · ${pickInRound}</td>
-        <td>#${overall}</td>
+      items.push(Object.assign({}, pl, { round: Math.floor((overall - 1) / 32) + 1, pickNo: overall }));
+    });
+    const columns = [["round", "Round"], ["pickNo", "Overall"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]];
+    const table = playerTable("drafted", items, columns, (pl) => `<tr data-scout="${pl.id}" data-player-id="${pl.id}">
+        <td>R${pl.round}</td>
+        <td>#${pl.pickNo}</td>
         <td class="${ovrClass(pl.ovr)}">${pl.ovr}</td>
-        <td data-profile="${pl.id}">${pl.name}</td>
+        <td class="name-col" data-profile="${pl.id}">${pl.name}</td>
         <td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td>
         <td>${pl.age}</td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="6" class="help">No picks yet for this club. Draft from the Board tab.</td></tr>`;
+      </tr>`, `<tr><td colspan="6" class="help">No picks yet for this club. Draft from the Board tab.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
         <h2>${displayName(team)} · Drafted</h2>
         <span class="phase-chip">${picks.length} pick${picks.length === 1 ? "" : "s"}</span>
       </div>
-      <div class="panel"><div class="panel-b">
-        <table class="drafted-table">
-          <thead><tr><th>Round</th><th>Overall</th><th>OVR</th><th>Player</th><th>Pos</th><th>Age</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div></div>`;
+      <div class="panel"><div class="panel-b">${table}</div></div>`;
   }
 
   function renderDepthHTML(team) {
@@ -2399,12 +2407,15 @@
       }).join("");
       return `<div class="depth-card"><div class="dh">${card.tag} · ${card.label}</div>${body}</div>`;
     }).join("");
+    const roster = rosterOf(team.id);
+    const list = playerTable("depth", roster, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.age}</td></tr>`, `<tr><td colspan="4" class="help">No players on this roster.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
         <h2>${displayName(team)} · Depth Chart</h2>
-        <span class="help">Madden-style starters highlighted · ranked by OVR at position</span>
+        <span class="help">Starters stay in the chart. The list under it sorts the same roster.</span>
       </div>
-      <div class="depth-madden">${cards}</div>`;
+      <div class="depth-madden">${cards}</div>
+      <div class="panel" style="margin-top:12px"><div class="panel-b">${list}</div></div>`;
   }
 
   function fieldSlotHTML(slot) {
@@ -2444,10 +2455,9 @@
       if (side === "offense") return ["QB","RB","WR","TE","OT","OG","C"].includes(pl.pos);
       return ["DE","DT","LB","CB","S"].includes(pl.pos);
     });
-    const special = lu.special.map((s) => {
-      if (!s.player) return `<div class="bench-chip"><span>${s.slot}</span><span class="help">Open</span></div>`;
-      return `<div class="bench-chip" data-scout="${s.player.id}" data-player-id="${s.player.id}"><span data-profile="${s.player.id}">${s.slot} · <span class="jersey">#${jerseyNum(s.player)}</span> ${s.player.name}</span><span class="${ovrClass(s.player.ovr)}">${s.player.ovr}</span></div>`;
-    }).join("");
+    const specialRows = lu.special.filter((s) => s.player).map((s) => Object.assign({}, s.player, { slot: s.slot }));
+    const specialTable = playerTable("lineup-special", specialRows, [["slot", "Role"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"]], (pl) => `<tr data-player-id="${pl.id}"><td>${pl.slot}</td><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td></tr>`);
+    const benchRows = playerTable("lineup-bench", bench, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (pl) => `<tr data-player-id="${pl.id}"><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td><td>${pl.age}</td></tr>`, `<tr><td colspan="4" class="help">No bench players yet.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
         <h2>${displayName(team)} · Lineup${side === "offense" ? " · " + (lu.formLabel || lu.formation) : ""}</h2>
@@ -2463,11 +2473,9 @@
         <div class="field" data-formation="${lu.formation || "11"}">${slots.map(fieldSlotHTML).join("")}</div>
       </div>
       <p class="help" style="margin-top:12px">Special teams</p>
-      <div class="lineup-bench">${special}</div>
+      ${specialTable}
       <p class="help" style="margin-top:12px">${side === "offense" ? "Offense" : "Defense"} depth / bench</p>
-      <div class="lineup-bench">
-        ${bench.map((pl) => `<div class="bench-chip" data-player-id="${pl.id}"><span data-profile="${pl.id}"><span class="pos-pill pos-${pl.pos}">${pl.pos}</span> ${pl.name}</span><span class="${ovrClass(pl.ovr)}">${pl.ovr}</span></div>`).join("") || `<div class="help">No bench players yet.</div>`}
-      </div>`;
+      ${benchRows}`;
   }
 
   function syncDraftNav() {
@@ -2537,6 +2545,7 @@
     view.querySelectorAll("[data-back-board]").forEach((b) => {
       b.onclick = () => { ui.draftTab = "board"; renderDraft(); };
     });
+    if (window.AFASort) AFASort.bind(view, () => renderDraft());
     bindScoutHover(view);
   }
 
@@ -2775,11 +2784,10 @@
     let pool = state.board.map(playerById).filter(Boolean);
     if (ui.posFilter !== "ALL") pool = pool.filter((p) => p.pos === ui.posFilter);
     if (q) pool = pool.filter((p) => p.name.toLowerCase().includes(q));
-    if (!ui.boardSort) ui.boardSort = { key: "ovr", dir: "desc" };
-    const sortKey = ui.boardSort.key || "ovr";
-    const sortDir = ui.boardSort.dir === "asc" ? "asc" : "desc";
-    if (window.AFAAttrs) pool.sort((a, b) => AFAAttrs.comparePlayers(a, b, sortKey, sortDir));
+    if (window.AFASort && ui.boardSort && ui.boardSort.key) AFASort.set("draft-pool", ui.boardSort.key, ui.boardSort.dir);
+    if (window.AFASort) pool = AFASort.sort(pool, "draft-pool", "ovr", "desc");
     else pool.sort((a, b) => b.ovr - a.ovr || String(a.name).localeCompare(String(b.name)) || String(a.id).localeCompare(String(b.id)));
+    if (window.AFASort) ui.boardSort = Object.assign({}, AFASort.get("draft-pool", "ovr", "desc"));
     const pageSize = 80;
     if (ui.boardPage == null) ui.boardPage = 0;
     const maxPage = Math.max(0, Math.ceil(pool.length / pageSize) - 1);
@@ -2795,36 +2803,23 @@
     });
 
     const columns = window.AFAAttrs ? AFAAttrs.COLUMNS : [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]];
+    const resort = () => { ui.boardPage = 0; ui.boardSort = Object.assign({}, AFASort.get("draft-pool", "ovr", "desc")); renderDraft(); };
     const head = $("pool-head");
-    if (head) {
-      head.innerHTML = "<tr>" + columns.map(([key, label]) => {
-        const on = key === sortKey;
-        const arrow = on ? (sortDir === "asc" ? " ↑" : " ↓") : "";
-        return `<th><button type="button" class="pool-sort-btn${on ? " on" : ""}" data-sort="${key}" aria-sort="${on ? (sortDir === "asc" ? "ascending" : "descending") : "none"}">${label}${arrow}</button></th>`;
-      }).join("") + "</tr>";
-      head.querySelectorAll("[data-sort]").forEach((btn) => {
-        btn.onclick = () => {
-          const key = btn.getAttribute("data-sort");
-          if (ui.boardSort.key === key) ui.boardSort.dir = ui.boardSort.dir === "asc" ? "desc" : "asc";
-          else ui.boardSort = { key: key, dir: key === "name" || key === "pos" || key === "age" ? "asc" : "desc" };
-          ui.boardPage = 0;
-          renderDraft();
-        };
-      });
+    if (head && window.AFASort) {
+      head.innerHTML = AFASort.head("draft-pool", columns);
+      AFASort.bind(head, resort);
     }
     const sortSelect = $("board-sort");
-    if (sortSelect) {
-      const opts = [];
-      columns.forEach(([key, label]) => {
-        opts.push(`<option value="${key}:asc"${sortKey === key && sortDir === "asc" ? " selected" : ""}>${label} ascending</option>`);
-        opts.push(`<option value="${key}:desc"${sortKey === key && sortDir === "desc" ? " selected" : ""}>${label} descending</option>`);
-      });
-      sortSelect.innerHTML = opts.join("");
+    if (sortSelect && window.AFASort) {
+      const html = AFASort.select("draft-pool", columns);
+      const hold = document.createElement("div");
+      hold.innerHTML = html;
+      const built = hold.querySelector("select");
+      sortSelect.innerHTML = built ? built.innerHTML : "";
       sortSelect.onchange = () => {
         const parts = sortSelect.value.split(":");
-        ui.boardSort = { key: parts[0], dir: parts[1] === "asc" ? "asc" : "desc" };
-        ui.boardPage = 0;
-        renderDraft();
+        AFASort.set("draft-pool", parts[0], parts[1] === "asc" ? "asc" : "desc");
+        resort();
       };
     }
 
@@ -2837,7 +2832,9 @@
         if (key === "pos") return `<td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>`;
         if (key === "age") return `<td>${p.age}</td>`;
         if (!window.AFAAttrs || !AFAAttrs.shows(p, key)) return `<td class="attr-na">—</td>`;
-        return `<td class="attr-est" title="${attrs.note}">${attrs[key]}</td>`;
+        const sourced = attrs.sourced && attrs.sourced[key];
+        const title = sourced ? "Madden NFL 27 attribute from the EA ratings page." : "Estimate. EA does not publish this as one number for this player.";
+        return `<td class="${sourced ? "attr-real" : "attr-est"}" title="${title}">${attrs[key]}</td>`;
       }).join("");
       return `<tr class="${recRow}" data-pid="${p.id}" data-scout="${p.id}" data-player-id="${p.id}">${cells}</tr>`;
     }).join("") || `<tr><td colspan="${columns.length}" class="help">No players match.</td></tr>`;
@@ -4051,29 +4048,22 @@
   }
 
   function renderRosterHTML(team) {
-    const roster = rosterOf(team.id).sort((a, b) => {
-      const pa = POSITIONS.indexOf(a.pos); const pb = POSITIONS.indexOf(b.pos);
-      if (pa !== pb) return pa - pb;
-      return b.ovr - a.ovr;
-    });
-    const hc = coachById(state.coachAssign[team.id]);
-    const groups = Object.keys(POS_GROUPS).map((g) => {
-      const blocks = POS_GROUPS[g].map((pos) => {
-        const at = roster.filter((p) => p.pos === pos);
-        const rows = at.length
-          ? at.map((p) => `<div class="depth-row" data-scout="${p.id}" data-player-id="${p.id}"><span data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${gradeDeltaBadge(p)}${p.onIR ? " <span class=\"ir-tag\">IR</span>" : ""}</span><span><span class="pos-pill pos-${p.pos}">${p.pos}</span> <span class="${ovrClass(p.ovr)}">${p.ovr}</span>${p.contract ? " <span class=\"cap-chip\">" + formatMoney(p.contract.capHit) + "</span>" : ""}
-              <button class="btn btn-sm" data-cut="${p.id}">Cut</button></span></div>`).join("")
-          : `<div class="depth-row empty">No ${pos} on roster</div>`;
-        return `<div class="pos-block"><div class="lab">${pos}</div>${rows}</div>`;
-      }).join("");
-      return `<div><h3>${g}</h3>${blocks}</div>`;
-    }).join("");
+    const roster = rosterOf(team.id).map((p) => Object.assign({}, p, { cap: p.contract ? p.contract.capHit : null }));
+    const columns = [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"], ["cap", "Cap"]];
+    const table = playerTable("roster", roster, columns, (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
+      <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
+      <td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${gradeDeltaBadge(p)}${p.onIR ? ' <span class="ir-tag">IR</span>' : ""}</td>
+      <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
+      <td>${p.age}</td>
+      <td>${p.contract ? formatMoney(p.contract.capHit) : "—"} <button class="btn btn-sm" data-cut="${p.id}">Cut</button></td>
+    </tr>`);
     const avg = roster.length ? Math.round(roster.reduce((s, p) => s + p.ovr, 0) / roster.length) : "—";
     const hit = teamCapHit(team.id);
     const cap = state.salaryCap || AFA_CAP;
     const over = hit > cap;
+    const hc = coachById(state.coachAssign[team.id]);
     return `<p class="help">Head coach: ${hc ? hc.name + " (" + hc.ovr + " OVR, " + hc.style + ")" : "Vacant"} · Roster ${roster.length} · Avg ${avg} OVR · Cap ${formatMoney(hit)} / ${formatMoney(cap)}${over ? " <span class=\"cap-over\">OVER CAP</span>" : ""}</p>
-      <div class="depth">${groups}</div>`;
+      ${table}`;
   }
 
   // Madden Franchise-style trade value (tiers, age, depth, cornerstones)
@@ -4386,17 +4376,13 @@
             ${selPicks.map((pk) => `<div class="sel-pill pick-pill">${pickLabel(pk)} · TV ${pickTradeValue(pk)}<button class="btn btn-sm" data-un${key}pick="${pk.id}">×</button></div>`).join("")}
             ${selected.length || selPicks.length ? "" : "<p class='help'>No players or picks on this side yet.</p>"}
           </div>
-          <table class="player-table"><thead><tr><th>OVR</th><th>Player</th><th>Pos</th><th>TV</th></tr></thead><tbody>
-            ${rosterOf(team.id).map((p) => {
-              const on = bucket.includes(p.id) ? " on-offer" : "";
-              return `<tr class="${on}" data-${key}="${p.id}" data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${isCornerstone(team.id, p) ? ' <span class="corner-tag">★</span>' : ""}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td class="tv">${playerTradeValue(p)}</td></tr>`;
-            }).join("")}
-          </tbody></table>
+          ${playerTable("trade-" + key, rosterOf(team.id).map((p) => Object.assign({}, p, { tv: playerTradeValue(p) })), [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["tv", "TV"]], (p) => {
+            const on = bucket.includes(p.id) ? " on-offer" : "";
+            return `<tr class="${on}" data-${key}="${p.id}" data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${isCornerstone(team.id, p) ? ' <span class="corner-tag">★</span>' : ""}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td class="tv">${p.tv}</td></tr>`;
+          })}
           <div class="pick-section">
             <div class="eyebrow" style="margin:12px 0 6px">Future picks (${owned.length})</div>
-            <table class="player-table pick-table"><thead><tr><th>Year</th><th>Pick</th><th>TV</th></tr></thead><tbody>
-              ${owned.map((pk) => `<tr class="pick-row${pbucket.includes(pk.id) ? " on-offer" : ""}" data-${key}pick="${pk.id}"><td>${pk.year}</td><td>${pickLabel(pk, true)}</td><td class="tv">${pickTradeValue(pk)}</td></tr>`).join("") || "<tr><td colspan='3' class='help'>No picks owned.</td></tr>"}
-            </tbody></table>
+            ${playerTable("trade-" + key + "-picks", owned.map((pk) => Object.assign({}, pk, { name: pickLabel(pk, true), tv: pickTradeValue(pk) })), [["year", "Year"], ["name", "Pick"], ["tv", "TV"]], (pk) => `<tr class="pick-row${pbucket.includes(pk.id) ? " on-offer" : ""}" data-${key}pick="${pk.id}"><td>${pk.year}</td><td>${pickLabel(pk, true)}</td><td class="tv">${pk.tv}</td></tr>`)}
           </div>
         </div>
       </div>`;
@@ -4447,29 +4433,26 @@
   }
 
   function renderSigningsHTML(team) {
-    const fa = (state.fa || []).map(playerById).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
+    const fa = window.AFASort ? AFASort.sort((state.fa || []).map(playerById).filter(Boolean), "free-agents", "ovr", "desc") : (state.fa || []).map(playerById).filter(Boolean);
     const canSign = state.mode !== "single" || team.id === state.userTeamId;
+    const faTable = playerTable("free-agents", fa, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
+              <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
+              <td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td>
+              <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
+              <td>${p.age} <button class="btn btn-sm btn-primary" data-sign="${p.id}" ${canSign ? "" : "disabled"}>Sign</button></td>
+            </tr>`);
+    const mine = playerTable("signing-roster", rosterOf(team.id), [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col" data-profile="${p.id}">${p.name}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.age}</td></tr>`);
     return `<div class="sign-grid">
       <div class="panel">
         <div class="panel-h"><strong>Free agents</strong><span>${fa.length} available</span></div>
         <div class="panel-b">
           <p class="help">${canSign ? "Sign a player to " + displayName(team) + "." : "Single-franchise mode: switch to your club to sign."}</p>
-          <table class="player-table"><thead><tr><th>OVR</th><th>Player</th><th>Pos</th><th></th></tr></thead>
-          <tbody>
-            ${fa.map((p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
-              <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
-              <td data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td>
-              <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
-              <td><button class="btn btn-sm btn-primary" data-sign="${p.id}" ${canSign ? "" : "disabled"}>Sign</button></td>
-            </tr>`).join("") || "<tr><td colspan='4' class='help'>No free agents left. Cut a player to populate the market.</td></tr>"}
-          </tbody></table>
+          ${faTable}
         </div>
       </div>
       <div class="panel">
         <div class="panel-h"><strong>${displayName(team)} roster</strong></div>
-        <div class="panel-b">
-          ${rosterOf(team.id).map((p) => `<div class="depth-row" data-scout="${p.id}" data-player-id="${p.id}"><span data-profile="${p.id}">${p.name} · ${p.pos}</span><span class="${ovrClass(p.ovr)}">${p.ovr}</span></div>`).join("") || "<p class='help'>Empty roster.</p>"}
-        </div>
+        <div class="panel-b">${mine}</div>
       </div>
     </div>`;
   }
@@ -4649,6 +4632,7 @@
     document.querySelectorAll("[data-inbox]").forEach((btn) => {
       btn.onclick = () => inboxReply(btn.getAttribute("data-inbox-id"), btn.getAttribute("data-inbox"));
     });
+    if (window.AFASort) AFASort.bind($("hub-body"), () => renderHub());
     const cl = $("btn-clear-trade");
     if (cl) cl.onclick = () => { ui.offer = []; ui.ask = []; ui.offerPicks = []; ui.askPicks = []; renderHub(); };
     const sw = $("btn-sim-week");
@@ -5001,7 +4985,6 @@
     const pos = cd.pos || "ALL";
     let pool = cd.board.map(playerById).filter(Boolean);
     if (pos !== "ALL") pool = pool.filter((p) => p.pos === pos);
-    pool.sort((a, b) => b.ovr - a.ovr || a.name.localeCompare(b.name));
     const myNext = state.mode === "single" ? cd.order.slice(cd.idx).filter((s) => s.ownerTeamId === state.userTeamId).slice(0, 7) : [];
     const feed = cd.picks.slice().reverse().slice(0, 16).map((pk) => {
       const t = teamById(pk.teamId), pl = playerById(pk.playerId);
@@ -5025,9 +5008,7 @@
         <div class="panel"><div class="panel-h"><strong>Prospect board</strong><span class="help">${cd.board.length} available · click to draft</span></div>
           <div class="panel-b">
             <div class="chips">${["ALL"].concat(POSITIONS).map((p) => `<button class="chip ${pos === p ? "on" : ""}" data-cpos="${p}">${p}</button>`).join("")}</div>
-            <table class="player-table"><thead><tr><th>OVR</th><th>Prospect</th><th>Pos</th><th>College</th></tr></thead><tbody>
-              ${pool.slice(0, 120).map((p) => `<tr data-cpick="${p.id}" data-scout="${p.id}" data-player-id="${p.id}" class="${mine ? "" : "dim"}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td>${p.name}${p.fictional ? " <span class='help'>(Fictional)</span>" : ""} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.fictional ? "Fictional" : (p.college || "—")}</td></tr>`).join("") || "<tr><td colspan='4' class='help'>No prospects match.</td></tr>"}
-            </tbody></table>
+            ${playerTable("college-board", pool, [["ovr", "OVR"], ["name", "Prospect"], ["pos", "Pos"], ["college", "College"], ["age", "Age"]], (p) => `<tr data-cpick="${p.id}" data-scout="${p.id}" data-player-id="${p.id}" class="${mine ? "" : "dim"}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col">${p.name}${p.fictional ? " <span class='help'>(Fictional)</span>" : ""} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.fictional ? "Fictional" : (p.college || "—")}</td><td>${p.age == null ? "—" : p.age}</td></tr>`)}
           </div></div>
         <div class="panel"><div class="panel-h"><strong>Pick feed</strong></div><div class="panel-b">${feed}</div></div>
       </div>

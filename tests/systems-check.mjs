@@ -147,6 +147,29 @@ try {
   await wait(200);
   await shot("pool-sorted-360");
 
+  async function expectSort(screenLabel) {
+    const found = await evalJson("JSON.stringify({headers:document.querySelectorAll('[data-afasort]').length, select:document.querySelectorAll('[data-afasort-select], #board-sort, #dir-sort').length, arrow:(document.querySelector('[data-afasort].on, [data-sort].on')||{}).textContent||''})");
+    if (!found || found.headers < 2) throw new Error(screenLabel + " has no sortable headers");
+    return found;
+  }
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('[data-draft-tab=drafted]'); if(b) b.click(); return !!b;})())");
+  await wait(300);
+  status.steps.drafted = await expectSort("drafted");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('#draft-tab-view [data-afasort=age]'); if(b) b.click(); return !!b;})())");
+  await metrics(390, 844);
+  await shot("drafted-sorted-iphone");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('[data-draft-tab=depth]'); if(b) b.click(); return !!b;})())");
+  await wait(250);
+  status.steps.depth = await expectSort("depth");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('[data-draft-tab=lineup]'); if(b) b.click(); return !!b;})())");
+  await wait(250);
+  status.steps.lineup = await expectSort("lineup");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('[data-draft-tab=board]'); if(b) b.click(); return !!b;})())");
+  await wait(250);
+  const still = await evalJson("JSON.stringify({arrow:(document.querySelector('[data-sort=age]')||{}).textContent||''})");
+  status.steps.sortPersisted = still;
+  if (!still || !/↑|↓/.test(still.arrow || "")) throw new Error("draft age sort did not persist");
+
   await metrics(390, 844);
   await evalJson("JSON.stringify((function(){var b=document.getElementById('btn-sys-trades'); if(b) b.click(); return !!b;})())");
   let trade = null;
@@ -176,6 +199,16 @@ try {
   if (!reply || reply.disabledBefore) throw new Error("Propose Trade stayed disabled after both sides were filled");
   if (!/Accept|Decline|Counter/.test(words)) throw new Error("CPU did not answer the offer");
   if (reply.overlap) throw new Error("Propose Trade covered an inbox button");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('#hub-nav [data-tab=roster]'); if(b) b.click(); return !!b;})())");
+  await wait(300);
+  status.steps.roster = await expectSort("roster");
+  await shot("roster-sorted-iphone");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('#hub-nav [data-tab=signings]'); if(b) b.click(); return !!b;})())");
+  await wait(300);
+  status.steps.freeAgents = await expectSort("free agents");
+  await shot("free-agents-sorted-iphone");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('#hub-nav [data-tab=trades]'); if(b) b.click(); return !!b;})())");
+  await wait(200);
   await shot("trade-iphone-offered");
 
   const inbox = await evalJson("JSON.stringify((function(){var b=document.querySelector('[data-inbox=accept]'); if(b) b.click(); return {clicked:!!b, text:(document.querySelector('.trade-inbox')||{}).innerText||''};})())");
@@ -197,6 +230,22 @@ try {
   }
   status.steps.reload = resumed;
   if (!resumed || !/accepted/i.test(resumed.inbox || "")) throw new Error("reload did not restore the accepted trade");
+
+  await send("Page.navigate", { url: "http://127.0.0.1:8765/?screen=players" }, sessionId);
+  let directory = null;
+  for (let i = 0; i < 20; i++) {
+    await wait(400);
+    directory = await evalJson("JSON.stringify({sort:!!document.getElementById('dir-sort'), headers:document.querySelectorAll('#dir-list [data-afasort]').length, rows:document.querySelectorAll('#dir-list [data-dir]').length})");
+    if (directory && directory.rows > 0 && directory.headers > 3) break;
+  }
+  status.steps.directory = directory;
+  if (!directory || directory.headers < 3) throw new Error("players workspace has no sortable columns");
+  await evalJson("JSON.stringify((function(){var s=document.getElementById('dir-sort'); if(s){s.value='age:asc'; s.dispatchEvent(new Event('change'));} return true;})())");
+  await wait(300);
+  await metrics(390, 844);
+  await shot("directory-sorted-iphone");
+  await metrics(360, 740);
+  await shot("directory-sorted-360");
 
   let live = { ok: false };
   try {

@@ -42,23 +42,49 @@
 
   function clamp(n) { return Math.max(40, Math.min(99, n | 0)); }
 
+  function realAttrs(player) {
+    var src = player && player.externalRatings && player.externalRatings.madden;
+    if ((!src || !src.attrs) && root.AFARatings && root.AFARatings.lookup) src = root.AFARatings.lookup(player);
+    return (src && src.attrs) || null;
+  }
+
   function attrsFor(player) {
     var ovr = Number(player && player.ovr);
     if (!isFinite(ovr)) ovr = 70;
     var h = hash(player && (player.id || player.name));
-    var out = {
-      estimate: true,
-      source: "estimate-from-overall",
-      note: "Not an EA attribute. The number is the overall plus a stable id wobble."
-    };
+    var real = realAttrs(player) || {};
+    var sourced = {};
+    var estimated = {};
+    var out = {};
+    function put(code, estimateValue) {
+      if (typeof real[code] === "number") {
+        out[code] = real[code];
+        sourced[code] = true;
+      } else {
+        out[code] = estimateValue;
+        estimated[code] = true;
+      }
+    }
     CORE.forEach(function (code, i) {
-      out[code] = clamp(ovr + ((h >>> (i * 3)) % 11) - 5);
+      put(code, clamp(ovr + ((h >>> (i * 3)) % 11) - 5));
     });
     var extras = EXTRA[player && player.pos] || [];
     extras.forEach(function (pair, i) {
-      out[pair[0]] = clamp(ovr + ((h >>> (18 + i * 3)) % 11) - 5);
+      put(pair[0], clamp(ovr + ((h >>> (18 + i * 3)) % 11) - 5));
     });
+    var sourcedKeys = Object.keys(sourced);
+    out.estimate = sourcedKeys.length === 0;
+    out.sourced = sourced;
+    out.estimated = estimated;
     out.extras = extras.map(function (pair) { return pair[0]; });
+    out.source = sourcedKeys.length ? (out.estimate ? "estimate-from-overall" : "madden-nfl27-ea") : "estimate-from-overall";
+    if (sourcedKeys.length && Object.keys(estimated).length) {
+      out.note = "Madden NFL 27 attributes from the EA ratings page where that page publishes the number. A cell without an EA value is an estimate from the overall, not a Madden attribute. Throw accuracy and a single pass-rush rating are not one EA number, so those stay estimates.";
+    } else if (sourcedKeys.length) {
+      out.note = "Madden NFL 27 attributes from the EA ratings page, retrieved 2026-11-11.";
+    } else {
+      out.note = "Not an EA attribute. The number is the overall plus a stable id wobble.";
+    }
     return out;
   }
 

@@ -1,11 +1,10 @@
-/* Match a pool player to a sourced Madden NFL 27 overall.
- * No match means not on record. This does not invent a grade or convert PFF.
+/* Match a pool player to an official Madden NFL 27 overall and the attributes
+ * EA publishes on that player's ratings page. No match means not on record.
+ * This does not invent a grade, average split ratings, or convert PFF.
  */
 (function (root) {
   "use strict";
 
-  var POS = { HB: "RB", RB: "RB", QB: "QB" };
-  // Spelling only. Each list name maps to one pool name. Audric Estime is not in the pool, so he stays unmatched.
   var ALIAS = {
     "a j dillon|RB": "aj dillon|RB",
     "nick singleton|RB": "nicholas singleton|RB"
@@ -21,66 +20,71 @@
       .trim();
   }
 
-  function lists() {
-    return root.AFA_MADDEN_LISTS || null;
+  function doc() {
+    return root.AFA_MADDEN_EA || null;
   }
 
   function index() {
-    var doc = lists();
-    if (!doc) return null;
-    if (doc._index) return doc._index;
+    var book = doc();
+    if (!book) return null;
+    if (book._index) return book._index;
     var byKey = {};
     var dup = {};
-    (doc.players || []).forEach(function (row) {
-      var pos = POS[row.pos] || row.pos;
-      var key = fold(row.name) + "|" + pos;
+    var urls = {};
+    (book.lists || []).forEach(function (list) { urls[list.pos] = list.url; });
+    (book.players || []).forEach(function (row) {
+      var key = fold(row.name) + "|" + row.pos;
       if (byKey[key]) dup[key] = true;
       byKey[key] = row;
     });
     Object.keys(dup).forEach(function (key) { delete byKey[key]; });
-    doc._index = { byKey: byKey, dropped: Object.keys(dup) };
-    return doc._index;
+    book._index = { byKey: byKey, dropped: Object.keys(dup), urls: urls };
+    return book._index;
   }
 
   function lookup(player) {
-    var doc = lists();
+    var book = doc();
     var ix = index();
-    if (!doc || !ix || !player) return null;
-    var pos = POS[player.pos] || player.pos;
-    if (pos !== "RB" && pos !== "QB") return null;
-    var key = fold(player.name) + "|" + pos;
+    if (!book || !ix || !player) return null;
+    var key = fold(player.name) + "|" + player.pos;
     var row = ix.byKey[key];
     if (!row) {
-      var wanted = Object.keys(ALIAS).filter(function (listKey) { return ALIAS[listKey] === key; })[0];
-      if (wanted && Object.keys(ALIAS).filter(function (listKey) { return ALIAS[listKey] === key; }).length === 1) {
-        row = ix.byKey[wanted];
-      }
+      var wanted = Object.keys(ALIAS).filter(function (listKey) { return ALIAS[listKey] === key; });
+      if (wanted.length === 1) row = ix.byKey[wanted[0]];
     }
     if (!row || typeof row.ovr !== "number") return null;
     return {
       ovr: row.ovr,
-      edition: doc.edition,
-      retrievedAt: doc.retrievedAt,
-      compiler: doc.compiler,
-      listPos: row.pos,
-      sourceUrl: (doc.lists || []).filter(function (list) { return list.pos === row.pos; }).map(function (list) { return list.url; })[0] || null,
+      attrs: row.attrs || {},
+      edition: book.edition,
+      iteration: book.iteration && book.iteration.label,
+      retrievedAt: book.retrievedAt,
+      publisher: book.publisher,
+      compiler: "EA Sports",
+      eaPos: row.eaPos,
+      sourceUrl: ix.urls[row.eaPos] || book.source,
       scale: "madden-ovr",
       pff: null
     };
   }
 
   function coverage() {
-    var doc = lists();
+    var book = doc();
     var ix = index();
+    var positions = {};
+    (book && book.lists || []).forEach(function (list) {
+      positions[list.pool || list.pos] = (positions[list.pool || list.pos] || 0) + (list.count || 0);
+    });
     return {
-      edition: doc && doc.edition,
-      retrievedAt: doc && doc.retrievedAt,
-      compiler: doc && doc.compiler,
-      listed: doc && doc.players ? doc.players.length : 0,
+      edition: book && book.edition,
+      iteration: book && book.iteration && book.iteration.label,
+      retrievedAt: book && book.retrievedAt,
+      publisher: book && book.publisher,
+      listed: book && book.players ? book.players.length : 0,
       usable: ix ? Object.keys(ix.byKey).length : 0,
-      positions: ["QB", "RB"],
+      positions: positions,
       pff: "Not stored. A PFF grade is a different scale and is not converted into an overall.",
-      absent: "A player who is not on these lists has no Madden number in this build."
+      absent: "A player who is not on these EA pages has no Madden number in this build."
     };
   }
 
@@ -90,7 +94,7 @@
     if (src) {
       player.ovr = src.ovr;
       player.ovrBase = src.ovr;
-      player.ratingBasis = "madden-nfl27-list";
+      player.ratingBasis = "madden-nfl27-ea";
       player.externalRatings = { madden: src, pff: null };
       return { locked: true, src: src };
     }
