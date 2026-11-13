@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.28",
+      version: "0.1.30",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.29";
+      state.version = "0.1.30";
       const payload = {
-        version: "0.1.29",
+        version: "0.1.30",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.29";
+      state.version = "0.1.30";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -1772,8 +1772,14 @@
     };
   }
 
+  function teamDead(teamId) {
+    const bag = state.deadCap && state.deadCap[teamId];
+    if (!bag) return 0;
+    return Object.keys(bag).reduce((sum, key) => sum + (Number(bag[key]) || 0), 0);
+  }
+
   function teamCapHit(teamId) {
-    return rosterOf(teamId).reduce((s, p) => s + ((p.contract && Number(p.contract.capHit)) || 0), 0);
+    return rosterOf(teamId).reduce((s, p) => s + ((p.contract && Number(p.contract.capHit)) || 0), 0) + teamDead(teamId);
   }
 
   function formatMoney(n) {
@@ -4497,7 +4503,7 @@
     }).join("");
     return `<div class="trade-deadline ${windowState.open ? "open" : "locked"}">
         <strong>${windowState.label}</strong>
-        <p class="help">${windowState.detail}</p>
+        <p class="help">${windowState.detail} Cap room ${formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(left.id)))}. CPU clubs refuse deals that would put them over the cap.</p>
       </div>
       <div class="trade-toolbar">
         <label>Your side <select id="trade-left">${opts(left.id)}</select></label>
@@ -4534,7 +4540,7 @@
       <div class="panel">
         <div class="panel-h"><strong>Free agents</strong><span>${fa.length} available</span></div>
         <div class="panel-b">
-          <p class="help">${canSign ? "Sign a player to " + displayName(team) + "." : "Single-franchise mode: switch to your club to sign."}</p>
+          <p class="help">${canSign ? "Sign a player to " + displayName(team) + ". Cap room " + formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(team.id))) + (teamDead(team.id) ? " including " + formatMoney(teamDead(team.id)) + " dead money." : ".") : "Single-franchise mode: switch to your club to sign."}</p>
           ${faTable}
         </div>
       </div>
@@ -5208,8 +5214,14 @@
         AFAStadiums.fanEvent(state.stadiums[teamId], "starCut", { ovr: cut.ovr });
       }
     } catch (e) {}
+    const dead = window.AFAFranchise ? AFAFranchise.deadMoney(cut && cut.contract) : 0;
+    if (dead) {
+      if (!state.deadCap) state.deadCap = {};
+      if (!state.deadCap[teamId]) state.deadCap[teamId] = {};
+      state.deadCap[teamId][pid] = dead;
+    }
     save();
-    toast((cut && cut.name) || "Player" + " released.");
+    toast(((cut && cut.name) || "Player") + " released." + (dead ? " Dead money " + formatMoney(dead) + " stays on the cap." : ""));
     renderHub();
   }
 
