@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.35",
+      version: "0.1.36",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.35";
+      state.version = "0.1.36";
       const payload = {
-        version: "0.1.35",
+        version: "0.1.36",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.35";
+      state.version = "0.1.36";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -482,6 +482,7 @@
           <span><b>Hand</b> ${player.hand || "—"}</span>
           <span><b>College</b> ${player.college || "—"}</span>
         </div>
+        ${cultureFitLine(player)}
         ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
         <p class="help">${madden ? "Madden NFL 27 overall " + madden.ovr + " is from " + (madden.compiler || "the published list") + (madden.sourceUrl ? " (" + madden.sourceUrl + ")" : "") + ". It is not an EA roster file. Attribute bars are not shown." : "No Madden overall is stored for this player. The AFA number is not relabeled as Madden."} PFF grades are not stored and are not estimated.</p>
         ${window.AFACareersUI ? `<div class="scout-section-label">NFL career</div>${AFACareersUI.statsHtml(player.id)}` : ""}
@@ -3593,6 +3594,13 @@
           p.progression.push({ week: "offseason", before: before, after: p.ovr, delta: swing.delta, reason: swing.reason, simulated: true });
         }
       });
+      if (window.AFACultures) {
+        if (!state.cultureDrift) state.cultureDrift = {};
+        const recs = records();
+        TEAMS.forEach((t) => {
+          state.cultureDrift[t.id] = AFACultures.evolve(state.cultureDrift[t.id], recs[t.id], false);
+        });
+      }
       ensureCoachPool(true); // refresh FA coach board for next carousel
       if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onSeasonEnd", { state, year: state.seasonYear });
     } catch (e) { console.warn("season end modules", e); }
@@ -3606,6 +3614,7 @@
     TEAMS.forEach((t) => {
       if (t.id === state.userTeamId) return;
       const needs = ["QB", "WR", "CB", "OT"].filter((pos) => rosterOf(t.id).filter((p) => p.pos === pos).length < 2);
+      const bias = window.AFACultures ? AFACultures.cpuBias(AFACultures.culture(t.id)) : { urgency: 0, spend: 0 };
       const offer = AFAFranchise.cpuOffer({
         id: t.id,
         week: state.week,
@@ -3614,7 +3623,8 @@
         capRoom: (state.salaryCap || AFA_CAP) - teamCapHit(t.id),
         offseason: !!state.seasonDone
       });
-      if (!offer || offer.urgency < 2) return;
+      if (!offer || offer.urgency + bias.urgency < 2) return;
+      if (bias.spend < 0 && offer.urgency < 3) return;
       const id = "shop-" + t.id + "-w" + state.week;
       if (state.tradeInbox.some((row) => row.id === id)) return;
       const want = mine.slice().sort((a, b) => b.ovr - a.ovr)[0];
@@ -3742,6 +3752,7 @@
 
     const body = $("hub-body");
     if (ui.hubTab === "home") body.innerHTML = renderLeagueHomeHTML(vt);
+    else if (ui.hubTab === "culture") body.innerHTML = renderCultureHTML(vt);
     else if (ui.hubTab === "standings") body.innerHTML = renderStandingsHTML();
     else if (ui.hubTab === "slate") body.innerHTML = renderSlateHTML();
     else if (ui.hubTab === "roster") body.innerHTML = renderRosterHTML(vt);
@@ -3893,6 +3904,63 @@
       </svg>`;
   }
 
+  function cultureHomeLine(team) {
+    const club = window.AFACultures && AFACultures.culture(team.id);
+    if (!club) return "";
+    const target = AFACultures.approvalTarget(club);
+    return "This club's owner is " + club.owner.toLowerCase() + " and wants the meter near " + target + ". " + club.tagline;
+  }
+
+  function cultureTradeNote(team) {
+    const club = window.AFACultures && AFACultures.culture(team && team.id);
+    if (!club) return "";
+    return " Culture: " + club.archetype + ", " + club.philosophy.toLowerCase() + ". " + club.tagline;
+  }
+
+  function cultureFitLine(player) {
+    if (!window.AFACultures || !player) return "";
+    const club = AFACultures.culture(viewTeamId());
+    const trait = AFACultures.simulatedTrait(player.id);
+    const fit = AFACultures.cultureFit(trait, club);
+    return `<p class="help">Simulated trait: ${trait}. ${fit.note || ""}</p>`;
+  }
+
+  function renderCultureHTML(team) {
+    const C = window.AFACultures;
+    if (!C) return `<p class="help">Culture data is not loaded.</p>`;
+    const club = C.culture(team.id);
+    const league = C.LEAGUE;
+    const drift = state.cultureDrift && state.cultureDrift[team.id];
+    if (!club) return `<p class="help">No culture is stored for this club.</p>`;
+    const rivals = club.rivals.map((id) => displayName(teamById(id))).join(", ");
+    return `<article class="culture-page" style="--club:${team.primary};--club2:${team.secondary}">
+      <header class="culture-hero">
+        ${logoImg(team, "lg")}
+        <div>
+          <p class="eyebrow">${league.name}</p>
+          <h2>${displayName(team)}</h2>
+          <p class="culture-tag">${club.tagline}</p>
+        </div>
+      </header>
+      <p class="help">${league.founding} Trophy: ${league.trophy}. Rivalry week: ${league.rivalryWeek}.</p>
+      <div class="culture-grid">
+        <div><span>Archetype</span><b>${club.archetype}</b></div>
+        <div><span>Owner</span><b>${club.owner}</b></div>
+        <div><span>Patience</span><b>${club.patience}</b></div>
+        <div><span>Front office</span><b>${club.philosophy}</b></div>
+        <div><span>Offense</span><b>${club.offense}</b></div>
+        <div><span>Defense</span><b>${club.defense}</b></div>
+        <div><span>Locker room</span><b>${club.vibe}</b></div>
+        <div><span>Market</span><b>${club.market} · ${club.appeal}</b></div>
+      </div>
+      <p>${club.fans}</p>
+      <p><strong>Ritual.</strong> ${club.ritual}</p>
+      <p><strong>Natural rivals.</strong> ${rivals}</p>
+      <p class="help">${drift ? drift.note : "The city culture is holding. A long winning run or a hard year can nudge patience. This is simulated AFA flavor."}</p>
+      <button type="button" class="btn" id="btn-culture-home">Back to League Home</button>
+    </article>`;
+  }
+
   function leagueDeskHTML(team) {
     if (window.AFAFranchise) AFAFranchise.defaults(state);
     const score = state.approval && state.approval.score != null ? state.approval.score : 60;
@@ -3902,7 +3970,8 @@
       `<li><span class="eyebrow">${item.tag || "Simulated AFA"}</span> ${item.text}</li>`
     ).join("") || "<li>No simulated headlines yet. Play a week to fill the feed.</li>";
     return `<section class="panel"><div class="panel-h"><strong>Owner approval</strong><span>${score}</span></div>
-      <div class="panel-b"><p class="help">This meter reacts to simulated wins, losses, and moves.${warning}${firing}</p>
+      <div class="panel-b"><p class="help">This meter reacts to simulated wins, losses, and moves.${warning}${firing} ${cultureHomeLine(team)}</p>
+      <p><button type="button" class="btn btn-primary" id="btn-open-culture">Team culture</button></p>
       <h3>In-league feed</h3><ul class="ws-roster">${news}</ul>
       <p class="help">Headlines are simulated AFA fiction. They are not NFL news.</p>
       ${franchiseToolsHTML(team)}
@@ -4631,7 +4700,7 @@
     }).join("");
     return `<div class="trade-deadline ${windowState.open ? "open" : "locked"}">
         <strong>${windowState.label}</strong>
-        <p class="help">${windowState.detail} Cap room ${formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(left.id)))}. CPU clubs refuse deals that would put them over the cap.</p>
+        <p class="help">${windowState.detail} Cap room ${formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(left.id)))}. CPU clubs refuse deals that would put them over the cap. ${cultureTradeNote(left)}</p>
       </div>
       <div class="trade-toolbar">
         <label>Your side <select id="trade-left">${opts(left.id)}</select></label>
@@ -4677,7 +4746,7 @@
       <div class="panel">
         <div class="panel-h"><strong>Free agents</strong><span>${fa.length} available</span></div>
         <div class="panel-b">
-          <p class="help">${canSign ? "Sign a player to " + displayName(team) + ". Cap room " + formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(team.id))) + (teamDead(team.id) ? " including " + formatMoney(teamDead(team.id)) + " dead money." : ".") + bidNote : "Single-franchise mode: switch to your club to sign."}</p>
+          <p class="help">${canSign ? "Sign a player to " + displayName(team) + ". Cap room " + formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(team.id))) + (teamDead(team.id) ? " including " + formatMoney(teamDead(team.id)) + " dead money." : ".") + bidNote + cultureTradeNote(team) : "Single-franchise mode: switch to your club to sign."}</p>
           ${faTable}
         </div>
       </div>
@@ -4920,6 +4989,10 @@
     if (exp) exp.onclick = exportLeagueFile;
     const seat = $("btn-hot-seat");
     if (seat) seat.onclick = passHotSeat;
+    const cultureBtn = $("btn-open-culture");
+    if (cultureBtn) cultureBtn.onclick = () => { ui.hubTab = "culture"; renderHub(); };
+    const cultureHome = $("btn-culture-home");
+    if (cultureHome) cultureHome.onclick = () => { ui.hubTab = "home"; renderHub(); };
     const cl = $("btn-clear-trade");
     if (cl) cl.onclick = () => { ui.offer = []; ui.ask = []; ui.offerPicks = []; ui.askPicks = []; renderHub(); };
     const sw = $("btn-sim-week");

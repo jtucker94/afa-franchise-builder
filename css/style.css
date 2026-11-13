@@ -2055,7 +2055,13 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .pool-sort-btn { background: transparent; color: inherit; border: 0; font: inherit; cursor: pointer; min-height: 36px; padding: 4px 2px; white-space: nowrap; }
 .pool-sort-btn.on { color: var(--gold-2); }
 .player-table .name-col { position: sticky; left: 0; background: #10161f; z-index: 1; }
-.pick-reveal { border: 2px solid var(--team-primary, var(--gold)); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: var(--panel); }
+.culture-page { border: 1px solid var(--club, var(--line)); border-radius: 14px; padding: 14px; }
+.culture-hero { display: flex; gap: 12px; align-items: center; }
+.culture-tag { font-family: var(--display); font-size: 22px; margin: 4px 0; color: var(--club2, var(--gold-2)); }
+.culture-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.culture-grid div { background: var(--panel); border-radius: 8px; padding: 8px; }
+.culture-grid span { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+@media (max-width: 420px) { .culture-grid { grid-template-columns: 1fr; } .culture-tag { font-size: 18px; } }
 .attr-na { color: #667; }
 .trade-deadline { border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
 .trade-deadline.locked { border-color: #8a3b3b; }
