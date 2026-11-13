@@ -16,14 +16,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=047">
-  <link rel="stylesheet" href="css/mobile.css?v=047">
-  <link rel="stylesheet" href="css/broadcast.css?v=047">
-  <link rel="stylesheet" href="stadiums/stadium.css?v=047">
-  <link rel="stylesheet" href="dynasty/dynasty.css?v=047">
-  <link rel="stylesheet" href="gameday/gameday.css?v=047">
-  <link rel="stylesheet" href="careers/careers.css?v=047">
-  <link rel="stylesheet" href="careers/players-tab.css?v=047">
+  <link rel="stylesheet" href="css/style.css?v=048">
+  <link rel="stylesheet" href="css/mobile.css?v=048">
+  <link rel="stylesheet" href="css/broadcast.css?v=048">
+  <link rel="stylesheet" href="stadiums/stadium.css?v=048">
+  <link rel="stylesheet" href="dynasty/dynasty.css?v=048">
+  <link rel="stylesheet" href="gameday/gameday.css?v=048">
+  <link rel="stylesheet" href="careers/careers.css?v=048">
+  <link rel="stylesheet" href="careers/players-tab.css?v=048">
 </head>
 <body>
     <div id="app">
@@ -38,22 +38,36 @@
     <section id="screen-menu" class="screen">
       <div class="menu-card">
         <img class="menu-logo" src="assets/gm-franchise-builder-logo.jpg" alt="GM Franchise Builder">
-        <p class="eyebrow">Working title · v0.1.37</p>
+        <p class="eyebrow">Working title · v0.1.38</p>
         <h1>GM Franchise Builder</h1>
         <p class="sub">The NFL is gone. The Alliance Football Association is yours to build — 32 cities, one founding draft, total roster control.</p>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="btn-play-story">Play Story</button>
-          <button class="btn" id="btn-continue">Continue</button>
-          <button class="btn" id="btn-save-menu">Save</button>
-          <button class="btn btn-danger" id="btn-reset-menu">Reset save</button>
-        </div>
+        <nav class="menu-grid" aria-label="Main menu">
+          <button class="menu-tile menu-tile-primary" id="btn-play-story" type="button">
+            <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+            <span class="menu-tile-text">Play Story</span>
+          </button>
+          <button class="menu-tile" id="btn-continue" type="button">
+            <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12h12M13 6l6 6-6 6"/></svg>
+            <span class="menu-tile-text">Continue</span>
+          </button>
+          <button class="menu-tile" id="btn-save-menu" type="button">
+            <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M6 4h9l3 3v13H6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M8 4v5h7"/></svg>
+            <span class="menu-tile-text">Save</span>
+          </button>
+          <button class="menu-tile menu-tile-danger" id="btn-reset-menu" type="button">
+            <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 12a8 8 0 1 0 2.2-5.5M4 4v5h5"/></svg>
+            <span class="menu-tile-text">Reset save</span>
+          </button>
+        </nav>
         <div class="home-study" role="navigation" aria-label="Real NFL study">
           <button type="button" class="study-card" id="btn-open-players">
+            <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 12a3.2 3.2 0 1 0 0-6.4A3.2 3.2 0 0 0 12 12z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M6 20c1.2-3 3.2-4.4 6-4.4S16.8 17 18 20"/></svg>
             <span class="eyebrow">Directory</span>
             <strong>Players</strong>
             <span>Every real NFL player, with the real NFL team, stats, and photos.</span>
           </button>
           <button type="button" class="study-card" id="btn-open-scouting">
+            <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
             <span class="eyebrow">Workspace</span>
             <strong>Scouting</strong>
             <span>NFL grades, then OGFFL or Dynasty Domination. The leagues stay separate.</span>
@@ -81,7 +95,7 @@
           <button class="mode-tile" id="btn-mode-single" type="button">
             <div class="tag">Single franchise</div>
             <h2>Take a Club</h2>
-            <p>Pick one club. Hire your HC (or sim the other 31), then draft only your picks while the CPU fills the rest of the board. Trade and sign as that GM.</p>
+            <p>Pick one club. Hire your head coach (or simulate the other 31), then draft only your picks while the CPU fills the rest of the board. Trade and sign as that general manager.</p>
           </button>
         </div>
         <div id="franchise-picker" style="display:none;margin-top:22px"></div>
@@ -119,7 +133,7 @@
       </header>
       <div class="workspace coach-workspace" role="main">
         <ol class="coach-steps" id="coach-steps" aria-label="How coach assignment works">
-          <li class="coach-step" data-step="1"><span class="coach-step-num" aria-hidden="true">1</span><span class="coach-step-body"><strong>Hire your HC</strong><em>Select your highlighted club, then Hire a coach</em></span></li>
+          <li class="coach-step" data-step="1"><span class="coach-step-num" aria-hidden="true">1</span><span class="coach-step-body"><strong>Hire your head coach</strong><em>Select your highlighted club, then hire a coach</em></span></li>
           <li class="coach-step" data-step="2"><span class="coach-step-num" aria-hidden="true">2</span><span class="coach-step-body"><strong>Fill the other 31</strong><em>Optional — hire them yourself, or tap Sim other 31 / Assist</em></span></li>
           <li class="coach-step" data-step="3"><span class="coach-step-num" aria-hidden="true">3</span><span class="coach-step-body"><strong>Lock hires</strong><em>When all 32 desks are filled, go to the AFA Draft</em></span></li>
         </ol>
@@ -184,11 +198,11 @@
       </div>
       <div id="draft-board" class="draft-board">
         <div id="draft-status" class="draft-top"></div>
-        <nav class="draft-nav" id="draft-nav">
-          <button class="btn btn-sm on" data-draft-tab="board">Board</button>
-          <button class="btn btn-sm" data-draft-tab="drafted">Drafted</button>
-          <button class="btn btn-sm" data-draft-tab="depth">Depth Chart</button>
-          <button class="btn btn-sm" data-draft-tab="lineup">Lineup</button>
+        <nav class="draft-nav" id="draft-nav" aria-label="Draft menu">
+          <button class="btn btn-sm on" data-draft-tab="board" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M4 4h16v16H4zM4 9h16M9 9v11"/></svg><span>Draft Board</span></button>
+          <button class="btn btn-sm" data-draft-tab="drafted" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M5 12l5 5L20 7"/></svg><span>Drafted Players</span></button>
+          <button class="btn btn-sm" data-draft-tab="depth" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/></svg><span>Depth Chart</span></button>
+          <button class="btn btn-sm" data-draft-tab="lineup" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M4 8h16M4 16h16M8 4v16M16 4v16"/></svg><span>Lineup</span></button>
           <div class="grow"></div>
           <label class="draft-team-label">Club
             <select id="draft-team-select" aria-label="View club roster"></select>
@@ -275,24 +289,36 @@
           </div>
         </div>
         <button class="btn btn-sm" id="btn-save-hub">Save</button>
-        <button class="btn btn-sm btn-live" id="btn-sim-now">Sim</button>
+        <button class="btn btn-sm btn-live" id="btn-sim-now" type="button">Simulate</button>
         <button class="btn btn-sm btn-danger" id="btn-hub-reset">Reset save</button>
       </header>
-      <nav class="hub-nav" id="hub-nav">
-        <button class="btn btn-sm btn-draft-tab" id="btn-hub-draft-room" type="button" hidden>Draft Room</button>
-        <button class="btn btn-sm" data-tab="home">League Home</button>
-        <button class="btn btn-sm" data-tab="lineup">Lineup</button>
-        <button class="btn btn-sm" data-tab="roster">Roster</button>
-        <button class="btn btn-sm" data-tab="players">Players</button>
-        <button class="btn btn-sm" data-tab="trades">Trades</button>
-        <button class="btn btn-sm" data-tab="signings">Free Agency</button>
-        <button class="btn btn-sm" data-tab="slate">Schedule</button>
-        <button class="btn btn-sm" data-tab="standings">Standings</button>
-        <button class="btn btn-sm" data-tab="stadium">Stadium</button>
-        <button class="btn btn-sm" data-tab="dynasty">Dynasty</button>
-        <button class="btn btn-sm" data-tab="gameday">Game Day</button>
-        <button class="btn btn-sm" data-tab="college">College Draft</button>
-        <button class="btn btn-sm" data-tab="sim">Play Week</button>
+      <nav class="hub-nav" id="hub-nav" aria-label="League menu">
+        <div class="hub-nav-group">
+          <p class="hub-nav-label">Draft</p>
+          <button class="btn btn-sm btn-draft-tab" id="btn-hub-draft-room" type="button" hidden><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M4 4h16v16H4zM4 9h16M9 9v11"/></svg><span class="hub-nav-text">Draft Room</span></button>
+        </div>
+        <div class="hub-nav-group">
+          <p class="hub-nav-label">Club</p>
+          <button class="btn btn-sm" data-tab="home" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 11l8-7 8 7v9H4z"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M10 20v-6h4v6"/></svg><span class="hub-nav-text">League Home</span></button>
+          <button class="btn btn-sm" data-tab="lineup" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M4 8h16M4 16h16M8 4v16M16 4v16"/></svg><span class="hub-nav-text">Lineup</span></button>
+          <button class="btn btn-sm" data-tab="roster" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span class="hub-nav-text">Roster</span></button>
+          <button class="btn btn-sm" data-tab="players" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 12a3.2 3.2 0 1 0 0-6.4A3.2 3.2 0 0 0 12 12z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M6 20c1.2-3 3.2-4.4 6-4.4S16.8 17 18 20"/></svg><span class="hub-nav-text">Players</span></button>
+        </div>
+        <div class="hub-nav-group">
+          <p class="hub-nav-label">Front office</p>
+          <button class="btn btn-sm" data-tab="trades" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7 7h11l-3-3M17 17H6l3 3"/></svg><span class="hub-nav-text">Trades</span></button>
+          <button class="btn btn-sm" data-tab="signings" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M9 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 20c.8-2.4 2.4-3.6 5-3.6M17 8v6M14 11h6"/></svg><span class="hub-nav-text">Free Agency</span></button>
+          <button class="btn btn-sm" data-tab="slate" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M5 5h14v14H5zM5 9h14M8 3v4M16 3v4"/></svg><span class="hub-nav-text">Schedule</span></button>
+          <button class="btn btn-sm" data-tab="standings" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M6 19V10M12 19V5M18 19v-7"/></svg><span class="hub-nav-text">Standings</span></button>
+        </div>
+        <div class="hub-nav-group">
+          <p class="hub-nav-label">Season</p>
+          <button class="btn btn-sm" data-tab="stadium" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 20V10l8-6 8 6v10M9 20v-6h6v6"/></svg><span class="hub-nav-text">Stadium</span></button>
+          <button class="btn btn-sm" data-tab="dynasty" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 16l2-8 6 4 6-4 2 8H4z"/></svg><span class="hub-nav-text">Dynasty</span></button>
+          <button class="btn btn-sm" data-tab="gameday" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 4c4 2 6 6 6 8s-2 6-6 8c-4-2-6-6-6-8s2-6 6-8zM8 12h8"/></svg><span class="hub-nav-text">Game Day</span></button>
+          <button class="btn btn-sm" data-tab="college" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M3 10l9-5 9 5-9 5-9-5zM7 12v4c2 1.2 8 1.2 10 0v-4"/></svg><span class="hub-nav-text">College Draft</span></button>
+          <button class="btn btn-sm" data-tab="sim" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="hub-nav-text">Play Week</span></button>
+        </div>
       </nav>
       <div class="workspace" id="hub-body"></div>
     </section>
@@ -302,50 +328,50 @@
   <div id="scout-card" class="scout-card" hidden></div>
   <div id="toast" class="toast"></div>
   <aside id="real-news-ticker" class="real-news-ticker" hidden></aside>
-  <script src="js/players-nfl.js?v=047"></script>
-  <script src="js/prospects-college.js?v=047"></script>
-  <script src="js/data.js?v=047"></script>
-  <script src="js/sleeper-2026.js?v=047"></script>
-  <script src="js/sleeper-leagues.js?v=047"></script>
-  <script src="js/madden-nfl27-lists.js?v=047"></script>
-  <script src="js/madden-nfl27-ea.js?v=047"></script>
-  <script src="js/rating-sources.js?v=047"></script>
-  <script src="js/scout.js?v=047"></script>
-  <script src="js/grading.js?v=047"></script>
-  <script src="js/stats-2025.js?v=047"></script>
-  <script src="js/systems-data-bundle.js?v=047"></script>
-  <script src="js/systems-market.js?v=047"></script>
-  <script src="js/systems-rookie-scale.js?v=047"></script>
-  <script src="js/systems-injuries.js?v=047"></script>
-  <script src="stadiums/stadium-data.js?v=047"></script>
-  <script src="stadiums/stadiums.js?v=047"></script>
-  <script src="stadiums/stadium-ui.js?v=047"></script>
-  <script src="dynasty/coaches.js?v=047"></script>
-  <script src="dynasty/dynasty.js?v=047"></script>
-  <script src="gameday/engine.js?v=047"></script>
-  <script src="gameday/replay.js?v=047"></script>
-  <script src="gameday/gameday-ui.js?v=047"></script>
-  <script src="careers/careers-data.js?v=047"></script>
-  <script src="careers/careers-ui.js?v=047"></script>
-  <script src="careers/players-tab.js?v=047"></script>
-  <script src="js/bridge-v024.js?v=047"></script>
-  <script src="js/bridge-v025.js?v=047"></script>
-  <script src="js/mobile.js?v=047"></script>
-  <script src="js/draft-engine.js?v=047"></script>
-  <script src="js/refresh-clock.js?v=047"></script>
-  <script src="js/news-feed.js?v=047"></script>
-  <script src="js/real-status.js?v=047"></script>
-  <script src="js/league-scout.js?v=047"></script>
-  <script src="js/team-logos.js?v=047"></script>
-  <script src="js/news-ticker.js?v=047"></script>
-  <script src="js/workspace-data.js?v=047"></script>
-  <script src="js/workspace-ui.js?v=047"></script>
-  <script src="js/franchise-mode.js?v=047"></script>
-  <script src="js/team-cultures.js?v=047"></script>
-  <script src="js/team-theme.js?v=047"></script>
-  <script src="js/sortable-tables.js?v=047"></script>
-  <script src="js/player-attrs.js?v=047"></script>
-  <script src="js/trade-desk.js?v=047"></script>
-  <script src="js/app.js?v=047"></script>
+  <script src="js/players-nfl.js?v=048"></script>
+  <script src="js/prospects-college.js?v=048"></script>
+  <script src="js/data.js?v=048"></script>
+  <script src="js/sleeper-2026.js?v=048"></script>
+  <script src="js/sleeper-leagues.js?v=048"></script>
+  <script src="js/madden-nfl27-lists.js?v=048"></script>
+  <script src="js/madden-nfl27-ea.js?v=048"></script>
+  <script src="js/rating-sources.js?v=048"></script>
+  <script src="js/scout.js?v=048"></script>
+  <script src="js/grading.js?v=048"></script>
+  <script src="js/stats-2025.js?v=048"></script>
+  <script src="js/systems-data-bundle.js?v=048"></script>
+  <script src="js/systems-market.js?v=048"></script>
+  <script src="js/systems-rookie-scale.js?v=048"></script>
+  <script src="js/systems-injuries.js?v=048"></script>
+  <script src="stadiums/stadium-data.js?v=048"></script>
+  <script src="stadiums/stadiums.js?v=048"></script>
+  <script src="stadiums/stadium-ui.js?v=048"></script>
+  <script src="dynasty/coaches.js?v=048"></script>
+  <script src="dynasty/dynasty.js?v=048"></script>
+  <script src="gameday/engine.js?v=048"></script>
+  <script src="gameday/replay.js?v=048"></script>
+  <script src="gameday/gameday-ui.js?v=048"></script>
+  <script src="careers/careers-data.js?v=048"></script>
+  <script src="careers/careers-ui.js?v=048"></script>
+  <script src="careers/players-tab.js?v=048"></script>
+  <script src="js/bridge-v024.js?v=048"></script>
+  <script src="js/bridge-v025.js?v=048"></script>
+  <script src="js/mobile.js?v=048"></script>
+  <script src="js/draft-engine.js?v=048"></script>
+  <script src="js/refresh-clock.js?v=048"></script>
+  <script src="js/news-feed.js?v=048"></script>
+  <script src="js/real-status.js?v=048"></script>
+  <script src="js/league-scout.js?v=048"></script>
+  <script src="js/team-logos.js?v=048"></script>
+  <script src="js/news-ticker.js?v=048"></script>
+  <script src="js/workspace-data.js?v=048"></script>
+  <script src="js/workspace-ui.js?v=048"></script>
+  <script src="js/franchise-mode.js?v=048"></script>
+  <script src="js/team-cultures.js?v=048"></script>
+  <script src="js/team-theme.js?v=048"></script>
+  <script src="js/sortable-tables.js?v=048"></script>
+  <script src="js/player-attrs.js?v=048"></script>
+  <script src="js/trade-desk.js?v=048"></script>
+  <script src="js/app.js?v=048"></script>
 </body>
 </html>

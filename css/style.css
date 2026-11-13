@@ -96,6 +96,41 @@ button, input, select { font-family: inherit; }
 }
 .sub { color: var(--muted); margin: 0 0 28px; }
 .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 0 16px;
+  text-align: left;
+}
+.menu-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  white-space: normal;
+}
+.menu-tile:hover { border-color: var(--gold); color: var(--gold-2); transform: translateY(-1px); }
+.menu-tile:active { transform: translateY(0); }
+.menu-tile:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
+.menu-tile-primary {
+  grid-column: 1 / -1;
+  background: linear-gradient(180deg, #f0c14a, #c49222);
+  color: #1a1406;
+  border-color: #f3d58a;
+}
+.menu-tile-primary:hover { color: #1a1406; filter: brightness(1.06); }
+.menu-tile-danger { color: #f0b4b4; border-color: #6b3030; }
+.nav-ico { width: 22px; height: 22px; flex: 0 0 22px; }
 
 .btn {
   border: 1px solid var(--line-2);
@@ -1062,14 +1097,45 @@ button, input, select { font-family: inherit; }
 
 /* ---------- HUB ---------- */
 .hub-nav {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 8px 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
 }
+.hub-nav-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-content: start;
+}
+.hub-nav-group:not(:has(button:not([hidden]))) { display: none; }
+.hub-nav-label {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-2);
+}
+.hub-nav .btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.2;
+  overflow: visible;
+  text-overflow: clip;
+}
+.hub-nav .hub-nav-text { min-width: 0; }
 .hub-nav button.on { background: var(--gold); color: #1a1406; border-color: var(--gold); font-weight: 700; }
+.hub-nav button:hover { transform: translateY(-1px); }
+.hub-nav button:active { transform: translateY(0); }
 .team-switch {
   display: flex;
   align-items: center;
@@ -1207,7 +1273,7 @@ button, input, select { font-family: inherit; }
 .help { color: var(--muted); font-size: 13px; line-height: 1.4; }
 
 @media (max-width: 1100px) {
-  .coach-layout, .draft-layout, .standings-wrap, .depth, .trade-grid, .sign-grid, .mode-grid {
+  .coach-layout, .draft-layout, .standings-wrap, .depth, .trade-grid, .sign-grid, .mode-grid, .hub-nav {
     grid-template-columns: 1fr;
   }
   .draft-top { grid-template-columns: 1fr; }
@@ -1226,6 +1292,14 @@ button, input, select { font-family: inherit; }
   background: var(--panel-2);
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+.draft-nav .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  white-space: normal;
+  text-align: left;
 }
 .draft-nav .btn.on {
   border-color: var(--gold);
@@ -1323,7 +1397,7 @@ button, input, select { font-family: inherit; }
   background: rgba(201,162,39,0.08);
 }
 .depth-slot.empty { color: var(--muted); font-style: italic; }
-.lineup-toggle { display: flex; gap: 6px; }
+.lineup-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
 .field-wrap {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1842,6 +1916,11 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 @media (max-width: 900px) {
   .home-hero, .home-grid { grid-template-columns: 1fr; }
 }
+@media (max-width: 720px) {
+  .menu-grid, .hub-nav-group { grid-template-columns: 1fr 1fr; }
+  .menu-tile-primary { grid-column: 1 / -1; }
+  .hub-nav { grid-template-columns: 1fr; }
+}
 
 /* Madden-style trade analyzer */
 .verdict.close { border-color: #8a6a20; background: #1c1608; }
@@ -2019,6 +2098,9 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .menu-card { width: min(92vw, 760px); }
 .home-study { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; text-align: left; }
 .study-card { display: flex; flex-direction: column; gap: 6px; min-height: 44px; padding: 16px; border-radius: 12px; border: 1px solid var(--gold-dim); background: rgba(8, 16, 28, 0.72); color: var(--text); cursor: pointer; text-align: left; }
+.study-card .nav-ico { color: var(--gold-2); }
+.study-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.study-card:active { transform: translateY(0); }
 .study-card strong { font-family: var(--display); font-size: 28px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-2); }
 .study-card span:last-child { color: var(--muted); font-size: 14px; line-height: 1.4; }
 .study-card:focus-visible, .ws-row:focus-visible, .ws-tabs .btn:focus-visible, .ws-switch .btn:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }

@@ -237,7 +237,10 @@ try {
   status.steps.leagueDesk = home;
   if (!home || !home.recap || !home.export) throw new Error("league desk missing recap or export");
   await metrics(390, 844);
-  await shot("league-desk-iphone");
+  const menuFit = await evalJson("JSON.stringify((function(){var bad=[]; document.querySelectorAll('#hub-nav button, .menu-tile, #btn-sim-now, #mobile-menu-btn').forEach(function(b){ if(b.hidden) return; var label=b.querySelector('.hub-nav-text, .menu-tile-text'); var text=(label?label.textContent:b.textContent).replace(/\\s+/g,' ').trim(); if(/^(FA|Sched|Stand|Stad|Dyn|GDay|Sim|Board|Prev|Comm|Depth)$/.test(text)) bad.push(text); if(b.scrollWidth>b.clientWidth+2) bad.push('clip:'+text); }); return {bad:bad, free:(document.querySelector('#hub-nav [data-tab=signings] .hub-nav-text')||{}).textContent||''}; })())");
+  status.steps.menuFit = menuFit;
+  if (!menuFit || menuFit.free !== "Free Agency" || (menuFit.bad && menuFit.bad.length)) throw new Error("menu labels clipped or abbreviated: " + JSON.stringify(menuFit && menuFit.bad));
+  await shot("league-menu-iphone");
   await evalJson("JSON.stringify((function(){var b=document.getElementById('btn-open-culture'); if(b) b.click(); return !!b;})())");
   await wait(400);
   const culture = await evalJson("JSON.stringify({tag:/Hold the line/.test(document.body.innerText), logo:document.querySelectorAll('.culture-hero img').length})");
@@ -245,6 +248,9 @@ try {
   if (!culture || !culture.tag) throw new Error("culture page did not open");
   await shot("culture-providence-iphone");
   await metrics(360, 740);
+  const menuFit360 = await evalJson("JSON.stringify((function(){var bad=[]; document.querySelectorAll('#hub-nav button').forEach(function(b){ if(b.hidden) return; var text=(b.querySelector('.hub-nav-text')||b).textContent.replace(/\\s+/g,' ').trim(); if(b.scrollWidth>b.clientWidth+2) bad.push(text); }); return {bad:bad}; })())");
+  status.steps.menuFit360 = menuFit360;
+  if (menuFit360 && menuFit360.bad && menuFit360.bad.length) throw new Error("360 menu clipped: " + menuFit360.bad.join(", "));
   await shot("culture-providence-360");
   await metrics(1280, 900);
   await shot("culture-providence-desktop");

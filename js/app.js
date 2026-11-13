@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.37",
+      version: "0.1.38",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.37";
+      state.version = "0.1.38";
       const payload = {
-        version: "0.1.37",
+        version: "0.1.38",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.37";
+      state.version = "0.1.38";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -1014,7 +1014,7 @@
         sim.setAttribute("data-mode", "next");
         sim.setAttribute("aria-label", "All coaches hired. Go to the AFA Draft");
       } else if (single) {
-        sim.textContent = othersOpen ? "Sim other 31" : "Simulate";
+        sim.textContent = othersOpen ? "Simulate the other 31" : "Simulate";
         sim.classList.remove("next");
         sim.setAttribute("data-mode", "sim");
         if (!othersOpen && !state.coachAssign[state.userTeamId]) sim.textContent = "Simulate";
@@ -1029,8 +1029,8 @@
       }
       if (note) {
         if (done) note.textContent = "All 32 desks are filled — opening the AFA Draft…";
-        else if (single && !userHired) note.textContent = "Tip: hire your HC first, then Sim other 31 — or hire every desk yourself.";
-        else if (single) note.textContent = "Your desk is set. Sim other 31 fills every remaining open sideline, then you can Lock hires.";
+        else if (single && !userHired) note.textContent = "Tip: hire your head coach first, then simulate the other 31, or hire every desk yourself.";
+        else if (single) note.textContent = "Your desk is set. Simulate the other 31 fills every remaining open sideline, then you can lock hires.";
         else note.textContent = "Simulate fills every remaining open sideline with the best available 2026 HCs.";
       }
       if (done) maybeAutoStartDraft();
@@ -1467,7 +1467,7 @@
     if (state.draftPick >= TOTAL_PICKS) return;
     const team = currentDraftTeam();
     if (state.mode === "single" && state.userTeamId && team.id !== state.userTeamId) {
-      toast("That's a CPU pick. Wait for your club — or hit Sim to your pick.");
+      toast("That's a CPU pick. Wait for your club, or hit Simulate to your pick.");
       return;
     }
     if (!makePick(team.id, playerId)) {
@@ -2465,6 +2465,12 @@
     </div>`;
   }
 
+  function menuFormLabel(form, key) {
+    const label = (form && form.label) || key || "";
+    if (label === "FG unit") return "Field goal unit";
+    return label;
+  }
+
   function renderLineupHTML(team) {
     const lu = buildLineup(team.id);
     const side = ui.lineupSide === "defense" ? "defense" : (ui.lineupSide === "special" ? "special" : "offense");
@@ -2474,11 +2480,11 @@
     const ST = (window.AFABridge && window.AFABridge.SPECIAL_FORMATIONS) || {};
     let formToggle = "";
     if (side === "offense") {
-      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(FORMATIONS).map((k) => `<button class="btn btn-sm ${(lu.formation || "11") === k ? "on" : ""}" data-form="${k}">${k}</button>`).join("")}</div>`;
+      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(FORMATIONS).map((k) => `<button class="btn btn-sm ${(lu.formation || "11") === k ? "on" : ""}" data-form="${k}">${menuFormLabel(FORMATIONS[k], k)}</button>`).join("")}</div>`;
     } else if (side === "defense") {
-      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(DEF).map((k) => `<button class="btn btn-sm ${(lu.defFormation || "base43") === k ? "on" : ""}" data-defform="${k}">${k}</button>`).join("")}</div>`;
+      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(DEF).map((k) => `<button class="btn btn-sm ${(lu.defFormation || "base43") === k ? "on" : ""}" data-defform="${k}">${menuFormLabel(DEF[k], k)}</button>`).join("")}</div>`;
     } else {
-      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(ST).map((k) => `<button class="btn btn-sm ${(lu.stFormation || "fg") === k ? "on" : ""}" data-stform="${k}">${k}</button>`).join("")}</div>`;
+      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(ST).map((k) => `<button class="btn btn-sm ${(lu.stFormation || "fg") === k ? "on" : ""}" data-stform="${k}">${menuFormLabel(ST[k], k)}</button>`).join("")}</div>`;
     }
     const issues = side === "offense" ? lu.geometryIssues : (side === "defense" ? lu.defenseIssues : lu.specialIssues);
     const geo = (issues && issues.length) ? `<div class="geo-warn">⚠ Lineup geometry: ${issues.join("; ")}</div>` : "";
@@ -2496,7 +2502,7 @@
         <div class="lineup-toggle" id="lineup-side-toggle">
           <button class="btn btn-sm ${side === "offense" ? "on" : ""}" data-side="offense">Offense</button>
           <button class="btn btn-sm ${side === "defense" ? "on" : ""}" data-side="defense">Defense</button>
-          <button class="btn btn-sm ${side === "special" ? "on" : ""}" data-side="special">Special</button>
+          <button class="btn btn-sm ${side === "special" ? "on" : ""}" data-side="special">Special Teams</button>
         </div>
         ${formToggle}
       </div>
@@ -2727,10 +2733,10 @@
         <div class="eyebrow">AFA Founding Snake Draft · ${ROUNDS} rounds</div>
         <div class="desk-modes" id="desk-modes">
           ${state.mode === "single" && state.userTeamId && team.id !== state.userTeamId
-            ? `<span class="phase-chip">CPU desk · Auto</span>`
+            ? `<span class="phase-chip">CPU desk · Automatic</span>`
             : `<button class="btn btn-sm ${desk === "manual" ? "on" : ""}" data-desk="manual">Manual</button>
           <button class="btn btn-sm ${desk === "assisted" ? "on" : ""}" data-desk="assisted">Assisted</button>
-          <button class="btn btn-sm ${desk === "auto" ? "on" : ""}" data-desk="auto">Auto</button>`}
+          <button class="btn btn-sm ${desk === "auto" ? "on" : ""}" data-desk="auto">Automatic</button>`}
         </div>
       </div>
       <div class="clock-panel">
@@ -2766,18 +2772,18 @@
         </div>
       </div>
       <p class="help">${state.mode === "single"
-        ? ("Single franchise: you only pick for " + displayName(teamById(state.userTeamId)) + ". Board is real NFL free agents after the fold. Use <strong>Sim to your pick</strong> to fast-forward CPU selections.")
-        : "Founding draft — every prospect is a real NFL free agent. Manual, Assisted, or Auto on each desk. Sim Draft fills the rest."}</p>
+        ? ("Single franchise: you only pick for " + displayName(teamById(state.userTeamId)) + ". Board is real NFL free agents after the fold. Use <strong>Simulate to your pick</strong> to fast-forward CPU selections.")
+        : "Founding draft. Every prospect is a real NFL free agent. Each desk is Manual, Assisted, or Automatic. Simulate draft fills the rest."}</p>
       <div class="sim-draft-bar">
-        <button class="btn btn-sim-draft" id="btn-sim-draft" title="Fill every remaining pick">Sim Draft</button>
+        <button class="btn btn-sim-draft" id="btn-sim-draft" title="Fill every remaining pick">Simulate draft</button>
         ${state.syscheck ? '<button type="button" class="btn" id="btn-sys-trades">Open trades</button>' : ''}
         <div class="btn-row" style="justify-content:flex-start;margin:0;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-sm btn-primary" id="btn-sim-manual">${state.mode === "single" ? "Sim to your pick" : "Sim to next manual"}</button>
-          <button class="btn btn-sm" id="btn-sim-round">Sim this round</button>
-          <button class="btn btn-sm" id="btn-auto-rest">${state.mode === "single" ? "Auto-pick my remaining" : "Auto-complete draft"}</button>
-          ${state.mode === "single" ? "" : '<button class="btn btn-sm" id="btn-all-auto">Set remaining desks to Auto</button>'}
+          <button class="btn btn-sm btn-primary" id="btn-sim-manual">${state.mode === "single" ? "Simulate to your pick" : "Simulate to the next manual desk"}</button>
+          <button class="btn btn-sm" id="btn-sim-round">Simulate this round</button>
+          <button class="btn btn-sm" id="btn-auto-rest">${state.mode === "single" ? "Finish my remaining picks automatically" : "Complete the draft automatically"}</button>
+          ${state.mode === "single" ? "" : '<button class="btn btn-sm" id="btn-all-auto">Set remaining desks to automatic</button>'}
         </div>
-        <p class="help" style="margin:6px 0 0">Founding draft is <strong>${ROUNDS} rounds</strong> (${TOTAL_PICKS} picks). Hit <strong>Sim Draft</strong> anytime to finish the board.</p>
+        <p class="help" style="margin:6px 0 0">Founding draft is <strong>${ROUNDS} rounds</strong> (${TOTAL_PICKS} picks). Hit <strong>Simulate draft</strong> anytime to finish the board.</p>
       </div>
     `;
     const yourTurn = !(state.mode === "single" && state.userTeamId && team.id !== state.userTeamId);
@@ -2873,7 +2879,7 @@
     $("player-body").querySelectorAll("[data-pid]").forEach((row) => {
       row.onclick = () => {
         if (state.mode === "single" && state.userTeamId && currentDraftTeam().id !== state.userTeamId) {
-          toast("CPU is on the clock. Hit Sim to your pick.");
+          toast("CPU is on the clock. Hit Simulate to your pick.");
           return;
         }
         userDraft(row.getAttribute("data-pid"));
@@ -2906,7 +2912,7 @@
     }
     if (pager) {
       pager.innerHTML = pool.length
-        ? `<button class="btn btn-sm" id="board-prev" ${ui.boardPage <= 0 ? "disabled" : ""}>Prev</button>
+        ? `<button class="btn btn-sm" id="board-prev" ${ui.boardPage <= 0 ? "disabled" : ""}>Previous</button>
            <span class="help">${pageStart + 1}–${Math.min(pool.length, pageStart + pageSize)} of ${pool.length} prospects</span>
            <button class="btn btn-sm" id="board-next" ${ui.boardPage >= maxPage ? "disabled" : ""}>Next</button>`
         : "";
@@ -4764,9 +4770,9 @@
         <p class="help">Simulated AFA games. Results use the roster ratings already in this save. They are not NFL scores.</p>
         <p>Current: ${state.seasonDone ? "Regular season complete" : "Week " + state.week + " of " + SEASON_WEEKS}</p>
         <div class="btn-row" style="justify-content:flex-start;margin-top:16px">
-          <button class="btn btn-primary" id="btn-sim-week" ${state.seasonDone ? "disabled" : ""}>Sim this week</button>
-          <button class="btn" id="btn-sim-deadline" ${state.seasonDone ? "disabled" : ""}>Sim to the deadline</button>
-          <button class="btn" id="btn-sim-playoffs" ${state.seasonDone ? "disabled" : ""}>Sim to the playoffs</button>
+          <button class="btn btn-primary" id="btn-sim-week" ${state.seasonDone ? "disabled" : ""}>Simulate this week</button>
+          <button class="btn" id="btn-sim-deadline" ${state.seasonDone ? "disabled" : ""}>Simulate to the deadline</button>
+          <button class="btn" id="btn-sim-playoffs" ${state.seasonDone ? "disabled" : ""}>Simulate to the playoffs</button>
         </div>
         ${collegeCtaHTML()}
       </div>
@@ -5006,8 +5012,8 @@
       sr.disabled = true;
       sr.textContent = "Simming…";
       simRestOfSeason({ chunk: 2, onProgress: (w, done) => {
-        sr.textContent = done ? "Sim rest of season" : ("Week " + w + "…");
-      }}).then(() => { sr.disabled = false; sr.textContent = "Sim rest of season"; });
+        sr.textContent = done ? "Simulate the rest of the season" : ("Week " + w + "…");
+      }}).then(() => { sr.disabled = false; sr.textContent = "Simulate the rest of the season"; });
     };
   }
 
@@ -5275,7 +5281,7 @@
     const cd = state.collegeDraft;
     if (!cd) return;
     const slot = cd.order[cd.idx];
-    if (!collegeUserControls(slot.ownerTeamId)) { toast("CPU is on the clock — Sim to your pick."); return; }
+    if (!collegeUserControls(slot.ownerTeamId)) { toast("CPU is on the clock. Simulate to your pick."); return; }
     if (!collegeMakePick(pid)) { toast("Can't draft that prospect."); return; }
     toast(displayName(teamById(slot.ownerTeamId)) + " select " + playerById(pid).name);
     if (cd.idx >= cd.order.length || !cd.board.length) { finishCollegeDraft(); return; }
@@ -5364,8 +5370,8 @@
           ${myNext.length ? `<div class="help">Your picks: ${myNext.map((s) => "#" + s.overall).join(", ")}</div>` : ""}
         </div>
         <div class="btn-row" style="margin:0;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" id="btn-college-next">${state.mode === "single" ? "Sim to your pick" : "Auto-pick this slot"}</button>
-          <button class="btn btn-sim-draft btn-sm" id="btn-college-sim">Sim Draft</button>
+          <button class="btn btn-primary btn-sm" id="btn-college-next">${state.mode === "single" ? "Simulate to your pick" : "Pick this slot automatically"}</button>
+          <button class="btn btn-sim-draft btn-sm" id="btn-college-sim">Simulate draft</button>
         </div>
       </div></div>
       <div class="trade-grid">
