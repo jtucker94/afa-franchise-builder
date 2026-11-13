@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.28";
+      state.version = "0.1.29";
       const payload = {
-        version: "0.1.28",
+        version: "0.1.29",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.28";
+      state.version = "0.1.29";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -3470,6 +3470,28 @@
     try {
       if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onGameSim", { game: g, result });
     } catch (e) {}
+    applyGameProgression(g);
+  }
+
+  function applyGameProgression(g) {
+    if (!window.AFAFranchise || !g) return;
+    [g.home, g.away].forEach((tid) => {
+      const won = (tid === g.home ? g.hs > g.as : g.as > g.hs);
+      rosterOf(tid).forEach((p, index) => {
+        AFAFranchise.applyWeekly(p, {
+          snaps: index < 22 ? 48 : 6,
+          grade: Math.max(40, Math.min(99, (Number(p.ovr) || 70) + (won ? 6 : -4))),
+          week: state.week
+        });
+      });
+    });
+  }
+
+  function progressionArrow(p) {
+    const last = p && p.progression && p.progression[p.progression.length - 1];
+    if (!last || !last.delta) return "";
+    const mark = last.delta > 0 ? "↑" : "↓";
+    return " <span class=\"prog-arrow\" title=\"" + last.reason + "\">" + mark + last.delta + "</span>";
   }
 
   function records() {
@@ -3542,6 +3564,13 @@
       allPlayersList().forEach((p) => {
         if (p.ovrBase != null && typeof p.ovr === "number") {
           p.ovr = Math.round(p.ovr * 0.35 + p.ovrBase * 0.65);
+        }
+        if (window.AFAFranchise) {
+          const swing = AFAFranchise.offseasonChange(p);
+          const before = p.ovr;
+          p.ovr = Math.max(40, Math.min(99, p.ovr + swing.delta));
+          if (!p.progression) p.progression = [];
+          p.progression.push({ week: "offseason", before: before, after: p.ovr, delta: swing.delta, reason: swing.reason, simulated: true });
         }
       });
       ensureCoachPool(true); // refresh FA coach board for next carousel
@@ -4111,7 +4140,7 @@
     const columns = [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"], ["cap", "Cap"]];
     const table = playerTable("roster", roster, columns, (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
       <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
-      <td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${gradeDeltaBadge(p)}${p.onIR ? ' <span class="ir-tag">IR</span>' : ""}</td>
+      <td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${progressionArrow(p)}${gradeDeltaBadge(p)}${p.onIR ? ' <span class="ir-tag">IR</span>' : ""}</td>
       <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
       <td>${p.age}</td>
       <td>${p.contract ? formatMoney(p.contract.capHit) : "—"} <button class="btn btn-sm" data-cut="${p.id}">Cut</button></td>
