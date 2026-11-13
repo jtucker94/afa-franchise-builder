@@ -19,7 +19,14 @@ const chrome = spawn("google-chrome", [
   "--user-data-dir=/tmp/chrome-afa-syscheck",
   "--window-size=1280,900",
   "about:blank"
-], { stdio: "ignore" });
+], { stdio: ["ignore", "ignore", "pipe"] });
+let chromeErr = "";
+chrome.stderr.on("data", (buf) => {
+  chromeErr += buf.toString();
+  if (chromeErr.length > 600) chromeErr = chromeErr.slice(-600);
+});
+chrome.on("error", (err) => { status.steps.chromeSpawn = String(err && err.message || err); });
+chrome.on("exit", (code) => { status.steps.chromeExit = code; });
 
 const status = {
   ranAt: new Date().toISOString(),
@@ -42,12 +49,13 @@ async function json(url) {
 }
 
 let version = null;
-for (let i = 0; i < 40; i++) {
+for (let i = 0; i < 80; i++) {
   try { version = await json("http://127.0.0.1:" + PORT + "/json/version"); break; }
   catch (e) { await wait(250); }
 }
 if (!version) {
   status.steps.chrome = "devtools did not open";
+  if (chromeErr) status.steps.chromeLog = chromeErr;
   finish(1);
 }
 
