@@ -231,6 +231,24 @@ try {
   status.steps.reload = resumed;
   if (!resumed || !/accepted/i.test(resumed.inbox || "")) throw new Error("reload did not restore the accepted trade");
 
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('#hub-nav [data-tab=home]'); if(b) b.click(); return true;})())");
+  await wait(400);
+  const home = await evalJson("JSON.stringify({approval:/Owner/.test(document.body.innerText)&&/approval/i.test(document.body.innerText), feed:/Simulated AFA|No simulated headlines/.test(document.body.innerText), recap:!!document.getElementById('btn-recap'), export:!!document.getElementById('btn-export-league'), seat:!!document.getElementById('btn-hot-seat')})");
+  status.steps.leagueDesk = home;
+  if (!home || !home.recap || !home.export) throw new Error("league desk missing recap or export");
+  await metrics(390, 844);
+  await shot("league-desk-iphone");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('#hub-nav [data-tab=gameday]'); if(b) b.click(); return true;})())");
+  await wait(300);
+  const drive = await evalJson("JSON.stringify({text:/Text drive/.test(document.body.innerText), calls:document.querySelectorAll('[data-playcall]').length})");
+  status.steps.textDrive = drive;
+  if (!drive || drive.calls < 4) throw new Error("text drive controls missing");
+  await evalJson("JSON.stringify((function(){var b=document.querySelector('[data-playcall=pass]'); if(b) b.click(); return true;})())");
+  await wait(300);
+  await shot("text-drive-iphone");
+  await metrics(1280, 900);
+  await shot("text-drive-desktop");
+
   async function checkTheme(id, primary, tab, shotName) {
     await evalJson("JSON.stringify((function(){var s=document.getElementById('hub-team-select'); if(!s) return false; s.value='" + id + "'; s.dispatchEvent(new Event('change')); var tab=document.querySelector('#hub-nav [data-tab=" + tab + "]'); if(tab) tab.click(); return true;})())");
     await wait(400);
