@@ -17,6 +17,8 @@ jobs:
         run: node tests/draft-rounds.test.mjs
       - name: Draft value
         run: node tests/draft-value.test.mjs
+      - name: Sideline
+        run: node tests/sideline.test.mjs
       - name: News schedule
         run: node tests/news-and-schedule.test.mjs
       - name: Players and leagues
