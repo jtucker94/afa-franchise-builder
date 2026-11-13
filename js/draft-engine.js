@@ -311,71 +311,117 @@
     return score;
   }
 
+  function consensusAge(player) {
+    const age = Number(player && player.age) || 27;
+    if (age <= 27) return 1.02;
+    if (age <= 30) return 1;
+    if (age <= 33) return 0.96;
+    return 0.9;
+  }
+
+  function rawConsensus(player) {
+    if (!player) return 0;
+    return (Number(player.ovr) || 0) * (POS_PREMIUM[player.pos] || 1) * consensusAge(player);
+  }
+
+  function consensusValue(player) {
+    const raw = rawConsensus(player);
+    if (!player) return 0;
+    const ovr = Number(player.ovr) || 0;
+    const pos = player.pos;
+    let floor = 0;
+    if (pos === "K" && ovr >= 60) floor = 81.2 - Math.max(0, 80 - ovr) * 0.04;
+    else if (pos === "P" && ovr >= 55) floor = 80.6 - Math.max(0, 70 - ovr) * 0.04;
+    else if (pos === "C" && ovr >= 70) floor = 96 - (80 - Math.min(80, ovr)) * 0.4;
+    else if (pos === "OG" && ovr >= 68) floor = 89 - (90 - Math.min(90, ovr)) * 0.4;
+    else if (pos === "RB" && ovr >= 80) floor = 90 - (96 - Math.min(96, ovr)) * 0.35;
+    return Math.max(raw, floor);
+  }
+
+  /* How many spots above the best player still available a club may look. */
+  function reachWindow(round) {
+    if (round <= 1) return 12;
+    if (round <= 3) return 16;
+    if (round <= 10) return 24;
+    if (round <= 30) return 32;
+    return 40;
+  }
+
   function recommend(opts) {
     opts = opts || {};
-    const board = opts.board || [];
+    const board = (opts.board || []).filter((p) => p && p.id);
     if (!board.length) return null;
     const roster = opts.roster || [];
     const counts = countPositions(roster);
-    const phase = rosterPhase(counts);
     const pickIndex = opts.pickIndex || 0;
     const round = opts.round || (Math.floor(pickIndex / 32) + 1);
-    const byPos = {};
-    board.forEach((p) => { if (!p || !p.pos) return; (byPos[p.pos] || (byPos[p.pos] = [])).push(p); });
-    Object.keys(byPos).forEach((pos) => byPos[pos].sort((a, b) => b.ovr - a.ovr || String(a.id).localeCompare(String(b.id))));
-    const top = board.slice().sort((a, b) => b.ovr - a.ovr || String(a.id).localeCompare(String(b.id))).slice(0, 80);
-    const seen = new Set();
-    const short = [];
-    top.forEach((p) => { if (!seen.has(p.id)) { seen.add(p.id); short.push(p); } });
-    function add(pos, n) {
-      const arr = byPos[pos] || [];
-      for (let i = 0; i < arr.length && i < n; i++) {
-        if (!seen.has(arr[i].id)) { seen.add(arr[i].id); short.push(arr[i]); }
-      }
-    }
-    phase.starterHoles.forEach((pos) => add(pos, 12));
-    phase.depthHoles.forEach((pos) => add(pos, 8));
-    if (round >= 12 || phase.holes <= 8) { add("K", 4); add("P", 4); }
-    const league = opts.leagueRosters || null;
-    function scarcityFor(pos) {
-      if (!league) return null;
-      let teamsWithout = 0;
-      let slotsOpen = 0;
-      const target = DEPTH_NEED[pos] || 1;
-      Object.keys(league).forEach((tid) => {
-        const rs = league[tid] || [];
-        let have = 0;
-        for (let i = 0; i < rs.length; i++) if (rs[i] && rs[i].pos === pos) have++;
-        if (have < 1) teamsWithout++;
-        if (have < target) slotsOpen += target - have;
+    const ordered = board.slice().sort((a, b) => consensusValue(b) - consensusValue(a) || String(a.name || "").localeCompare(String(b.name || "")) || String(a.id).localeCompare(String(b.id)));
+    const candidates = ordered.slice(0, reachWindow(round));
+    const without = {};
+    if (opts.leagueRosters) {
+      ["K", "P", "C", "OG", "RB"].forEach((pos) => {
+        let n = 0;
+        const ids = Object.keys(opts.leagueRosters);
+        for (let i = 0; i < ids.length; i++) {
+          const rs = opts.leagueRosters[ids[i]] || [];
+          let found = false;
+          for (let j = 0; j < rs.length; j++) if (rs[j] && rs[j].pos === pos) { found = true; break; }
+          if (!found) n++;
+        }
+        without[pos] = n;
       });
-      return { supply: (byPos[pos] || []).length, teamsWithout: teamsWithout, slotsOpen: slotsOpen };
     }
     let best = null;
     let bestScore = -Infinity;
-    short.forEach((p) => {
-      const s = scorePlayer(p, { counts: counts, round: round, scheme: opts.scheme, roster: roster, scarcity: scarcityFor(p.pos), availabilityFactor: opts.availabilityFactor });
-      const jitter = ((hashStr(String(opts.teamId) + ":" + p.id + ":" + pickIndex) % 1000) / 1000) * 0.8;
-      if (s + jitter > bestScore) { best = p; bestScore = s + jitter; }
+    candidates.forEach((p) => {
+      let score = consensusValue(p);
+      const have = counts[p.pos] || 0;
+      const starters = STARTER_NEED[p.pos] || 1;
+      const depth = DEPTH_NEED[p.pos] || (starters + 1);
+      const special = p.pos === "K" || p.pos === "P";
+      let need = 1;
+      if (have < starters && !special) need = opts.strategy === "analytics" ? 1.02 : 1.05;
+      else if (have < starters && special && round >= 12) need = 1.04;
+      else if (have < depth && round >= 6 && !special) need = 1.02;
+      else if (have >= depth) need = 0.99;
+      if ((p.pos === "K" || p.pos === "P" || p.pos === "C") && have >= 1) need *= 0.9;
+      if (without[p.pos] != null) {
+        if (have >= 1 && without[p.pos] > 0) need *= 0.86;
+        if (have === 0 && without[p.pos] >= 8) need *= 1.03;
+      }
+      score *= need;
+      if (opts.scheme) {
+        const w = ((opts.scheme.offKeys && opts.scheme.offKeys[p.pos]) || 0) + ((opts.scheme.defKeys && opts.scheme.defKeys[p.pos]) || 0);
+        score *= 1 + 0.02 * Math.min(1, w);
+      }
+      const age = Number(p.age) || 27;
+      if (opts.strategy === "win-now" && age >= 26 && age <= 30) score *= 1.02;
+      if (opts.strategy === "patient" && age <= 24) score *= 1.02;
+      if (typeof opts.availabilityFactor === "function") {
+        const factor = Number(opts.availabilityFactor(p));
+        if (isFinite(factor) && factor < 0.98) score *= 0.97;
+      }
+      const jitter = ((hashStr(String(opts.teamId) + ":" + p.id + ":" + pickIndex) % 1000) / 1000) * 0.05;
+      if (score + jitter > bestScore) { best = p; bestScore = score + jitter; }
     });
     return best;
   }
 
   function recommendProspect(opts) {
     opts = opts || {};
-    const board = opts.board || [];
+    const board = (opts.board || []).filter((p) => p && p.id);
     if (!board.length) return null;
-    const roster = opts.roster || [];
     const round = opts.round || 1;
-    let best = null;
-    let bestScore = -Infinity;
-    board.forEach((p) => {
-      if (!p) return;
-      const s = scoreProspect(p, roster, round, opts.scheme);
-      const jitter = ((hashStr(String(opts.teamId) + ":" + p.id + ":" + round) % 1000) / 1000) * 0.6;
-      if (s + jitter > bestScore) { best = p; bestScore = s + jitter; }
+    return recommend({
+      board: board,
+      roster: opts.roster || [],
+      teamId: opts.teamId,
+      round: round,
+      pickIndex: (round - 1) * 32,
+      scheme: opts.scheme,
+      strategy: opts.strategy,
+      availabilityFactor: opts.availabilityFactor
     });
-    return best;
   }
 
   function cloneDraft(draft) {
@@ -764,6 +810,8 @@
     rosterPhase: rosterPhase,
     ageCurve: ageCurve,
     needMultiplier: needMultiplier,
+    consensusValue: consensusValue,
+    reachWindow: reachWindow,
     scorePlayer: scorePlayer,
     scoreProspect: scoreProspect,
     recommend: recommend,

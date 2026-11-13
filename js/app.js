@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.40",
+      version: "0.1.41",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.40";
+      state.version = "0.1.41";
       const payload = {
-        version: "0.1.40",
+        version: "0.1.41",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.40";
+      state.version = "0.1.41";
       try { normalizeDraftLabels(); } catch (e) { console.warn("draft label migrate", e); }
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
@@ -1325,6 +1325,15 @@
     const onBoard = new Set(state.board);
     return r.filter((id) => onBoard.has(id)).map(playerById).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
   }
+  function draftStrategy(teamId) {
+    const club = window.AFACultures && AFACultures.culture(teamId);
+    if (!club) return "balanced";
+    if (club.philosophy === "Analytics driven") return "analytics";
+    if (club.owner === "Win-now" || club.patience === "Short") return "win-now";
+    if (club.owner === "Patient" || club.patience === "Long") return "patient";
+    return "balanced";
+  }
+
   function recommendPlayer(teamId) {
     const isUser = state.sleeperImport && teamId === state.userTeamId;
     if (isUser) { const k = pendingKeepers(); if (k.length) return k[0]; }
@@ -1344,6 +1353,7 @@
       teamId: teamId,
       pickIndex: state.draftPick,
       scheme: schemeContext(teamId),
+      strategy: draftStrategy(teamId),
       leagueRosters: league,
       availabilityFactor: (p) => realHoldBlocks(p) ? 0.45 : 1
     });
@@ -5339,7 +5349,7 @@
     const slot = cd.order[cd.idx];
     const board = cd.board.map(playerById).filter(Boolean);
     const best = window.AFADraft ? AFADraft.recommendProspect({
-      board: board, roster: rosterOf(slot.ownerTeamId), teamId: slot.ownerTeamId, round: slot.round, scheme: schemeContext(slot.ownerTeamId)
+      board: board, roster: rosterOf(slot.ownerTeamId), teamId: slot.ownerTeamId, round: slot.round, scheme: schemeContext(slot.ownerTeamId), strategy: draftStrategy(slot.ownerTeamId)
     }) : null;
     return best ? collegeMakePick(best.id) : false;
   }
