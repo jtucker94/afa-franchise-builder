@@ -300,6 +300,29 @@
     syncBodyScreenClass();
   });
 
+  function ensureRotateHint() {
+    if (/\bsyscheck=1\b/.test(location.search)) return;
+    const portrait = window.matchMedia("(orientation: portrait) and (max-width: 540px)").matches;
+    let el = $("rotate-hint");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "rotate-hint";
+      el.className = "rotate-hint";
+      el.innerHTML = '<div class="rotate-card" role="dialog" aria-labelledby="rotate-title">' +
+        '<p id="rotate-title">Rotate your phone for the best experience.</p>' +
+        '<p>The sideline, draft room, and menus are laid out for landscape.</p>' +
+        '<button type="button" class="btn btn-primary" id="rotate-continue">Continue anyway</button></div>';
+      document.body.appendChild(el);
+      el.querySelector("#rotate-continue").onclick = () => {
+        try { sessionStorage.setItem("afa-portrait-ok", "1"); } catch (e) {}
+        el.hidden = true;
+      };
+    }
+    let dismissed = false;
+    try { dismissed = sessionStorage.getItem("afa-portrait-ok") === "1"; } catch (e) {}
+    el.hidden = !portrait || dismissed;
+  }
+
   function boot() {
     ensureMobileChrome();
     registerSW();
@@ -309,6 +332,7 @@
     bindScoutTap(document);
     patchMobileCopy(document);
     syncBodyScreenClass();
+    ensureRotateHint();
     const hubBody = $("hub-body");
     if (hubBody) mo.observe(hubBody, { childList: true, subtree: true });
     const draftWs = $("draft-workspace");
@@ -324,8 +348,10 @@
     }
     MQ.addEventListener?.("change", () => {
       prioritizeHubTabs();
+      ensureRotateHint();
       if (!MQ.matches) $("mobile-drawer")?.classList.remove("open");
     });
+    window.addEventListener("resize", ensureRotateHint);
   }
 
   if (document.readyState === "loading") {

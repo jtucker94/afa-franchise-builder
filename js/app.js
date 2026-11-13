@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.41",
+      version: "0.1.42",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.41";
+      state.version = "0.1.42";
       const payload = {
-        version: "0.1.41",
+        version: "0.1.42",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.42","0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.41";
+      state.version = "0.1.42";
       try { normalizeDraftLabels(); } catch (e) { console.warn("draft label migrate", e); }
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
@@ -456,6 +456,22 @@
     return player;
   }
 
+  function scoutClub(player) {
+    if (!player || !state || !state.rosters) return null;
+    const tid = Object.keys(state.rosters).find((id) => (state.rosters[id] || []).indexOf(player.id) >= 0);
+    return tid ? teamById(tid) : null;
+  }
+
+  function scoutPrimary(player) {
+    const club = scoutClub(player);
+    return (club && club.primary) || "#1a2430";
+  }
+
+  function scoutSecondary(player) {
+    const club = scoutClub(player);
+    return (club && club.secondary) || "#f3d58a";
+  }
+
   function scoutCardHtml(player) {
     player = ensureScout(player);
     if (!player || !player.scout) return "";
@@ -466,6 +482,7 @@
       <div class="scout-card-top">
         ${s.face}
         <div class="scout-id">
+          ${window.AFASideline ? AFASideline.portrait(player, scoutPrimary(player), scoutSecondary(player)) : ""}
           <h3 class="name">${player.name}</h3>
           <div class="meta">#${player.number || "—"} · ${player.pos} · Age ${player.age}</div>
           <div class="scout-grades">
@@ -4265,12 +4282,17 @@
       `</tbody></table></div><p class="help">These lines are simulated for this AFA game. They are not NFL stats.</p>`;
   }
 
-  function textDriveHTML() {
+  function textDriveHTML(team) {
     if (!window.AFAFranchise) return "";
     if (!state.textGame) state.textGame = { down: 1, toGo: 10, yard: 25, quarter: 1, scoreOff: 0, scoreDef: 0, log: [] };
+    if (!state.sideline) state.sideline = { timeouts: 3, challenges: 2, fatigue: {}, morale: {}, bench: {}, halfDone: false };
+    var roster = typeof rosterOf === "function" && team ? rosterOf(team.id).slice().sort(function (a, b) { return (b.ovr || 0) - (a.ovr || 0); }) : [];
+    if (window.AFASideline) {
+      return AFASideline.render({ game: state.textGame, side: state.sideline, roster: roster, team: team || {} });
+    }
     const g = state.textGame;
     const log = (g.log || []).slice(-6).map((line) => `<li>${line}</li>`).join("") || "<li>No snaps yet.</li>";
-    return `<section class="panel text-drive"><div class="panel-h" style="background:var(--team-primary);color:var(--on-primary)"><strong>Text drive</strong><span>${g.scoreOff}–${g.scoreDef}</span></div>
+    return `<section class="panel text-drive"><div class="panel-h"><strong>Text drive</strong><span>${g.scoreOff}–${g.scoreDef}</span></div>
       <div class="panel-b"><p>Q${g.quarter} · ${g.down} and ${g.toGo} · ball on ${g.yard}. Simulated AFA broadcast.</p>
       <div class="btn-row"><button type="button" class="btn" data-playcall="run">Run</button><button type="button" class="btn" data-playcall="pass">Pass</button><button type="button" class="btn" data-playcall="punt">Punt</button><button type="button" class="btn" data-playcall="field-goal">Field goal</button><button type="button" class="btn" data-playcall="go">Go for it</button></div>
       <ul>${log}</ul></div></section>`;
@@ -4279,9 +4301,17 @@
   function callTextPlay(call) {
     if (!window.AFAFranchise) return;
     if (!state.textGame) state.textGame = { down: 1, toGo: 10, yard: 25, quarter: 1, scoreOff: 0, scoreDef: 0, log: [] };
+    if (!state.sideline) state.sideline = { timeouts: 3, challenges: 2, fatigue: {}, morale: {}, bench: {}, halfDone: false };
     const next = AFAFranchise.nextSnap(state.textGame, call, 82, 76);
+    const before = state.textGame.yard || 25;
     state.textGame = Object.assign(state.textGame, next);
+    state.textGame.lastGain = (state.textGame.yard || 0) - before;
+    state.textGame.snaps = (state.textGame.snaps || 0) + 1;
+    if (state.textGame.snaps % 4 === 0 && state.textGame.quarter < 4) state.textGame.quarter += 1;
     state.textGame.log = (state.textGame.log || []).concat(next.note);
+    const team = teamById(viewTeamId());
+    const roster = team ? rosterOf(team.id) : [];
+    if (window.AFASideline) state.sideline = AFASideline.afterSnap(state.sideline, roster, next.note);
     save();
     renderHub();
   }
@@ -4298,7 +4328,7 @@
       <button class="btn btn-sm" id="btn-watch-all-views">Prep all views</button>
     </div>`;
     let body = `<div class="madden-head"><h2>Game Day</h2>${toggle}</div>
-      ${textDriveHTML()}
+      ${textDriveHTML(team)}
       <p class="help">Use <strong>Watch next slate game</strong> for a live timeline. Toggle aerial / sideline / suite / off. The text drive is a simulated AFA broadcast, not a real game.</p>
       <div id="gamedayMount"></div>`;
     if (g && g.timeline && (g.timeline.events || g.timeline).length && ui.replayView !== "off") {
@@ -5060,6 +5090,45 @@
     if (window.AFASort) AFASort.bind($("hub-body"), () => renderHub());
     document.querySelectorAll("[data-playcall]").forEach((btn) => {
       btn.onclick = () => callTextPlay(btn.getAttribute("data-playcall"));
+    });
+    document.querySelectorAll("[data-sub]").forEach((btn) => {
+      btn.onclick = () => {
+        if (!state.sideline) state.sideline = { bench: {} };
+        state.sideline.bench = state.sideline.bench || {};
+        const id = btn.getAttribute("data-sub");
+        state.sideline.bench[id] = !state.sideline.bench[id];
+        save();
+        renderHub();
+      };
+    });
+    const timeoutBtn = $("sideline") && document.querySelector("[data-timeout]");
+    if (timeoutBtn) timeoutBtn.onclick = () => {
+      if (!state.sideline) return;
+      if ((state.sideline.timeouts || 0) <= 0) { toast("No timeouts left. Simulated."); return; }
+      state.sideline.timeouts -= 1;
+      state.textGame.log = (state.textGame.log || []).concat("Timeout. Simulated stoppage.");
+      save();
+      renderHub();
+    };
+    const challengeBtn = document.querySelector("[data-challenge]");
+    if (challengeBtn) challengeBtn.onclick = () => {
+      if (!state.sideline) return;
+      if ((state.sideline.challenges || 0) <= 0) { toast("No challenges left. Simulated."); return; }
+      state.sideline.challenges -= 1;
+      const won = ((state.textGame.snaps || 1) % 2) === 0;
+      state.textGame.log = (state.textGame.log || []).concat(won ? "Challenge won. Simulated." : "Challenge lost. Simulated.");
+      save();
+      renderHub();
+    };
+    document.querySelectorAll("[data-half]").forEach((btn) => {
+      btn.onclick = () => {
+        if (!state.sideline) return;
+        state.sideline.halfDone = true;
+        const lean = btn.getAttribute("data-half");
+        state.textGame.log = (state.textGame.log || []).concat(lean === "run" ? "Halftime: more runs. Simulated." : "Halftime: more passes. Simulated.");
+        save();
+        renderHub();
+      };
     });
     const recap = $("btn-recap");
     if (recap) recap.onclick = drawRecapCard;
