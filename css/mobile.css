@@ -790,8 +790,7 @@
     align-items: stretch;
     padding: 6px calc(12px + var(--safe-right)) 8px calc(12px + var(--safe-left)) !important;
   }
-  #screen-menu .pwa-install-hint { grid-column: 2; margin: 0 0 4px; padding: 4px 8px; font-size: 12px; }
-  #screen-menu .pwa-install-hint br { display: none; }
+  #screen-menu .pwa-install-hint { display: none !important; }
   #screen-menu .menu-card {
     display: grid;
     grid-template-columns: 150px minmax(0, 1fr);
@@ -807,7 +806,7 @@
   #screen-menu .study-card span { font-size: 12px; line-height: 1.25; }
   #screen-menu .study-card > span:last-child {
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
