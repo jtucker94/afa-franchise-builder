@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.39",
+      version: "0.1.40",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.39";
+      state.version = "0.1.40";
       const payload = {
-        version: "0.1.39",
+        version: "0.1.40",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,10 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.39";
+      state.version = "0.1.40";
+      try { normalizeDraftLabels(); } catch (e) { console.warn("draft label migrate", e); }
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -307,7 +308,7 @@
     if (phase === "draft") {
       const tab = ui.draftTab || "board";
       if (state.draftIntroSeen === false) return "Draft intro";
-      return "Draft · pick " + Math.min((state.draftPick || 0) + 1, TOTAL_PICKS) + "/" + TOTAL_PICKS + " · " + tab;
+      return "Draft · " + spotLabel(Math.min((state.draftPick || 0) + 1, TOTAL_PICKS));
     }
     if (phase === "hub") return "Season hub · week " + (state.week || 1) + " · " + (ui.hubTab || "standings");
     if (phase === "story") return "Story";
@@ -483,6 +484,7 @@
           <span><b>College</b> ${player.college || "—"}</span>
         </div>
         ${cultureFitLine(player)}
+        ${playerDraftLine(player) ? `<p class="help">${playerDraftLine(player)}</p>` : ""}
         ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
         <p class="help">${madden ? "Madden NFL 27 overall " + madden.ovr + " is from " + (madden.compiler || "the published list") + (madden.sourceUrl ? " (" + madden.sourceUrl + ")" : "") + ". It is not an EA roster file. Attribute bars are not shown." : "No Madden overall is stored for this player. The AFA number is not relabeled as Madden."} PFF grades are not stored and are not estimated.</p>
         ${window.AFACareersUI ? `<div class="scout-section-label">NFL career</div>${AFACareersUI.statsHtml(player.id)}` : ""}
@@ -1237,7 +1239,46 @@
   const POS_PREMIUM = window.AFADraft ? AFADraft.POS_PREMIUM : { QB: 1.22, OT: 1.18, DE: 1.16, CB: 1.14, WR: 1.12, DT: 1.08, TE: 1.06, OG: 1.05, C: 1.05, LB: 1.04, S: 1.03, RB: 0.86, K: 0.35, P: 0.32 };
 
   function draftRound() {
-    return Math.floor((state.draftPick || 0) / 32) + 1;
+    return window.AFADraft ? AFADraft.pickSpot((state.draftPick || 0) + 1, 32).round : Math.floor((state.draftPick || 0) / 32) + 1;
+  }
+
+  function spotLabel(overall) {
+    if (window.AFADraft) return AFADraft.pickSpotLabel(overall, 32);
+    var n = Math.floor(Number(overall)) || 1;
+    return "Round " + Math.ceil(n / 32) + ", Pick " + (((n - 1) % 32) + 1) + " (" + n + " overall)";
+  }
+
+  function recordOverall(pk) {
+    if (!pk) return 0;
+    if (pk.overall != null) return Number(pk.overall);
+    if (pk.pickInRound == null && pk.pick != null) return Number(pk.pick);
+    if (pk.round && pk.pickInRound != null) return (Number(pk.round) - 1) * 32 + Number(pk.pickInRound);
+    return Number(pk.pick) || 0;
+  }
+
+  function normalizeDraftLabels() {
+    if (!window.AFADraft) return;
+    function walk(list) { (list || []).forEach(function (pk) { AFADraft.normalizePickRecord(pk, 32); }); }
+    walk(state.picks);
+    if (state.collegeDraft) walk(state.collegeDraft.picks);
+    if (state.lastCollegeDraft) walk(state.lastCollegeDraft.picks);
+  }
+
+  function playerDraftLine(player) {
+    if (!player || !player.id) return "";
+    var found = (state.picks || []).filter(function (pk) { return pk && pk.playerId === player.id; })[0];
+    if (found) return "Founding draft · " + spotLabel(recordOverall(found));
+    var pools = [];
+    if (state.collegeDraft && state.collegeDraft.picks) pools.push(state.collegeDraft.picks);
+    if (state.lastCollegeDraft && state.lastCollegeDraft.picks) pools.push(state.lastCollegeDraft.picks);
+    for (var i = 0; i < pools.length; i++) {
+      var hit = pools[i].filter(function (pk) { return pk && pk.playerId === player.id; })[0];
+      if (hit) {
+        var year = i === 0 && state.collegeDraft ? state.collegeDraft.year : state.lastCollegeDraft.year;
+        return (year || "College") + " college draft · " + spotLabel(recordOverall(hit));
+      }
+    }
+    return "";
   }
 
   function rosterPhase(teamId) {
@@ -1337,7 +1378,20 @@
       state.picks = res.draft.picks;
       state.draftPick = res.draft.draftPick;
     }
-    if (!quiet) save();
+    if (!quiet) {
+      save();
+      const made = state.picks && state.picks[state.picks.length - 1];
+      if (made && window.AFAFranchise) {
+        const who = playerById(made.playerId);
+        state.leagueNews = state.leagueNews || [];
+        state.leagueNews.unshift(AFAFranchise.headline({
+          kind: "draft",
+          week: state.week,
+          text: displayName(teamById(made.teamId)) + " select " + (who ? who.name : "a player") + ". " + spotLabel(recordOverall(made)) + ". Simulated AFA draft."
+        }));
+        state.leagueNews = state.leagueNews.slice(0, 40);
+      }
+    }
     return true;
   }
 
@@ -1452,13 +1506,13 @@
     } finally { draftRunning = false; }
   }
 
-  function showPickCard(team, player, grade) {
+  function showPickCard(team, player, grade, label) {
     const host = $("rec-box");
     if (!host || !player) return;
     const card = document.createElement("div");
     card.className = "pick-reveal";
     card.style.borderColor = team.primary || "";
-    card.innerHTML = `<p class="eyebrow">The pick is in</p><h3>${player.name}</h3><p>${displayName(team)} · ${player.pos} · ${player.ovr}</p><p class="help">${grade ? grade.blurb : "Simulated draft grade."}</p>`;
+    card.innerHTML = `<p class="eyebrow">The pick is in</p><h3>${player.name}</h3><p>${label || ""}</p><p>${displayName(team)} · ${player.pos} · ${player.ovr}</p><p class="help">${grade ? grade.blurb : "Simulated draft grade."}</p>`;
     host.prepend(card);
   }
 
@@ -1479,10 +1533,12 @@
     }
     const pickedId = state.picks.length ? state.picks[state.picks.length - 1].playerId : playerId;
     const p = playerById(pickedId);
+    const made = state.picks.length ? state.picks[state.picks.length - 1] : null;
+    const label = made ? spotLabel(recordOverall(made)) : "";
     const grade = window.AFAFranchise ? AFAFranchise.gradePick(p, null) : null;
     if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) {} }
-    toast("The pick is in. " + displayName(team) + " select " + (p ? p.name : "a player") + (grade ? " · " + grade.blurb : ""));
-    showPickCard(team, p, grade);
+    toast("The pick is in. " + label + ". " + displayName(team) + " select " + (p ? p.name : "a player") + (grade ? ". " + grade.blurb : ""));
+    showPickCard(team, p, grade, label);
     processAutoRun();
   }
 
@@ -1592,7 +1648,7 @@
     const feed = (state.picks || []).slice().reverse().slice(0, 24).map((pk) => {
       const t = teamById(pk.teamId);
       const p = playerById(pk.playerId);
-      return `<div class="pick-row"><span>#${pk.pick}</span> ${logoImg(t, "sm")} <strong>${displayName(t)}</strong> — ${p ? p.name : "?"} <span class="pos-pill pos-${p ? p.pos : "QB"}">${p ? p.pos : ""}</span></div>`;
+      return `<div class="pick-row"><span>${spotLabel(recordOverall(pk))}</span> ${logoImg(t, "sm")} <strong>${displayName(t)}</strong> — ${p ? p.name : "?"} <span class="pos-pill pos-${p ? p.pos : "QB"}">${p ? p.pos : ""}</span></div>`;
     }).join("");
     $("pick-feed").innerHTML = feed || `<p class="help">No picks recorded.</p>`;
     syncDraftNav();
@@ -2405,13 +2461,14 @@
     picks.forEach((pk) => {
       const pl = playerById(pk.playerId);
       if (!pl) return;
-      const overall = pk.pick || pk.overall || 0;
-      items.push(Object.assign({}, pl, { round: Math.floor((overall - 1) / 32) + 1, pickNo: overall }));
+      const overall = recordOverall(pk);
+      const label = spotLabel(overall);
+      items.push(Object.assign({}, pl, { round: window.AFADraft ? AFADraft.pickSpot(overall, 32).round : 1, pickNo: overall, pickLabel: label }));
     });
-    const columns = [["round", "Round"], ["pickNo", "Overall"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]];
+    const columns = [["round", "Pick"], ["pickNo", "Overall"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]];
     const table = playerTable("drafted", items, columns, (pl) => `<tr data-scout="${pl.id}" data-player-id="${pl.id}">
-        <td>R${pl.round}</td>
-        <td>#${pl.pickNo}</td>
+        <td>${pl.pickLabel}</td>
+        <td>${pl.pickNo}</td>
         <td class="${ovrClass(pl.ovr)}">${pl.ovr}</td>
         <td class="name-col" data-profile="${pl.id}">${pl.name}</td>
         <td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td>
@@ -2710,13 +2767,13 @@
     syncHubDraftTab();
 
     const team = currentDraftTeam();
-    const round = Math.floor(state.draftPick / 32) + 1;
-    const pickInRound = (state.draftPick % 32) + 1;
     const overall = state.draftPick + 1;
+    const spot = window.AFADraft ? AFADraft.pickSpot(overall, 32) : { round: Math.floor(state.draftPick / 32) + 1, pick: (state.draftPick % 32) + 1, overall: overall };
+    const label = spotLabel(overall);
     const rec = recommendPlayer(team.id);
     const desk = state.desks[team.id] || "manual";
     const roundChip = $("draft-round-chip");
-    if (roundChip) roundChip.textContent = ROUNDS + " rounds · " + TOTAL_PICKS.toLocaleString() + " picks · Rd " + round;
+    if (roundChip) roundChip.textContent = ROUNDS + " rounds · " + TOTAL_PICKS.toLocaleString() + " picks · Round " + spot.round;
 
     const limit = state.clockLimit | 0;
     const paused = !!state.clockPaused || limit === 0;
@@ -2726,7 +2783,7 @@
         <div>
           <div class="clk-label">${state.mode === "single" && state.userTeamId && team.id === state.userTeamId ? "Your pick" : (state.mode === "single" ? "CPU on the clock" : "On the clock")}</div>
           <div class="nick" style="font-family:var(--display);font-size:22px;text-transform:uppercase">${displayName(team)}</div>
-          <div class="city" style="color:var(--muted)">Round ${round} · Pick ${pickInRound} · Overall ${overall} of ${TOTAL_PICKS}</div>
+          <div class="city" style="color:var(--muted)">${label}</div>
         </div>
       </div>
       <div>
@@ -2927,9 +2984,9 @@
       const tm = teamById(pk.teamId);
       const pl = playerById(pk.playerId);
       return `<div class="pick-item" data-scout="${pk.playerId}" data-player-id="${pk.playerId}">
-        <div class="n">${pk.pick}</div>
+        <div class="n">${recordOverall(pk)}</div>
         ${logoImg(tm, "sm")}
-        <div><strong data-profile="${pk.playerId}">${pl.name}</strong><div class="city">${tm.abbr} · ${pl.pos} ${pl.ovr}</div></div>
+        <div><strong data-profile="${pk.playerId}">${pl.name}</strong><div class="city">${spotLabel(recordOverall(pk))} · ${tm.abbr} · ${pl.pos} ${pl.ovr}</div></div>
       </div>`;
     }).join("") || `<p class="help">Picks will land here.</p>`;
 
@@ -4795,6 +4852,11 @@
     ctx.font = "24px sans-serif";
     const rec = records()[team.id] || { w: 0, l: 0, t: 0 };
     ctx.fillText("Simulated AFA season  " + rec.w + "-" + rec.l + (rec.t ? "-" + rec.t : ""), 32, 180);
+    const first = (state.picks || []).filter((pk) => pk && pk.teamId === team.id).sort((a, b) => recordOverall(a) - recordOverall(b))[0];
+    if (first) {
+      ctx.font = "18px sans-serif";
+      ctx.fillText(spotLabel(recordOverall(first)), 32, 220);
+    }
     const link = document.createElement("a");
     link.href = canvas.toDataURL("image/png");
     link.download = team.id + "-afa-recap.png";
@@ -5020,7 +5082,20 @@
   /* ---------- FUTURE DRAFT PICKS (Madden-style) ---------- */
   const PICK_YEARS_AHEAD = 3;
   const COLLEGE_ROUNDS = 7;
-  function ordinal(n) { return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); }
+  function futurePickOverall(pk) {
+    if (!pk) return 1;
+    if (pk.overall != null && pk.pickInRound != null) return Number(pk.overall);
+    const order = standingsOrder();
+    const idx = order.indexOf(pk.originalTeamId);
+    const slot = idx >= 0 ? idx + 1 : 1;
+    return (Number(pk.round) - 1) * 32 + slot;
+  }
+  function pickLabel(pk, short) {
+    const label = spotLabel(futurePickOverall(pk));
+    const orig = teamById(pk.originalTeamId);
+    const via = pk && pk.originalTeamId !== pk.ownerTeamId ? " via " + (orig ? orig.city : pk.originalTeamId) : "";
+    return (short || !pk ? "" : pk.year + " ") + label + via;
+  }
   function makePickObj(year, round, teamId) {
     return { id: "pick_" + year + "_r" + round + "_" + teamId, year, round, originalTeamId: teamId, ownerTeamId: teamId };
   }
@@ -5044,12 +5119,6 @@
   function picksOwnedBy(teamId) {
     return (state.ownedPicks || []).filter((pk) => pk.ownerTeamId === teamId)
       .sort((a, b) => a.year - b.year || a.round - b.round || String(a.originalTeamId).localeCompare(String(b.originalTeamId)));
-  }
-  function pickLabel(pk, short) {
-    const base = (short ? "" : pk.year + " ") + ordinal(pk.round);
-    const orig = teamById(pk.originalTeamId);
-    if (pk.originalTeamId !== pk.ownerTeamId) return base + " via " + (orig ? orig.abbr : pk.originalTeamId);
-    return base + " (" + (orig ? orig.abbr : pk.originalTeamId) + ")";
   }
   const PICK_CHART = { 1: [120, 100, 85], 2: [55, 45, 38], 3: [28, 22, 18], 4: [14, 11, 9], 5: [8, 6, 5], 6: [5, 4, 3], 7: [3, 2, 2] };
   function standingsOrder() {
@@ -5200,9 +5269,11 @@
       const slotOrder = standingsOrder();
       const order = [];
       for (let r = 1; r <= COLLEGE_ROUNDS; r++) {
-        slotOrder.forEach((orig, k) => {
-          const pk = pickById("pick_" + year + "_r" + r + "_" + orig);
-          order.push({ overall: order.length + 1, round: r, pick: k + 1, originalTeamId: orig, ownerTeamId: pk ? pk.ownerTeamId : orig, pickId: pk ? pk.id : null });
+        slotOrder.forEach((orig) => {
+          const overall = order.length + 1;
+          const spot = window.AFADraft ? AFADraft.pickSpot(overall, 32) : { overall: overall, round: r, pick: ((overall - 1) % 32) + 1 };
+          const pk = pickById("pick_" + year + "_r" + spot.round + "_" + orig);
+          order.push({ overall: spot.overall, round: spot.round, pick: spot.pick, pickInRound: spot.pick, originalTeamId: orig, ownerTeamId: pk ? pk.ownerTeamId : orig, pickId: pk ? pk.id : null });
         });
       }
       state.collegeDraft = { year, order, idx: 0, board: pool.map((p) => p.id), picks: [], pos: "ALL" };
@@ -5249,6 +5320,15 @@
         try {
           if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onCollegePick", { player: pl, slot: slot, year: cd.year });
         } catch (e) {}
+      }
+      if (window.AFAFranchise) {
+        state.leagueNews = state.leagueNews || [];
+        state.leagueNews.unshift(AFAFranchise.headline({
+          kind: "draft",
+          week: state.week,
+          text: displayName(teamById(slot.ownerTeamId)) + " select " + (pl ? pl.name : "a prospect") + ". " + spotLabel(slot.overall) + ". Simulated AFA college draft."
+        }));
+        state.leagueNews = state.leagueNews.slice(0, 40);
       }
     } else if (!already) return true;
     return true;
@@ -5358,7 +5438,7 @@
     const myNext = state.mode === "single" ? cd.order.slice(cd.idx).filter((s) => s.ownerTeamId === state.userTeamId).slice(0, 7) : [];
     const feed = cd.picks.slice().reverse().slice(0, 16).map((pk) => {
       const t = teamById(pk.teamId), pl = playerById(pk.playerId);
-      return `<div class="pick-item" data-scout="${pk.playerId}"><div class="n">${pk.overall}</div>${logoImg(t, "sm")}<div><strong>${pl ? pl.name : "?"}${pl && pl.fictional ? " (Fictional)" : ""}</strong><div class="city">${t.abbr}${pk.originalTeamId !== pk.teamId ? " (via " + teamById(pk.originalTeamId).abbr + ")" : ""} · ${pl ? pl.pos + " · " + (pl.fictional ? "Fictional" : (pl.college || "—")) : ""}</div></div></div>`;
+      return `<div class="pick-item" data-scout="${pk.playerId}"><div class="n">${recordOverall(pk)}</div>${logoImg(t, "sm")}<div><strong>${pl ? pl.name : "?"}${pl && pl.fictional ? " (Fictional)" : ""}</strong><div class="city">${spotLabel(recordOverall(pk))} · ${t.city}${pk.originalTeamId !== pk.teamId ? " (via " + teamById(pk.originalTeamId).city + ")" : ""} · ${pl ? pl.pos + " · " + (pl.fictional ? "Fictional" : (pl.college || "—")) : ""}</div></div></div>`;
     }).join("") || `<p class="help">Picks will land here.</p>`;
     return `<div class="college-draft">
       <div class="panel"><div class="panel-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
@@ -5366,7 +5446,7 @@
         <div style="flex:1;min-width:220px">
           <div class="eyebrow">${cd.year} AFA College Draft · ${mine ? "Your pick" : "CPU on the clock"}</div>
           <h2 style="margin:2px 0">${displayName(team)}</h2>
-          <div class="help">Round ${slot.round} · Pick ${slot.pick} · Overall ${slot.overall} of ${cd.order.length}${slot.originalTeamId !== slot.ownerTeamId ? " · via " + orig.abbr : ""}</div>
+          <div class="help">${spotLabel(slot.overall)}${slot.originalTeamId !== slot.ownerTeamId ? " · via " + orig.city : ""}</div>
           ${myNext.length ? `<div class="help">Your picks: ${myNext.map((s) => "#" + s.overall).join(", ")}</div>` : ""}
         </div>
         <div class="btn-row" style="margin:0;gap:8px;flex-wrap:wrap">

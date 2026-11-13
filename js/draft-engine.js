@@ -428,10 +428,16 @@
     next.board.splice(bi, 1);
     roster.push(playerId);
     next.rosters[teamId] = roster;
-    const overall = next.draftPick + 1;
-    const round = Math.floor(next.draftPick / 32) + 1;
-    next.picks.push({ pick: overall, overall: overall, round: round, teamId: teamId, playerId: playerId });
-    next.draftPick = overall;
+    const spot = pickSpot(next.draftPick + 1, PICKS_PER_ROUND);
+    next.picks.push({
+      pick: spot.overall,
+      overall: spot.overall,
+      round: spot.round,
+      pickInRound: spot.pick,
+      teamId: teamId,
+      playerId: playerId
+    });
+    next.draftPick = spot.overall;
     return { ok: true, reason: "picked", draft: next, playerId: playerId };
   }
 
@@ -471,8 +477,13 @@
     if (!next.rosters[slot.ownerTeamId]) next.rosters[slot.ownerTeamId] = [];
     next.rosters[slot.ownerTeamId].push(playerId);
     next.picks.push({
-      overall: slot.overall, round: slot.round, pick: slot.pick,
-      teamId: slot.ownerTeamId, originalTeamId: slot.originalTeamId, playerId: playerId
+      overall: slot.overall,
+      round: slot.round,
+      pick: slot.pick,
+      pickInRound: slot.pick,
+      teamId: slot.ownerTeamId,
+      originalTeamId: slot.originalTeamId,
+      playerId: playerId
     });
     next.idx = idx + 1;
     return { ok: true, reason: "picked", draft: next, slot: slot, playerId: playerId };
@@ -608,11 +619,64 @@
     return out;
   }
 
+  var PICKS_PER_ROUND = 32;
+
+  function pickSpot(overall, perRound) {
+    var size = perRound || PICKS_PER_ROUND;
+    var n = Math.floor(Number(overall));
+    if (!isFinite(n) || n < 1) n = 1;
+    return {
+      overall: n,
+      round: Math.ceil(n / size),
+      pick: ((n - 1) % size) + 1,
+      perRound: size
+    };
+  }
+
+  function ordinalWord(n) {
+    var v = Math.abs(n) % 100;
+    var suf = "th";
+    if (v < 11 || v > 13) {
+      var d = v % 10;
+      if (d === 1) suf = "st";
+      else if (d === 2) suf = "nd";
+      else if (d === 3) suf = "rd";
+    }
+    return n + suf;
+  }
+
+  function pickSpotLabel(overall, perRound) {
+    var spot = pickSpot(overall, perRound);
+    return "Round " + spot.round + ", Pick " + spot.pick + " (" + ordinalWord(spot.overall) + " overall)";
+  }
+
+  /* Old founding saves stored the overall number in pick and sometimes omitted round.
+   * College saves stored pick as the slot inside the round plus a separate overall.
+   * Fill round and pickInRound from the overall. Do not drop the player. */
+  function normalizePickRecord(pk, perRound) {
+    if (!pk) return pk;
+    var size = perRound || PICKS_PER_ROUND;
+    var overall = pk.overall != null ? Number(pk.overall) : null;
+    if (overall == null && pk.pick != null && pk.pickInRound == null) overall = Number(pk.pick);
+    if ((overall == null || !isFinite(overall)) && pk.round && (pk.pickInRound != null || pk.pick != null)) {
+      var inRound = pk.pickInRound != null ? Number(pk.pickInRound) : Number(pk.pick);
+      overall = (Number(pk.round) - 1) * size + inRound;
+    }
+    if (overall == null || !isFinite(overall) || overall < 1) return pk;
+    var spot = pickSpot(overall, size);
+    var pickIsSlot = pk.overall != null && pk.pick != null && Number(pk.pick) !== Number(pk.overall) && Number(pk.pick) <= size;
+    pk.overall = spot.overall;
+    pk.round = spot.round;
+    pk.pickInRound = spot.pick;
+    if (!pickIsSlot) pk.pick = spot.overall;
+    return pk;
+  }
+
   function snakeTeamId(pickIndex, order) {
-    const pos = pickIndex % 32;
-    const round = Math.floor(pickIndex / 32);
-    if (!order || order.length < 32) return null;
-    return round % 2 === 0 ? order[pos] : order[31 - pos];
+    const pos = pickIndex % PICKS_PER_ROUND;
+    const round = Math.floor(pickIndex / PICKS_PER_ROUND);
+    if (!order || order.length < PICKS_PER_ROUND) return null;
+    return round % 2 === 0 ? order[pos] : order[PICKS_PER_ROUND - 1 - pos];
   }
 
   /* Reference simulator. Uses recommend + commitPick, same as the app. */
@@ -711,6 +775,11 @@
     pickFreeAgent: pickFreeAgent,
     trimRoster: trimRoster,
     generateProspectClass: generateProspectClass,
+    PICKS_PER_ROUND: PICKS_PER_ROUND,
+    pickSpot: pickSpot,
+    ordinalWord: ordinalWord,
+    pickSpotLabel: pickSpotLabel,
+    normalizePickRecord: normalizePickRecord,
     snakeTeamId: snakeTeamId,
     runSnakeDraft: runSnakeDraft
   };

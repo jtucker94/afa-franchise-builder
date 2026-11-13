@@ -2199,7 +2199,8 @@ body.screen-boot-active .save-fab,
 body.screen-menu-active .save-fab,
 body.screen-story-active .save-fab,
 body.screen-mode-active .save-fab,
-body.screen-coaches-active .save-fab { display: none; }
+body.screen-coaches-active .save-fab,
+body.screen-draft-active .save-fab { display: none; }
 .rnt-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .rnt-fresh { margin: 0; font-size: 11px; line-height: 1.2; color: #d5ddcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rnt-kicker { flex: 0 0 auto; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; }

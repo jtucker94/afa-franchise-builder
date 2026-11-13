@@ -13,6 +13,8 @@ jobs:
           node-version: "22"
       - name: Draft regression
         run: node tests/draft-regression.mjs
+      - name: Draft rounds
+        run: node tests/draft-rounds.test.mjs
       - name: News schedule
         run: node tests/news-and-schedule.test.mjs
       - name: Players and leagues

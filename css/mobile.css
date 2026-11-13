@@ -452,9 +452,11 @@
   body.screen-story-active .draft-fab {
     display: none !important;
   }
-  /* Coach footer and the mode picker already own the bottom edge. */
+  /* Coach footer owns the bottom edge. The draft header already has Save, and a floating pill covers the pool and Simulate draft. */
   body.screen-mode-active .save-fab,
-  body.screen-coaches-active .save-fab {
+  body.screen-coaches-active .save-fab,
+  body.screen-draft-active .save-fab,
+  body.screen-draft-active .draft-fab {
     display: none !important;
   }
   body.screen-mode-active .draft-fab,
