@@ -58,6 +58,22 @@ const oldSave = {};
 F.defaults(oldSave);
 check(oldSave.approval.score === 60 && Array.isArray(oldSave.leagueNews) && oldSave.deadCap, "old save defaults");
 
+const snap = F.nextSnap({ down: 4, toGo: 2, yard: 40, quarter: 4, scoreOff: 17, scoreDef: 17 }, "go", 90, 70);
+check(snap.simulated && snap.yard > 40, "text snap moves the ball");
+check(F.traitNudge("diva").chemistry < 0 && F.schemeFit("outside zone", "outside zone").fit === "fit", "traits and scheme fit");
+check(F.campWinner({ id: "a", ovr: 80, camp: 2 }, { id: "b", ovr: 80, camp: 0 }).id === "a", "camp winner");
+check(F.waiverOrder([{ id: "z", wins: 9 }, { id: "a", wins: 2 }])[0].id === "a", "worse record claims first");
+check(F.combineShift({ forty: 90, jump: 80 }).shift > 0 && F.combineShift({ forty: 90 }).note.indexOf("Simulated") >= 0, "combine is simulated");
+check(F.awardBallot([{ id: "a", mvp: 10 }, { id: "b", mvp: 12 }], "mvp").winner.id === "b", "award ballot");
+const ach = {};
+check(F.achievementUnlock(ach, "first-win").fresh && !F.achievementUnlock(ach, "first-win").fresh, "achievement once");
+check(F.rivalryBump({}, "prov", "hart", true).intensity === 2, "playoff rivalry");
+const blob = F.exportLeague({ week: 3 });
+check(F.importLeague(blob).week === 3, "league file round trip");
+var threw = false;
+try { F.importLeague("{}"); } catch (e) { threw = true; }
+check(threw, "bad league file rejected");
+
 if (failures.length) {
   console.error("FAILED " + failures.length);
   failures.forEach((f) => console.error(" - " + f));

@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.32",
+      version: "0.1.34",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -231,7 +231,7 @@
       captureActivePhase();
       state.version = "0.1.33";
       const payload = {
-        version: "0.1.33",
+        version: "0.1.34",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.33";
+      state.version = "0.1.34";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -4100,6 +4100,27 @@
       `</tbody></table></div><p class="help">These lines are simulated for this AFA game. They are not NFL stats.</p>`;
   }
 
+  function textDriveHTML() {
+    if (!window.AFAFranchise) return "";
+    if (!state.textGame) state.textGame = { down: 1, toGo: 10, yard: 25, quarter: 1, scoreOff: 0, scoreDef: 0, log: [] };
+    const g = state.textGame;
+    const log = (g.log || []).slice(-6).map((line) => `<li>${line}</li>`).join("") || "<li>No snaps yet.</li>";
+    return `<section class="panel text-drive"><div class="panel-h" style="background:var(--team-primary);color:var(--on-primary)"><strong>Text drive</strong><span>${g.scoreOff}–${g.scoreDef}</span></div>
+      <div class="panel-b"><p>Q${g.quarter} · ${g.down} and ${g.toGo} · ball on ${g.yard}. Simulated AFA broadcast.</p>
+      <div class="btn-row"><button type="button" class="btn" data-playcall="run">Run</button><button type="button" class="btn" data-playcall="pass">Pass</button><button type="button" class="btn" data-playcall="punt">Punt</button><button type="button" class="btn" data-playcall="field-goal">Field goal</button><button type="button" class="btn" data-playcall="go">Go for it</button></div>
+      <ul>${log}</ul></div></section>`;
+  }
+
+  function callTextPlay(call) {
+    if (!window.AFAFranchise) return;
+    if (!state.textGame) state.textGame = { down: 1, toGo: 10, yard: 25, quarter: 1, scoreOff: 0, scoreDef: 0, log: [] };
+    const next = AFAFranchise.nextSnap(state.textGame, call, 82, 76);
+    state.textGame = Object.assign(state.textGame, next);
+    state.textGame.log = (state.textGame.log || []).concat(next.note);
+    save();
+    renderHub();
+  }
+
   function renderGameDayHTML(team) {
     if (!window.AFAGameDay) return `<p class="help">GameDay module not loaded.</p>`;
     const settings = AFAGameDay.getSettings ? AFAGameDay.getSettings() : { replayView: ui.replayView || "aerial" };
@@ -4112,7 +4133,8 @@
       <button class="btn btn-sm" id="btn-watch-all-views">Prep all views</button>
     </div>`;
     let body = `<div class="madden-head"><h2>Game Day</h2>${toggle}</div>
-      <p class="help">Use <strong>Watch next slate game</strong> for a live timeline. Toggle aerial / sideline / suite / off.</p>
+      ${textDriveHTML()}
+      <p class="help">Use <strong>Watch next slate game</strong> for a live timeline. Toggle aerial / sideline / suite / off. The text drive is a simulated AFA broadcast, not a real game.</p>
       <div id="gamedayMount"></div>`;
     if (g && g.timeline && (g.timeline.events || g.timeline).length && ui.replayView !== "off") {
       body += `<div class="panel" style="margin-top:12px"><div class="panel-h"><strong>Last watched · ${displayName(teamById(g.home))} ${g.hs}–${g.as} ${displayName(teamById(g.away))}</strong> · ${ui.replayView}</div>
@@ -4821,6 +4843,9 @@
       btn.onclick = () => inboxReply(btn.getAttribute("data-inbox-id"), btn.getAttribute("data-inbox"));
     });
     if (window.AFASort) AFASort.bind($("hub-body"), () => renderHub());
+    document.querySelectorAll("[data-playcall]").forEach((btn) => {
+      btn.onclick = () => callTextPlay(btn.getAttribute("data-playcall"));
+    });
     const cl = $("btn-clear-trade");
     if (cl) cl.onclick = () => { ui.offer = []; ui.ask = []; ui.offerPicks = []; ui.askPicks = []; renderHub(); };
     const sw = $("btn-sim-week");

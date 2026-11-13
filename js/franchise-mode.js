@@ -215,6 +215,99 @@
     return state;
   }
 
+  function nextSnap(spot, call, offense, defense) {
+    spot = spot || { down: 1, toGo: 10, yard: 25, quarter: 1, scoreOff: 0, scoreDef: 0 };
+    var off = Number(offense) || 75;
+    var def = Number(defense) || 75;
+    var edge = (off - def) / 20;
+    var gain = 0;
+    var note = "Simulated snap.";
+    if (call === "punt") {
+      return Object.assign({}, spot, { down: 1, toGo: 10, yard: Math.min(90, spot.yard + 35), possession: "flip", note: "Simulated punt.", done: false });
+    }
+    if (call === "field-goal") {
+      var made = off + edge * 5 > 70 && spot.yard >= 65;
+      return Object.assign({}, spot, { scoreOff: spot.scoreOff + (made ? 3 : 0), note: made ? "Simulated field goal." : "Simulated miss.", done: spot.quarter >= 4 && spot.yard >= 65 });
+    }
+    if (call === "go" || call === "pass") gain = Math.round(6 + edge * 4);
+    else gain = Math.round(3 + edge * 3);
+    var yard = Math.max(0, Math.min(100, spot.yard + gain));
+    var down = spot.down + 1;
+    var toGo = spot.toGo - gain;
+    var score = spot.scoreOff;
+    if (yard >= 100) { score += spot.toGo <= 5 && call === "two" ? 2 : (call === "go" ? 6 : 6); yard = 25; down = 1; toGo = 10; note = "Simulated score."; }
+    else if (toGo <= 0) { down = 1; toGo = 10; note = "Simulated first down."; }
+    else if (down > 4) { note = "Simulated turnover on downs."; down = 1; toGo = 10; }
+    return { down: down, toGo: toGo, yard: yard, quarter: spot.quarter, scoreOff: score, scoreDef: spot.scoreDef, note: note, call: call, simulated: true };
+  }
+
+  function traitNudge(trait) {
+    var table = { leader: 2, "film junkie": 1, diva: -2, mentor: 1, loner: -1 };
+    var n = table[String(trait || "").toLowerCase()] || 0;
+    return { morale: n, chemistry: n, simulated: true };
+  }
+
+  function schemeFit(playerScheme, teamScheme) {
+    if (!playerScheme || !teamScheme) return { fit: "unknown", delta: 0, simulated: true };
+    var same = String(playerScheme) === String(teamScheme);
+    return { fit: same ? "fit" : "mismatch", delta: same ? 1 : -1, simulated: true };
+  }
+
+  function campWinner(a, b) {
+    var as = (Number(a && a.ovr) || 0) + (Number(a && a.camp) || 0);
+    var bs = (Number(b && b.ovr) || 0) + (Number(b && b.camp) || 0);
+    return as === bs ? (String(a.id) < String(b.id) ? a : b) : (as > bs ? a : b);
+  }
+
+  function waiverOrder(teams) {
+    return (teams || []).slice().sort(function (a, b) {
+      if ((a.wins || 0) !== (b.wins || 0)) return (a.wins || 0) - (b.wins || 0);
+      return String(a.id).localeCompare(String(b.id));
+    });
+  }
+
+  function combineShift(drills) {
+    var keys = Object.keys(drills || {});
+    if (!keys.length) return { shift: 0, simulated: true, note: "No simulated workout." };
+    var avg = keys.reduce(function (s, k) { return s + (Number(drills[k]) || 0); }, 0) / keys.length;
+    var shift = Math.max(-3, Math.min(3, Math.round((avg - 70) / 10)));
+    return { shift: shift, simulated: true, note: "Simulated workout. Not a real combine result." };
+  }
+
+  function awardBallot(players, key) {
+    var list = (players || []).slice().sort(function (a, b) {
+      return (Number(b[key]) || 0) - (Number(a[key]) || 0) || String(a.id).localeCompare(String(b.id));
+    });
+    return { winner: list[0] || null, simulated: true, key: key };
+  }
+
+  function achievementUnlock(state, id) {
+    state = defaults(state);
+    if (!state.achievements) state.achievements = {};
+    if (state.achievements[id]) return { fresh: false, id: id };
+    state.achievements[id] = { at: Date.now(), simulated: true };
+    return { fresh: true, id: id };
+  }
+
+  function rivalryBump(table, a, b, playoff) {
+    table = table || {};
+    var key = [a, b].sort().join("|");
+    table[key] = (table[key] || 0) + (playoff ? 2 : 1);
+    return { key: key, intensity: table[key], simulated: true };
+  }
+
+  function exportLeague(state) {
+    return JSON.stringify({ key: "afa-gm-franchise-builder-v029", exportedAt: new Date().toISOString(), state: state });
+  }
+
+  function importLeague(text) {
+    var parsed = JSON.parse(text);
+    if (!parsed || parsed.key !== "afa-gm-franchise-builder-v029" || !parsed.state) {
+      throw new Error("This file is not an AFA league save.");
+    }
+    return parsed.state;
+  }
+
   root.AFAFranchise = {
     DEADLINE_WEEK: DEADLINE_WEEK,
     headToHead: headToHead,
@@ -233,6 +326,17 @@
     headline: headline,
     approvalStep: approvalStep,
     gradePick: gradePick,
-    defaults: defaults
+    defaults: defaults,
+    nextSnap: nextSnap,
+    traitNudge: traitNudge,
+    schemeFit: schemeFit,
+    campWinner: campWinner,
+    waiverOrder: waiverOrder,
+    combineShift: combineShift,
+    awardBallot: awardBallot,
+    achievementUnlock: achievementUnlock,
+    rivalryBump: rivalryBump,
+    exportLeague: exportLeague,
+    importLeague: importLeague
   };
 })(typeof window !== "undefined" ? window : globalThis);
