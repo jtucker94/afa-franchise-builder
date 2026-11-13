@@ -2,7 +2,7 @@
   "name": "AFA Franchise Builder",
   "short_name": "AFA Franchise",
   "description": "Alliance Football Association GM Franchise Builder — hire coaches, draft, trade, and run your club.",
-  "start_url": "./index.html?v=040",
+  "start_url": "./index.html?v=041",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

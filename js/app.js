@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.30";
+      state.version = "0.1.31";
       const payload = {
-        version: "0.1.30",
+        version: "0.1.31",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.30";
+      state.version = "0.1.31";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -3584,6 +3584,41 @@
     } catch (e) { console.warn("season end modules", e); }
   }
 
+  function shopCpuWeek() {
+    if (!window.AFAFranchise || !state.userTeamId || !state.seasonStarted) return;
+    const rec = records();
+    const mine = rosterOf(state.userTeamId);
+    if (!mine.length || !Array.isArray(state.tradeInbox)) state.tradeInbox = state.tradeInbox || [];
+    TEAMS.forEach((t) => {
+      if (t.id === state.userTeamId) return;
+      const needs = ["QB", "WR", "CB", "OT"].filter((pos) => rosterOf(t.id).filter((p) => p.pos === pos).length < 2);
+      const offer = AFAFranchise.cpuOffer({
+        id: t.id,
+        week: state.week,
+        wins: (rec[t.id] && rec[t.id].w) || 0,
+        needs: needs,
+        capRoom: (state.salaryCap || AFA_CAP) - teamCapHit(t.id),
+        offseason: !!state.seasonDone
+      });
+      if (!offer || offer.urgency < 2) return;
+      const id = "shop-" + t.id + "-w" + state.week;
+      if (state.tradeInbox.some((row) => row.id === id)) return;
+      const want = mine.slice().sort((a, b) => b.ovr - a.ovr)[0];
+      if (!want) return;
+      state.tradeInbox.push({
+        id: id,
+        from: t.id,
+        kind: "inquiry",
+        send: [],
+        want: [want.id],
+        status: "pending",
+        reason: offer.reason,
+        week: state.week,
+        simulated: true
+      });
+    });
+  }
+
   function simThrough(target) {
     const plan = window.AFAFranchise
       ? AFAFranchise.simTarget({ week: state.week, seasonDone: state.seasonDone, seasonWeeks: SEASON_WEEKS }, target)
@@ -3604,6 +3639,7 @@
     }
     save();
     toast(plan.label + " Simulated results only.");
+    shopCpuWeek();
     ui.hubTab = state.seasonDone ? "standings" : "slate";
     renderHub();
   }
@@ -3622,6 +3658,7 @@
       toast("Week " + (state.week - 1) + " is final.");
     }
     save();
+    shopCpuWeek();
     ui.hubTab = "slate";
     renderHub();
   }
@@ -4528,6 +4565,15 @@
 
   function renderSigningsHTML(team) {
     const fa = window.AFASort ? AFASort.sort((state.fa || []).map(playerById).filter(Boolean), "free-agents", "ovr", "desc") : (state.fa || []).map(playerById).filter(Boolean);
+    const top = fa[0];
+    const bid = top && window.AFAFranchise ? AFAFranchise.faChoice(top, TEAMS.filter((t) => t.id !== team.id).slice(0, 6).map((t) => ({
+      teamId: t.id,
+      money: (top.ovr || 70) * 80000,
+      capRoom: (state.salaryCap || AFA_CAP) - teamCapHit(t.id),
+      contender: ((records()[t.id] && records()[t.id].w) || 0) >= 6,
+      role: "starter"
+    }))) : null;
+    const bidNote = bid ? " Simulated bidding: " + displayName(teamById(bid.teamId)) + " leads for " + top.name + " on money, contention, and role." : "";
     const canSign = state.mode !== "single" || team.id === state.userTeamId;
     const faTable = playerTable("free-agents", fa, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
               <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
@@ -4540,7 +4586,7 @@
       <div class="panel">
         <div class="panel-h"><strong>Free agents</strong><span>${fa.length} available</span></div>
         <div class="panel-b">
-          <p class="help">${canSign ? "Sign a player to " + displayName(team) + ". Cap room " + formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(team.id))) + (teamDead(team.id) ? " including " + formatMoney(teamDead(team.id)) + " dead money." : ".") : "Single-franchise mode: switch to your club to sign."}</p>
+          <p class="help">${canSign ? "Sign a player to " + displayName(team) + ". Cap room " + formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(team.id))) + (teamDead(team.id) ? " including " + formatMoney(teamDead(team.id)) + " dead money." : ".") + bidNote : "Single-franchise mode: switch to your club to sign."}</p>
           ${faTable}
         </div>
       </div>
