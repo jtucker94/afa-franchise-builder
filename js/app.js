@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.32";
+      state.version = "0.1.33";
       const payload = {
-        version: "0.1.32",
+        version: "0.1.33",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.32";
+      state.version = "0.1.33";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -1451,6 +1451,16 @@
     } finally { draftRunning = false; }
   }
 
+  function showPickCard(team, player, grade) {
+    const host = $("rec-box");
+    if (!host || !player) return;
+    const card = document.createElement("div");
+    card.className = "pick-reveal";
+    card.style.borderColor = team.primary || "";
+    card.innerHTML = `<p class="eyebrow">The pick is in</p><h3>${player.name}</h3><p>${displayName(team)} · ${player.pos} · ${player.ovr}</p><p class="help">${grade ? grade.blurb : "Simulated draft grade."}</p>`;
+    host.prepend(card);
+  }
+
   function userDraft(playerId) {
     if (draftRunning) return;
     if (state.draftPick >= TOTAL_PICKS) return;
@@ -1468,7 +1478,10 @@
     }
     const pickedId = state.picks.length ? state.picks[state.picks.length - 1].playerId : playerId;
     const p = playerById(pickedId);
-    toast(displayName(team) + " select " + (p ? p.name : "a player"));
+    const grade = window.AFAFranchise ? AFAFranchise.gradePick(p, null) : null;
+    if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) {} }
+    toast("The pick is in. " + displayName(team) + " select " + (p ? p.name : "a player") + (grade ? " · " + grade.blurb : ""));
+    showPickCard(team, p, grade);
     processAutoRun();
   }
 

@@ -2055,7 +2055,7 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .pool-sort-btn { background: transparent; color: inherit; border: 0; font: inherit; cursor: pointer; min-height: 36px; padding: 4px 2px; white-space: nowrap; }
 .pool-sort-btn.on { color: var(--gold-2); }
 .player-table .name-col { position: sticky; left: 0; background: #10161f; z-index: 1; }
-.prog-arrow { color: var(--gold-2); font-weight: 700; }
+.pick-reveal { border: 2px solid var(--team-primary, var(--gold)); border-radius: 12px; padding: 12px; margin-bottom: 10px; background: var(--panel); }
 .attr-na { color: #667; }
 .trade-deadline { border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
 .trade-deadline.locked { border-color: #8a3b3b; }
