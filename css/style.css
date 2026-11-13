@@ -20,6 +20,10 @@
   --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --display: "Oswald", "Arial Narrow", Impact, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --save-fab-h: 52px;
+  --save-fab-gap: 12px;
+  --save-lane: calc(var(--save-fab-h) + var(--save-fab-gap) + var(--safe-bottom));
 }
 
 * { box-sizing: border-box; }
@@ -96,6 +100,41 @@ button, input, select { font-family: inherit; }
 }
 .sub { color: var(--muted); margin: 0 0 28px; }
 .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 0 16px;
+  text-align: left;
+}
+.menu-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  white-space: normal;
+}
+.menu-tile:hover { border-color: var(--gold); color: var(--gold-2); transform: translateY(-1px); }
+.menu-tile:active { transform: translateY(0); }
+.menu-tile:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
+.menu-tile-primary {
+  grid-column: 1 / -1;
+  background: linear-gradient(180deg, #f0c14a, #c49222);
+  color: #1a1406;
+  border-color: #f3d58a;
+}
+.menu-tile-primary:hover { color: #1a1406; filter: brightness(1.06); }
+.menu-tile-danger { color: #f0b4b4; border-color: #6b3030; }
+.nav-ico { width: 22px; height: 22px; flex: 0 0 22px; }
 
 .btn {
   border: 1px solid var(--line-2);
@@ -213,6 +252,12 @@ button, input, select { font-family: inherit; }
   border-radius: 99px;
 }
 .workspace { flex: 1; overflow: auto; padding: 16px; }
+body.screen-hub-active .workspace,
+body.screen-draft-active .workspace,
+body.screen-directory-active .workspace,
+body.screen-scouting-active .workspace {
+  padding-bottom: calc(16px + var(--save-lane));
+}
 
 /* ---------- COACH ASSIGN ---------- */
 #screen-coaches {
@@ -1062,14 +1107,45 @@ button, input, select { font-family: inherit; }
 
 /* ---------- HUB ---------- */
 .hub-nav {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 8px 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
 }
+.hub-nav-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-content: start;
+}
+.hub-nav-group:not(:has(button:not([hidden]))) { display: none; }
+.hub-nav-label {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-2);
+}
+.hub-nav .btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.2;
+  overflow: visible;
+  text-overflow: clip;
+}
+.hub-nav .hub-nav-text { min-width: 0; }
 .hub-nav button.on { background: var(--gold); color: #1a1406; border-color: var(--gold); font-weight: 700; }
+.hub-nav button:hover { transform: translateY(-1px); }
+.hub-nav button:active { transform: translateY(0); }
 .team-switch {
   display: flex;
   align-items: center;
@@ -1207,7 +1283,7 @@ button, input, select { font-family: inherit; }
 .help { color: var(--muted); font-size: 13px; line-height: 1.4; }
 
 @media (max-width: 1100px) {
-  .coach-layout, .draft-layout, .standings-wrap, .depth, .trade-grid, .sign-grid, .mode-grid {
+  .coach-layout, .draft-layout, .standings-wrap, .depth, .trade-grid, .sign-grid, .mode-grid, .hub-nav {
     grid-template-columns: 1fr;
   }
   .draft-top { grid-template-columns: 1fr; }
@@ -1226,6 +1302,14 @@ button, input, select { font-family: inherit; }
   background: var(--panel-2);
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+.draft-nav .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  white-space: normal;
+  text-align: left;
 }
 .draft-nav .btn.on {
   border-color: var(--gold);
@@ -1323,7 +1407,7 @@ button, input, select { font-family: inherit; }
   background: rgba(201,162,39,0.08);
 }
 .depth-slot.empty { color: var(--muted); font-style: italic; }
-.lineup-toggle { display: flex; gap: 6px; }
+.lineup-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
 .field-wrap {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1462,9 +1546,10 @@ body.save-cta-hover .draft-fab:not(:hover):not(:focus-visible) {
   position: fixed;
   left: 18px;
   right: auto;
-  bottom: 18px;
+  bottom: calc(var(--save-fab-gap) + var(--safe-bottom));
   z-index: 40;
   min-width: 88px;
+  min-height: 44px;
   padding: 12px 18px;
   border-radius: 999px;
   border: 1px solid rgba(201,162,39,0.55);
@@ -1842,6 +1927,11 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 @media (max-width: 900px) {
   .home-hero, .home-grid { grid-template-columns: 1fr; }
 }
+@media (max-width: 720px) {
+  .menu-grid, .hub-nav-group { grid-template-columns: 1fr 1fr; }
+  .menu-tile-primary { grid-column: 1 / -1; }
+  .hub-nav { grid-template-columns: 1fr; }
+}
 
 /* Madden-style trade analyzer */
 .verdict.close { border-color: #8a6a20; background: #1c1608; }
@@ -2019,10 +2109,15 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .menu-card { width: min(92vw, 760px); }
 .home-study { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; text-align: left; }
 .study-card { display: flex; flex-direction: column; gap: 6px; min-height: 44px; padding: 16px; border-radius: 12px; border: 1px solid var(--gold-dim); background: rgba(8, 16, 28, 0.72); color: var(--text); cursor: pointer; text-align: left; }
+.study-card .nav-ico { color: var(--gold-2); }
+.study-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+.study-card:active { transform: translateY(0); }
 .study-card strong { font-family: var(--display); font-size: 28px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-2); }
 .study-card span:last-child { color: var(--muted); font-size: 14px; line-height: 1.4; }
 .study-card:focus-visible, .ws-row:focus-visible, .ws-tabs .btn:focus-visible, .ws-switch .btn:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
 .ws-toolbar, .ws-switch, .ws-tabs, .ws-pager { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.data-as-of, .data-stale { margin: 6px 0; font-size: 13px; line-height: 1.35; }
+.data-stale { color: var(--gold-2); }
 .ws-toolbar { margin-bottom: 8px; }
 .ws-toolbar .search, .ws-toolbar select { min-height: 44px; }
 .ws-toggle { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 12px; font-size: 14px; }
@@ -2049,7 +2144,29 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .ws-roster li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--line-2); }
 .ws-note { display: flex; gap: 6px; align-items: center; flex: 1; }
 .ws-note input { min-height: 44px; flex: 1; }
-.ws-pager { margin: 12px 0 24px; }
+.pool-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pool-sort { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
+.pool-sort select { min-height: 44px; }
+.pool-sort-btn { background: transparent; color: inherit; border: 0; font: inherit; cursor: pointer; min-height: 36px; padding: 4px 2px; white-space: nowrap; }
+.pool-sort-btn.on { color: var(--gold-2); }
+.player-table .name-col { position: sticky; left: 0; background: #10161f; z-index: 1; }
+.culture-page { border: 1px solid var(--club, var(--line)); border-radius: 14px; padding: 14px; }
+.culture-hero { display: flex; gap: 12px; align-items: center; }
+.culture-tag { font-family: var(--display); font-size: 22px; margin: 4px 0; color: var(--club2, var(--gold-2)); }
+.culture-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.culture-grid div { background: var(--panel); border-radius: 8px; padding: 8px; }
+.culture-grid span { display: block; color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+@media (max-width: 420px) { .culture-grid { grid-template-columns: 1fr; } .culture-tag { font-size: 18px; } }
+.attr-na { color: #667; }
+.trade-deadline { border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+.trade-deadline.locked { border-color: #8a3b3b; }
+.trade-toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.trade-toolbar select { min-height: 44px; }
+.trade-inbox { margin-bottom: 12px; }
+.inbox-card { border: 1px solid var(--line-2); border-radius: 12px; padding: 10px; margin: 8px 0; }
+.trade-propose-bar { display: flex; gap: 8px; margin: 0 0 14px; }
+.trade-propose-bar .btn { min-height: 48px; flex: 1; }
+.inbox-card .btn { min-height: 44px; }
 #screen-directory .workspace, #screen-scouting .workspace { padding: 16px; overflow: auto; }
 
 /* Real NFL/college ticker. Separate from .draft-open-ticker (AFA fiction). */
@@ -2077,11 +2194,13 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .real-news-ticker[hidden] { display: none !important; }
 body.has-real-ticker .screen.active { padding-bottom: calc(var(--rnt-h) + var(--rnt-bottom)); }
 body.has-real-ticker .save-fab,
-body.has-real-ticker .draft-fab { bottom: calc(var(--rnt-h) + var(--rnt-bottom) + 12px); }
-body.screen-directory-active .save-fab,
-body.screen-scouting-active .save-fab,
-body.screen-directory-active .draft-fab,
-body.screen-scouting-active .draft-fab { display: none; }
+body.has-real-ticker .draft-fab { bottom: calc(var(--rnt-h) + var(--rnt-bottom) + var(--save-fab-gap)); }
+body.screen-boot-active .save-fab,
+body.screen-menu-active .save-fab,
+body.screen-story-active .save-fab,
+body.screen-mode-active .save-fab,
+body.screen-coaches-active .save-fab,
+body.screen-draft-active .save-fab { display: none !important; }
 .rnt-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .rnt-fresh { margin: 0; font-size: 11px; line-height: 1.2; color: #d5ddcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rnt-kicker { flex: 0 0 auto; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; }
@@ -2106,4 +2225,65 @@ body.screen-scouting-active .draft-fab { display: none; }
   .real-news-ticker .rnt-viewport { display: none; }
   .real-news-ticker .rnt-static { position: static; width: auto; height: auto; clip: auto; display: flex; flex: 1; gap: 16px; overflow-x: auto; min-width: 0; }
   .real-news-ticker .rnt-static .rnt-item { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+}
+
+/* Team theme. Colors come from the chosen AFA club. The corner logo sits in
+ * the header's right padding so it does not cover Save or the ticker Hide. */
+.team-corner-logo {
+  position: fixed;
+  z-index: 60;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(7, 9, 13, 0.55);
+  pointer-events: none;
+}
+body.team-themed .topbar { padding-right: 58px; }
+body.team-themed {
+  --gold: var(--team-accent);
+  --gold-2: var(--team-secondary);
+  --gold-dim: var(--team-primary);
+}
+body.team-themed .topbar {
+  background: linear-gradient(180deg, var(--team-primary), #0e141c);
+  border-bottom-color: var(--team-secondary);
+}
+body.team-themed .btn-primary {
+  background: var(--team-primary);
+  color: var(--on-primary);
+  border-color: var(--team-secondary);
+}
+body.team-themed .hub-nav button.on,
+body.team-themed .chip.on,
+body.team-themed .pool-sort-btn.on {
+  background: var(--team-accent);
+  color: var(--on-accent);
+  border-color: var(--team-accent);
+}
+body.team-themed .player-table th,
+body.team-themed .drafted-table th {
+  color: var(--team-secondary);
+}
+body.team-themed .panel,
+body.team-themed .inbox-card,
+body.team-themed .trade-deadline,
+body.team-themed .menu-card,
+body.team-themed .study-card,
+body.team-themed .mode-tile {
+  border-color: var(--team-primary);
+}
+body.team-themed .real-news-ticker {
+  border-top-color: var(--team-secondary);
+}
+body.team-themed .phase-chip,
+body.team-themed .eyebrow,
+body.team-themed .rnt-kicker {
+  color: var(--team-secondary);
+}
+@media (max-width: 420px) {
+  .team-corner-logo { width: 28px; height: 28px; top: 8px; right: 8px; }
+  body.team-themed .topbar { padding-right: 44px; }
 }

@@ -1,4 +1,4 @@
-/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.24) */
+/* AFA Franchise Builder — mobile chrome, PWA registration, tap scout (v0.1.25) */
 (function () {
   const MQ = window.matchMedia("(max-width: 900px)");
   const COARSE = window.matchMedia("(hover: none), (pointer: coarse)");
@@ -68,24 +68,6 @@
     });
   }
 
-  /* ---------- Hamburger / more drawer for hub tabs ---------- */
-  const PRIMARY_TABS = ["home", "roster", "trades", "slate", "gameday", "sim"];
-  const SHORT_LABELS = {
-    home: "Home",
-    lineup: "Lineup",
-    roster: "Roster",
-    players: "Players",
-    trades: "Trades",
-    signings: "FA",
-    slate: "Sched",
-    standings: "Stand",
-    stadium: "Stad",
-    dynasty: "Dyn",
-    gameday: "GDay",
-    college: "Draft",
-    sim: "Play"
-  };
-
   function ensureMobileChrome() {
     const hub = $("screen-hub");
     const topbar = hub && hub.querySelector(".topbar");
@@ -97,8 +79,8 @@
       btn.type = "button";
       btn.id = "mobile-menu-btn";
       btn.className = "mobile-menu-btn";
-      btn.setAttribute("aria-label", "More tabs");
-      btn.textContent = "☰";
+      btn.setAttribute("aria-label", "Open league menu");
+      btn.textContent = "Menu";
       topbar.appendChild(btn);
       btn.addEventListener("click", () => {
         const d = $("mobile-drawer");
@@ -112,8 +94,8 @@
       drawer = document.createElement("div");
       drawer.id = "mobile-drawer";
       drawer.className = "mobile-drawer";
-      drawer.innerHTML = '<div class="mobile-drawer-panel" role="dialog" aria-label="Hub tabs">' +
-        "<h3>Hub menu</h3><div id=\"mobile-drawer-tabs\"></div>" +
+      drawer.innerHTML = '<div class="mobile-drawer-panel" role="dialog" aria-label="League menu">' +
+        "<h3>League menu</h3><div id=\"mobile-drawer-tabs\"></div>" +
         '<button type="button" class="btn btn-ghost" id="mobile-drawer-close">Close</button></div>';
       document.body.appendChild(drawer);
       drawer.addEventListener("click", (e) => {
@@ -141,7 +123,9 @@
       const clone = document.createElement("button");
       clone.type = "button";
       clone.className = "btn" + (b.classList.contains("on") ? " btn-primary" : "");
-      clone.textContent = b.getAttribute("data-full-label") || b.textContent.trim();
+      const label = b.querySelector(".hub-nav-text");
+      const icon = b.querySelector(".nav-ico");
+      clone.innerHTML = (icon ? icon.outerHTML : "") + "<span>" + (label ? label.textContent.trim() : b.textContent.trim()) + "</span>";
       clone.onclick = () => {
         b.click();
         $("mobile-drawer")?.classList.remove("open");
@@ -151,25 +135,7 @@
   }
 
   function prioritizeHubTabs() {
-    if (!isMobile()) return;
-    const nav = $("hub-nav");
-    if (!nav) return;
-    const buttons = Array.from(nav.querySelectorAll("button[data-tab]"));
-    buttons.forEach((b) => {
-      const tab = b.getAttribute("data-tab");
-      if (!b.getAttribute("data-full-label")) b.setAttribute("data-full-label", b.textContent.trim());
-      if (SHORT_LABELS[tab]) b.textContent = SHORT_LABELS[tab];
-    });
-    buttons.sort((a, b) => {
-      const ai = PRIMARY_TABS.indexOf(a.getAttribute("data-tab"));
-      const bi = PRIMARY_TABS.indexOf(b.getAttribute("data-tab"));
-      const av = ai === -1 ? 99 : ai;
-      const bv = bi === -1 ? 99 : bi;
-      return av - bv;
-    });
-    buttons.forEach((b) => nav.appendChild(b));
-    const draft = $("btn-hub-draft-room");
-    if (draft && !draft.hidden) nav.insertBefore(draft, nav.firstChild);
+    /* Grouped tiles keep their full labels. Do not shorten or reorder them. */
   }
 
   /* ---------- Table scroll wrappers ---------- */
@@ -247,6 +213,8 @@
       el.addEventListener("click", (e) => {
         // Never intercept primary action buttons (Draft / Cut / Hire / etc.)
         if (e.target.closest && e.target.closest("button, a, input, select, label, .btn")) return;
+        // Trade rows have to add the player. Stopping the click left no way to offer a deal on a phone.
+        if (el.matches("[data-offer], [data-ask], [data-offerpick], [data-askpick]")) return;
         // Players-tab rows open the full profile (which already shows Sleeper + stats) — no scout overlay
         if (el.closest(".apt-row, .apt-modal")) return;
         const pid = el.getAttribute("data-pid") || el.getAttribute("data-scout");

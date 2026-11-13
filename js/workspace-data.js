@@ -48,13 +48,56 @@
     return { abbr: String(raw), label: String(raw), source: source };
   }
 
-  function availability(player, sleeper, avail) {
+  function availability(player, sleeper, avail, opts) {
+    if (opts && opts.stale) {
+      return { text: "unknown", kind: "unknown", listedHealthy: false, stale: true };
+    }
     var live = liveRow(avail, player);
     var inj = (live && (live.injury || live.injury_status)) || (sleeper && sleeper.inj) || null;
     if (inj == null || inj === "") {
       return { text: "Not listed", kind: "unknown", listedHealthy: false };
     }
     return { text: String(inj), kind: "listed", listedHealthy: false };
+  }
+
+  var STALE_MS = 36 * 60 * 60 * 1000;
+
+  function formatEastern(date) {
+    var parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short"
+    }).formatToParts(date);
+    function pick(type) {
+      var hit = parts.filter(function (part) { return part.type === type; })[0];
+      return hit ? hit.value : "";
+    }
+    return pick("month") + " " + pick("day") + ", " + pick("year") + ", " + pick("hour") + ":" + pick("minute") + " " + pick("dayPeriod") + " " + pick("timeZoneName");
+  }
+
+  function dataAsOf(status, now) {
+    var notice = "Real-NFL data may be out of date";
+    if (!status || typeof status.fetchedAt !== "string" || !status.fetchedAt) {
+      return { label: "Data as of unknown", stale: true, notice: notice, fetchedAt: null };
+    }
+    var when = new Date(status.fetchedAt);
+    if (isNaN(when.getTime())) {
+      return { label: "Data as of unknown", stale: true, notice: notice, fetchedAt: null };
+    }
+    var whenMs = when.getTime();
+    var clockMs = now && typeof now.getTime === "function" ? now.getTime() : NaN;
+    if (isNaN(clockMs)) clockMs = Date.now();
+    var stale = clockMs - whenMs > STALE_MS;
+    return {
+      label: "Data as of " + formatEastern(when),
+      stale: stale,
+      notice: stale ? notice : "",
+      fetchedAt: status.fetchedAt
+    };
   }
 
   function headshot(player) {
@@ -76,7 +119,7 @@
     return null;
   }
 
-  function directoryRows(players, sleeperMap, avail) {
+  function directoryRows(players, sleeperMap, avail, stale) {
     var seen = {};
     var out = [];
     (players || []).forEach(function (p) {
@@ -84,7 +127,7 @@
       seen[p.id] = true;
       var sl = sleeperRow(sleeperMap, p);
       var team = nflTeam(p, sl, avail);
-      var availRow = availability(p, sl, avail);
+      var availRow = availability(p, sl, avail, { stale: !!stale });
       out.push({
         id: p.id,
         name: p.name || "Unknown",
@@ -110,18 +153,30 @@
     var pos = query.pos || "";
     var team = query.team || "";
     var sort = query.sort || "name";
+    var dir = query.dir === "desc" ? -1 : 1;
+    if (sort === "ovr" && query.dir !== "asc") dir = -1;
     var list = (rows || []).filter(function (r) {
       if (text && r.search.indexOf(text) < 0) return false;
       if (pos && r.pos !== pos) return false;
       if (team && r.nfl !== team) return false;
       return true;
     });
+    function tie(a, b) {
+      var name = String(a.name || "").localeCompare(String(b.name || ""));
+      if (name) return name;
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    }
     list.sort(function (a, b) {
-      if (sort === "ovr") return (b.ovr || -1) - (a.ovr || -1) || a.name.localeCompare(b.name);
-      if (sort === "pos") return String(a.pos).localeCompare(String(b.pos)) || a.name.localeCompare(b.name);
-      if (sort === "team") return String(a.nfl).localeCompare(String(b.nfl)) || a.name.localeCompare(b.name);
-      if (sort === "status") return String(a.status).localeCompare(String(b.status)) || a.name.localeCompare(b.name);
-      return a.name.localeCompare(b.name);
+      var av = a[sort];
+      var bv = b[sort];
+      if (av == null && bv != null) return 1;
+      if (bv == null && av != null) return -1;
+      if (av !== bv) {
+        if (typeof av === "number" || typeof bv === "number") return ((Number(av) || 0) - (Number(bv) || 0)) * dir;
+        var cmp = String(av == null ? "" : av).localeCompare(String(bv == null ? "" : bv));
+        if (cmp) return cmp * (sort === "name" && query.dir !== "desc" ? 1 : dir);
+      }
+      return tie(a, b);
     });
     return list;
   }
@@ -195,6 +250,7 @@
     cell: cell,
     nflTeam: nflTeam,
     availability: availability,
+    dataAsOf: dataAsOf,
     headshot: headshot,
     teamLogo: teamLogo,
     directoryRows: directoryRows,

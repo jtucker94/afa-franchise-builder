@@ -3,7 +3,28 @@
   "use strict";
   var D = function () { return root.AFAWorkspaceData; };
   var PAGE = 40;
-  var dirState = { page: 0, pos: "", team: "", sort: "name", text: "", selected: null };
+  var dataClock = null;
+  var dirState = { page: 0, pos: "", team: "", sort: "name", dir: "asc", text: "", selected: null };
+
+  function freshnessHtml() {
+    if (!dataClock) return "";
+    var clock = dataClock;
+    return '<p class="data-as-of" id="data-as-of">' + esc(clock.label) + '</p>' +
+      (clock.stale && clock.notice ? '<p class="data-stale" id="data-stale">' + esc(clock.notice) + '</p>' : '');
+  }
+
+  function loadRefreshStatus(repaint) {
+    fetch("data/refresh-status.json").then(function (r) {
+      if (!r.ok) throw new Error("unreadable");
+      return r.json();
+    }).then(function (data) {
+      dataClock = D().dataAsOf(data, new Date());
+      if (repaint) repaint();
+    }).catch(function () {
+      dataClock = D().dataAsOf(null, new Date());
+      if (repaint) repaint();
+    });
+  }
   var scoutState = { league: "nfl", tab: "overview", compare: [], watch: [], occupiedBy: {}, newsFails: 0, snapshotAt: null };
   var newsTimer = null;
   var newsItems = [];
@@ -68,8 +89,38 @@
     }).join("");
   }
 
+  function listed(p) {
+    return root.AFARatings && p ? AFARatings.lookup(p) : null;
+  }
+  function ratingLabel(p) {
+    var src = listed(p);
+    if (src) return "Madden NFL 27 " + esc(src.ovr);
+    return "AFA pool " + esc(p && p.ovr != null ? p.ovr : "Not on record");
+  }
+  function ratingHelp(p) {
+    var src = listed(p);
+    if (src) return "Madden NFL 27 overall " + src.ovr + " from the EA ratings page (" + (src.iteration || "Week 8") + "), retrieved " + src.retrievedAt + ". PFF is not on record.";
+    return "No Madden list match. The number is the AFA pool overall, not a Madden or PFF grade.";
+  }
+  function withListedRatings(rows) {
+    if (!root.AFARatings) return rows;
+    var ids = byId();
+    rows.forEach(function (r) {
+      var src = AFARatings.lookup(ids[r.id]);
+      if (!src) { r.basis = "afa-pool"; return; }
+      r.ovr = src.ovr;
+      r.basis = "madden-nfl27-list";
+    });
+    return rows;
+  }
   function rowsNow() {
-    return D().filterSort(D().directoryRows(players(), sleeperMap(), root.AFA_NFL_AVAIL || null), dirState);
+    var rows = withListedRatings(D().directoryRows(players(), sleeperMap(), root.AFA_NFL_AVAIL || null, !!(dataClock && dataClock.stale)));
+    if (root.AFASort) {
+      var st = AFASort.get("directory", dirState.sort || "name", dirState.dir || "asc");
+      dirState.sort = st.key;
+      dirState.dir = st.dir;
+    }
+    return D().filterSort(rows, dirState);
   }
 
   function mountDirectory(el) {
@@ -87,18 +138,26 @@
       '<input id="dir-q" class="search" type="search" placeholder="Search name, team, college" aria-label="Search players" value="' + esc(dirState.text) + '">' +
       '<select id="dir-pos" aria-label="Position"><option value="">All positions</option>' + positions.map(function (p) { return '<option' + (dirState.pos === p ? " selected" : "") + '>' + esc(p) + '</option>'; }).join("") + '</select>' +
       '<select id="dir-team" aria-label="Real NFL team"><option value="">All NFL teams</option>' + teams.map(function (t) { return '<option value="' + esc(t) + '"' + (dirState.team === t ? " selected" : "") + '>' + esc(t === "FA" ? "Free agent" : t) + '</option>'; }).join("") + '</select>' +
-      '<select id="dir-sort" aria-label="Sort"><option value="name">Name</option><option value="ovr">Game rating</option><option value="pos">Position</option><option value="team">NFL team</option><option value="status">Status</option></select>' +
+      '<select id="dir-sort" aria-label="Sort"><option value="name:asc">Name ascending</option><option value="name:desc">Name descending</option><option value="ovr:desc">Rating descending</option><option value="ovr:asc">Rating ascending</option><option value="pos:asc">Position ascending</option><option value="pos:desc">Position descending</option><option value="age:asc">Age ascending</option><option value="age:desc">Age descending</option><option value="nfl:asc">Team ascending</option><option value="nfl:desc">Team descending</option><option value="status:asc">Status ascending</option><option value="status:desc">Status descending</option></select>' +
       '</div>' +
+      '<div id="data-freshness">' + freshnessHtml() + '</div>' +
       '<p class="help" id="dir-count"></p>' +
       '<label class="ws-toggle"><input type="checkbox" id="dir-live"' + ((saveState() && saveState().liveDataEffects) ? " checked" : "") + '> Show this save\'s AFA club beside the real NFL team. This box does not change ratings or availability.</label>' +
       realStatusHtml() +
       '<div class="ws-split"><div class="ws-list" id="dir-list" role="list"></div><div class="ws-detail" id="dir-detail"><p class="help">Select a player. The team shown is the real NFL team, not an AFA assignment.</p></div></div>' +
       '<div class="ws-pager"><button type="button" class="btn" id="dir-prev">Previous</button><span id="dir-page"></span><button type="button" class="btn" id="dir-next">Next</button></div>';
-    $("dir-sort").value = dirState.sort;
+    $("dir-sort").value = (dirState.sort === "nfl" ? "nfl" : dirState.sort) + ":" + (dirState.dir || "asc");
     $("dir-q").addEventListener("input", function () { dirState.text = $("dir-q").value; dirState.page = 0; paintDirectory(); });
     $("dir-pos").addEventListener("change", function () { dirState.pos = $("dir-pos").value; dirState.page = 0; paintDirectory(); });
     $("dir-team").addEventListener("change", function () { dirState.team = $("dir-team").value; dirState.page = 0; paintDirectory(); });
-    $("dir-sort").addEventListener("change", function () { dirState.sort = $("dir-sort").value; dirState.page = 0; paintDirectory(); });
+    $("dir-sort").addEventListener("change", function () {
+      var parts = String($("dir-sort").value || "name:asc").split(":");
+      dirState.sort = parts[0];
+      dirState.dir = parts[1] === "desc" ? "desc" : "asc";
+      if (root.AFASort) AFASort.set("directory", dirState.sort, dirState.dir);
+      dirState.page = 0;
+      paintDirectory();
+    });
     $("dir-prev").onclick = function () { dirState.page -= 1; paintDirectory(); };
     $("dir-next").onclick = function () { dirState.page += 1; paintDirectory(); };
     $("dir-live").onchange = function () {
@@ -117,6 +176,7 @@
       paintDirectory();
     });
     paintDirectory();
+    loadRefreshStatus(paintDirectory);
   }
 
   function realStatusHtml() {
@@ -148,6 +208,8 @@
   }
 
   function paintDirectory() {
+    var slot = $("data-freshness");
+    if (slot) slot.innerHTML = freshnessHtml();
     var filtered = rowsNow();
     var slice = D().pageSlice(filtered, dirState.page, PAGE);
     dirState.page = slice.page;
@@ -155,16 +217,19 @@
     if (count) count.textContent = slice.total + " real NFL players in this pool. Page " + (slice.page + 1) + " of " + slice.pages + ".";
     var list = $("dir-list");
     if (list) {
-      list.innerHTML = slice.rows.map(function (r) {
+      var cols = [["name", "Player"], ["pos", "Pos"], ["age", "Age"], ["ovr", "OVR"], ["nfl", "Team"], ["status", "Status"]];
+      var head = root.AFASort ? AFASort.head("directory", cols) : "";
+      list.innerHTML = '<div class="pool-scroll"><table class="player-table"><thead>' + head + '</thead><tbody>' + slice.rows.map(function (r) {
         var club = afaClub(r.id);
-        return '<button type="button" class="ws-row' + (dirState.selected === r.id ? " on" : "") + '" data-dir="' + esc(r.id) + '" role="listitem">' +
-          logoHtml(r.nfl) + '<span class="ws-row-name">' + esc(r.name) + '</span>' +
-          '<span class="pos-pill pos-' + esc(r.pos) + '">' + esc(r.pos) + '</span>' +
-          '<span>' + esc(r.nflLabel) + '</span>' +
-          '<span>' + esc(r.status) + '</span>' +
-          (club ? '<span class="help">AFA ' + esc(club) + '</span>' : '') +
-          '</button>';
-      }).join("") || '<p class="help">No players match.</p>';
+        return '<tr class="ws-row' + (dirState.selected === r.id ? " on" : "") + '" data-dir="' + esc(r.id) + '">' +
+          '<td class="name-col">' + esc(r.name) + (club ? ' <span class="help">AFA ' + esc(club) + '</span>' : '') + '</td>' +
+          '<td><span class="pos-pill pos-' + esc(r.pos) + '">' + esc(r.pos) + '</span></td>' +
+          '<td>' + esc(r.age == null ? "—" : r.age) + '</td>' +
+          '<td>' + esc(r.ovr == null ? "—" : r.ovr) + '</td>' +
+          '<td>' + logoHtml(r.nfl) + ' ' + esc(r.nflLabel) + '</td>' +
+          '<td>' + esc(r.status) + '</td></tr>';
+      }).join("") + '</tbody></table></div>' || '<p class="help">No players match.</p>';
+      if (root.AFASort) AFASort.bind(list, function () { dirState.page = 0; paintDirectory(); });
     }
     var page = $("dir-page");
     if (page) page.textContent = (slice.page + 1) + " / " + slice.pages;
@@ -180,7 +245,7 @@
     if (!p) { host.innerHTML = '<p class="help">Select a player. Photos and logos that fail to load are marked unavailable. Nothing is invented.</p>'; return; }
     var sl = sleeperMap()[p.id] || null;
     var team = D().nflTeam(p, sl, root.AFA_NFL_AVAIL || null);
-    var avail = D().availability(p, sl, root.AFA_NFL_AVAIL || null);
+    var avail = D().availability(p, sl, root.AFA_NFL_AVAIL || null, { stale: !!(dataClock && dataClock.stale) });
     var line = D().seasonLine(root.AFA_STATS_2025, p.id);
     var sheet = D().statSheet(p, line);
     var shot = D().headshot(p);
@@ -188,7 +253,7 @@
     host.innerHTML = '<article class="ws-card">' +
       photoHtml(p) +
       '<div><p class="eyebrow">Real NFL · ' + esc(team.source) + '</p><h2>' + esc(p.name) + '</h2>' +
-      '<p>' + logoHtml(team.abbr) + ' <strong>' + esc(team.label) + '</strong> · <span class="pos-pill pos-' + esc(p.pos) + '">' + esc(p.pos) + '</span> · Game rating ' + esc(p.ovr == null ? "Not on record" : p.ovr) + '</p>' +
+      '<p>' + logoHtml(team.abbr) + ' <strong>' + esc(team.label) + '</strong> · <span class="pos-pill pos-' + esc(p.pos) + '">' + esc(p.pos) + '</span> · ' + ratingLabel(p) + '</p>' +
       '<p class="help">Status: ' + esc(avail.text) + '. ' + (avail.kind === "unknown" ? "Unknown is not healthy. " : "") + (club ? 'In this save only: AFA ' + esc(club) + '. ' : '') + '</p>' +
       '<p class="help">Photo: ' + (shot.url ? esc(shot.source) : 'No photo id on file.') + '</p></div></article>' +
       '<h3>2025 regular-season stats</h3>' +
@@ -197,7 +262,7 @@
         return '<div><span>' + esc(c.label) + '</span><b class="ws-' + c.cell.kind + '">' + esc(c.cell.text) + '</b></div>';
       }).join("") + '</div>' +
       '<h3>2026 Sleeper snapshot</h3>' + sleeperStatsHtml(sl) +
-      '<p class="help">Game rating is the stored GMFB number. ' + esc((root.AFARealStatus ? root.AFARealStatus.formAdjustment() : { reason: "No evidence to adjust." }).reason) + ' It is not an official PFF or ESPN grade. Sleeper ADP is a market signal. Popularity is not skill.</p>';
+      '<p class="help">' + ratingHelp(p) + ' ' + esc((root.AFARealStatus ? root.AFARealStatus.formAdjustment() : { reason: "No evidence to adjust." }).reason) + ' Sleeper ADP is a market signal. Popularity is not skill.</p>';
   }
 
   function sleeperStatsHtml(sl) {
@@ -249,6 +314,7 @@
       storeWatch();
     });
     paintScouting();
+    loadRefreshStatus(paintScouting);
     fetch("data/league-settings.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
       if (data) { root.AFA_LEAGUE_SETTINGS = data; if (scoutState.tab === "overview" || scoutState.tab === "stats") paintScouting(); }
     }).catch(function () {});
@@ -269,12 +335,20 @@
     var panel = $("scout-panel");
     if (!panel) return;
     var fn = { overview: tabOverview, evaluation: tabEval, compare: tabCompare, news: tabNews, stats: tabStats, watch: tabWatch }[scoutState.tab] || tabOverview;
-    panel.innerHTML = fn();
+    panel.innerHTML = freshnessHtml() + fn();
+    if (root.AFASort) AFASort.bind(panel, function () { paintScouting(); });
   }
 
   function activeLeague() {
     if (scoutState.league === "nfl") return null;
     return leagueRecord(scoutState.league);
+  }
+
+  function sortableScout(screen, rows, columns, rowFn) {
+    var sorted = root.AFASort ? AFASort.sort(rows || [], screen, "ovr", "desc") : (rows || []);
+    var head = root.AFASort ? AFASort.head(screen, columns) : "";
+    var menu = root.AFASort ? AFASort.select(screen, columns) : "";
+    return menu + '<div class="pool-scroll"><table class="player-table"><thead>' + head + '</thead><tbody>' + sorted.map(rowFn).join("") + '</tbody></table></div>';
   }
 
   function tabOverview() {
@@ -307,12 +381,14 @@
       '<h3>Your roster by real position</h3><div class="ws-stats">' + haveHtml + '</div>' +
       lineupAnalysisHtml(lg, slice.mine) +
       '<h3>Your roster</h3>' +
-      '<ul class="ws-roster">' + slice.mine.map(function (p) {
+      sortableScout("scout-roster", slice.mine.map(function (p) {
         var team = D().nflTeam(p, sleeperMap()[p.id], root.AFA_NFL_AVAIL || null);
+        var avail = D().availability(p, sleeperMap()[p.id], root.AFA_NFL_AVAIL || null, { stale: !!(dataClock && dataClock.stale) });
         var pts = recordedFor(p, lg);
-        return '<li><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + ' · ' + esc(p.pos) + ' · ' + esc(team.label) + ' · rating ' + esc(p.ovr) +
-          ' · recorded ' + (pts.total == null ? 'not scored' : esc(pts.total)) + (pts.season ? ' (' + esc(pts.season) + ')' : '') + '</li>';
-      }).join("") + '</ul>' +
+        return Object.assign({}, p, { teamLabel: team.label, status: avail.text, points: pts.total, pointsLabel: pts.total == null ? "not scored" : String(pts.total) + (pts.season ? " (" + pts.season + ")" : "") });
+      }), [["name", "Player"], ["pos", "Pos"], ["ovr", "Rating"], ["teamLabel", "Team"], ["status", "Status"], ["points", "Recorded"]], function (p) {
+        return '<tr><td class="name-col"><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + '</td><td>' + esc(p.pos) + '</td><td>' + esc(p.ovr) + '</td><td>' + esc(p.teamLabel) + '</td><td>' + esc(p.status) + '</td><td>' + esc(p.pointsLabel) + '</td></tr>';
+      }) +
       faHtml(lg, slice.mine) +
       '<h3>Advanced projections</h3><p class="help">' + esc((root.AFALeagueScout ? root.AFALeagueScout.projections() : { label: "Unavailable." }).label) + '</p>';
   }
@@ -359,14 +435,14 @@
     });
     var hole = ranked.length > 0;
     if (!ranked.length) ranked = free.players.filter(function (p) { return !!root.AFALeagueScout.groupOf(p.pos); });
-    ranked.sort(function (a, b) { return (b.ovr || 0) - (a.ovr || 0) || String(a.name).localeCompare(String(b.name)); });
-    var shown = ranked.slice(0, 12);
+    ranked = root.AFASort ? AFASort.sort(ranked, "scout-available", "ovr", "desc") : ranked.sort(function (a, b) { return (b.ovr || 0) - (a.ovr || 0) || String(a.name).localeCompare(String(b.name)); });
+    var shown = ranked.slice(0, 40);
     return '<h3>Available in this league</h3><p class="help">' + esc(free.reason) + ' Loaded ' + esc(bag.at) + ' from api.sleeper.app. ' +
       (hole ? 'These names can fill a short lineup slot. ' : 'No lineup slot is short, so this is the highest stored rating among unrostered pool players, not a recommendation. ') +
       esc(free.players.length) + ' pool players are off every roster in that response. Showing ' + shown.length + '.</p>' + btn +
-      '<ul class="ws-roster">' + shown.map(function (p) {
-        return '<li><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + ' · ' + esc(p.pos) + ' · rating ' + esc(p.ovr) + '</li>';
-      }).join("") + '</ul>';
+      sortableScout("scout-available", shown, [["name", "Player"], ["pos", "Pos"], ["ovr", "Rating"]], function (p) {
+        return '<tr><td class="name-col"><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + '</td><td>' + esc(p.pos) + '</td><td>' + esc(p.ovr) + '</td></tr>';
+      });
   }
 
   function tabEval() {
@@ -422,12 +498,30 @@
   function tabStats() {
     var lg = activeLeague();
     if (!lg) return '<p class="help">Choose OGFFL or Dynasty Domination to see that roster\'s 2025 lines. NFL-wide stat browsing is on the Players screen.</p>';
-    var slice = D().leagueSlice(lg, byId());
-    return slice.mine.map(function (p) {
+    var rows = slice.mine.map(function (p) {
       var sheet = D().statSheet(p, D().seasonLine(root.AFA_STATS_2025, p.id));
-      return '<h3>' + esc(p.name) + ' · ' + esc(p.pos) + '</h3><p class="help">' + esc(sheet.note || '') + (sheet.season ? ' Season ' + esc(sheet.season) : '') + '</p><div class="ws-stats">' +
-        (sheet.cells || []).map(function (c) { return '<div><span>' + esc(c.label) + '</span><b class="ws-' + c.cell.kind + '">' + esc(c.cell.text) + '</b></div>'; }).join("") + '</div>';
-    }).join("") || '<p class="help">No matched players.</p>';
+      var row = { id: p.id, name: p.name, pos: p.pos, ovr: p.ovr };
+      (sheet.cells || []).forEach(function (c) {
+        var text = c.cell ? String(c.cell.text) : "";
+        var num = c.cell && c.cell.kind === "value" && /^-?\d+(\.\d+)?$/.test(text.replace(/,/g, "")) ? Number(text.replace(/,/g, "")) : null;
+        row[c.key] = num != null && !isNaN(num) ? num : null;
+        row[c.key + "Label"] = c.cell ? c.cell.text : "—";
+      });
+      row._cells = sheet.cells || [];
+      return row;
+    });
+    var keys = [];
+    rows.forEach(function (row) {
+      row._cells.forEach(function (c) { if (keys.indexOf(c.key) < 0) keys.push(c.key); });
+    });
+    var columns = [["name", "Player"], ["pos", "Pos"], ["ovr", "Rating"]].concat(keys.slice(0, 12).map(function (key) {
+      var sample = rows.map(function (row) { return row._cells.filter(function (c) { return c.key === key; })[0]; }).filter(Boolean)[0];
+      return [key, sample ? sample.label : key];
+    }));
+    return sortableScout("scout-stats", rows, columns, function (p) {
+      return '<tr><td class="name-col">' + esc(p.name) + '</td><td>' + esc(p.pos) + '</td><td>' + esc(p.ovr) + '</td>' +
+        keys.slice(0, 12).map(function (key) { return '<td>' + esc(p[key + "Label"] == null ? "—" : p[key + "Label"]) + '</td>'; }).join("") + '</tr>';
+    });
   }
 
   function tabWatch() {

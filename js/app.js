@@ -51,17 +51,19 @@
     askPicks: [],
     draftIntro: true,
     draftTab: "board",
+    boardSort: { key: "ovr", dir: "desc" },
     draftViewTeam: null,
     lineupSide: "offense",
     formation: "11",
     defFormation: "base43",
     stFormation: "fg",
-    replayView: "aerial"
+    replayView: "aerial",
+    tableSort: {}
   };
 
   function freshState() {
     return {
-      version: "0.1.24",
+      version: "0.1.41",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -121,6 +123,8 @@
       askPicks: (ui.askPicks || []).slice(),
       draftIntro: ui.draftIntro,
       draftTab: ui.draftTab,
+      boardSort: ui.boardSort || { key: "ovr", dir: "desc" },
+      tableSort: window.AFASort ? AFASort.snapshot() : (ui.tableSort || {}),
       draftViewTeam: ui.draftViewTeam,
       lineupSide: ui.lineupSide,
       formation: ui.formation || "11",
@@ -136,6 +140,8 @@
     Object.keys(snap).forEach((k) => {
       if (k in ui) ui[k] = snap[k];
     });
+    if (window.AFASort && snap.tableSort) AFASort.restore(snap.tableSort);
+    if (window.AFASort && snap.boardSort && snap.boardSort.key) AFASort.set("draft-pool", snap.boardSort.key, snap.boardSort.dir);
   }
 
   function captureActivePhase() {
@@ -223,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.24";
+      state.version = "0.1.41";
       const payload = {
-        version: "0.1.24",
+        version: "0.1.41",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -252,9 +258,10 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.24";
+      state.version = "0.1.41";
+      try { normalizeDraftLabels(); } catch (e) { console.warn("draft label migrate", e); }
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -272,6 +279,7 @@
       if (typeof state.clockLimit !== "number") state.clockLimit = 15;
       if (typeof state.clockPaused !== "boolean") state.clockPaused = state.clockLimit === 0;
       if (typeof state.liveDataEffects !== "boolean") state.liveDataEffects = false;
+      if (window.AFAFranchise) AFAFranchise.defaults(state);
       if (window.AFARealStatus) AFARealStatus.migrate(state);
       else if (!state.realWorldStatus) state.realWorldStatus = { enabled: false, scope: null, holds: {}, form: null };
       if (typeof savedState.seasonStarted !== "boolean") {
@@ -300,7 +308,7 @@
     if (phase === "draft") {
       const tab = ui.draftTab || "board";
       if (state.draftIntroSeen === false) return "Draft intro";
-      return "Draft · pick " + Math.min((state.draftPick || 0) + 1, TOTAL_PICKS) + "/" + TOTAL_PICKS + " · " + tab;
+      return "Draft · " + spotLabel(Math.min((state.draftPick || 0) + 1, TOTAL_PICKS));
     }
     if (phase === "hub") return "Season hub · week " + (state.week || 1) + " · " + (ui.hubTab || "standings");
     if (phase === "story") return "Story";
@@ -381,6 +389,13 @@
 
   function $(id) { return document.getElementById(id); }
 
+  function syncTeamTheme() {
+    if (!window.AFATheme) return;
+    const id = (ui && (ui.viewTeamId || (state && state.userTeamId))) || null;
+    const team = id ? teamById(id) : null;
+    AFATheme.apply(team && team.primary && team.secondary && team.logo ? team : null);
+  }
+
   function showScreen(id) {
     document.querySelectorAll(".screen").forEach((el) => el.classList.remove("active"));
     const sc = $("screen-" + id);
@@ -398,6 +413,7 @@
       try { window.AFAMobile.resetScreenScroll(id); } catch (_) {}
     }
     updateDraftRoomFab();
+    syncTeamTheme();
     if (window.AFANewsTicker && AFANewsTicker.onScreen) {
       try { AFANewsTicker.onScreen(); } catch (e) {}
     }
@@ -444,14 +460,8 @@
     player = ensureScout(player);
     if (!player || !player.scout) return "";
     const s = player.scout;
-    const keys = (s.madden.keys || []).slice(0, 8);
-    const attrs = keys.map(([code, label]) => {
-      const v = s.madden.attrs[code];
-      const pct = Math.max(0, Math.min(100, v));
-      const tone = attrTone(v);
-      return `<div class="scout-attr"><span class="k">${label}</span><div class="scout-mini-bar"><span class="fill ${tone}" style="width:${pct}%"></span></div><span class="v ${tone}">${v}</span></div>`;
-    }).join("");
-    const pffEst = s.pff.estimated !== false;
+    const madden = (player.externalRatings && player.externalRatings.madden) || (window.AFARatings && AFARatings.lookup ? AFARatings.lookup(player) : null);
+    const basis = player.ratingBasis === "madden-nfl27-ea" || player.ratingBasis === "madden-nfl27-list" ? "Madden NFL 27" : "AFA pool";
     return `
       <div class="scout-card-top">
         ${s.face}
@@ -459,10 +469,10 @@
           <h3 class="name">${player.name}</h3>
           <div class="meta">#${player.number || "—"} · ${player.pos} · Age ${player.age}</div>
           <div class="scout-grades">
-            <div class="scout-grade pff"><span class="g-label">PFF${pffEst ? " est." : ""}</span><span class="g-val">${s.pff.overall.toFixed(1)}</span><span class="g-sub">${s.pff.label}${pffEst ? " · estimate" : ""}</span></div>
-            <div class="scout-grade madden"><span class="g-label">Madden</span><span class="g-val">${s.madden.ovr}</span><span class="g-sub">OVR</span></div>
-            <div class="scout-grade gmfb"><span class="g-label">GMFB</span><span class="g-val">${s.gmfb.ovr}</span><span class="g-sub">algo v${s.gmfb.version}${s.gmfb.sleeper ? " · Sleeper " + (s.gmfb.sleeper.adj > 0 ? "+" : "") + s.gmfb.sleeper.adj : ""}</span></div>
-            ${player.grade ? `<div class="scout-grade afa"><span class="g-label">AFA Grade</span><span class="g-val">${player.grade.overall}</span><span class="g-sub">base ${player.ovrBase != null ? player.ovrBase : "—"} · conf ${Math.round((player.grade.confidence || 0) * 100)}%</span></div>` : ""}
+            <div class="scout-grade pff"><span class="g-label">PFF</span><span class="g-val">—</span><span class="g-sub">Not on record</span></div>
+            <div class="scout-grade madden"><span class="g-label">Madden NFL 27</span><span class="g-val">${madden ? madden.ovr : "—"}</span><span class="g-sub">${madden ? "list · " + madden.retrievedAt : "Not on record"}</span></div>
+            <div class="scout-grade gmfb"><span class="g-label">AFA overall</span><span class="g-val">${player.ovr}</span><span class="g-sub">${basis}</span></div>
+            ${player.grade && player.grade.statRating != null ? `<div class="scout-grade afa"><span class="g-label">Counting stats</span><span class="g-val">${player.grade.overall}</span><span class="g-sub">not the overall</span></div>` : ""}
           </div>
         </div>
       </div>
@@ -473,17 +483,12 @@
           <span><b>Hand</b> ${player.hand || "—"}</span>
           <span><b>College</b> ${player.college || "—"}</span>
         </div>
+        ${cultureFitLine(player)}
+        ${playerDraftLine(player) ? `<p class="help">${playerDraftLine(player)}</p>` : ""}
         ${window.AFA && AFA.sleeperHtml ? AFA.sleeperHtml(player) : ""}
-        <div class="scout-section-label">PFF-style splits <span class="est-tag">estimate</span></div>
-        <div class="scout-pff-row">
-          <div class="scout-pff-cell"><span class="t">${s.pff.label}</span><span class="n">${s.pff.grade.toFixed(1)}</span></div>
-          <div class="scout-pff-cell"><span class="t">Pass</span><span class="n">${s.pff.pass.toFixed(1)}</span></div>
-          <div class="scout-pff-cell"><span class="t">Run</span><span class="n">${s.pff.run.toFixed(1)}</span></div>
-        </div>
-        <div class="scout-section-label">Madden attributes</div>
-        <div class="scout-attrs">${attrs}</div>
+        <p class="help">${madden ? "Madden NFL 27 overall " + madden.ovr + " is from " + (madden.compiler || "the published list") + (madden.sourceUrl ? " (" + madden.sourceUrl + ")" : "") + ". It is not an EA roster file. Attribute bars are not shown." : "No Madden overall is stored for this player. The AFA number is not relabeled as Madden."} PFF grades are not stored and are not estimated.</p>
         ${window.AFACareersUI ? `<div class="scout-section-label">NFL career</div>${AFACareersUI.statsHtml(player.id)}` : ""}
-        <div class="scout-foot">${s.gmfb.label}: ${s.gmfb.note}
+        <div class="scout-foot">The AFA overall is the draft and lineup number. ${player.ratingBasis === "madden-nfl27-ea" || player.ratingBasis === "madden-nfl27-list" ? "It was set from the Madden NFL 27 ratings page and the counting-stat grade did not replace it." : "Where no Madden page match exists, it stays the AFA pool number."}
           ${window.AFAPlayersTab ? ` · <button type="button" class="btn btn-sm" data-profile="${player.id}">Full profile</button>` : ""}
         </div>
       </div>`;
@@ -719,6 +724,8 @@
     applyNewRealStatus();
     state.sleeperImport = null;
     state.userTeamId = null;
+    ui.viewTeamId = null;
+    syncTeamTheme();
     state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, "manual"]));
     save();
     renderStory();
@@ -767,6 +774,7 @@
     ui.selectedTeam = teamId;
     ui.draftViewTeam = teamId;
     ui.viewTeamId = teamId;
+    syncTeamTheme();
     const LG = (window.AFA_SLEEPER_LEAGUES && window.AFA_SLEEPER_LEAGUES.leagues) || {};
     const L = ui.importKey && LG[ui.importKey];
     applyNewRealStatus();
@@ -1008,7 +1016,7 @@
         sim.setAttribute("data-mode", "next");
         sim.setAttribute("aria-label", "All coaches hired. Go to the AFA Draft");
       } else if (single) {
-        sim.textContent = othersOpen ? "Sim other 31" : "Simulate";
+        sim.textContent = othersOpen ? "Simulate the other 31" : "Simulate";
         sim.classList.remove("next");
         sim.setAttribute("data-mode", "sim");
         if (!othersOpen && !state.coachAssign[state.userTeamId]) sim.textContent = "Simulate";
@@ -1023,8 +1031,8 @@
       }
       if (note) {
         if (done) note.textContent = "All 32 desks are filled — opening the AFA Draft…";
-        else if (single && !userHired) note.textContent = "Tip: hire your HC first, then Sim other 31 — or hire every desk yourself.";
-        else if (single) note.textContent = "Your desk is set. Sim other 31 fills every remaining open sideline, then you can Lock hires.";
+        else if (single && !userHired) note.textContent = "Tip: hire your head coach first, then simulate the other 31, or hire every desk yourself.";
+        else if (single) note.textContent = "Your desk is set. Simulate the other 31 fills every remaining open sideline, then you can lock hires.";
         else note.textContent = "Simulate fills every remaining open sideline with the best available 2026 HCs.";
       }
       if (done) maybeAutoStartDraft();
@@ -1231,7 +1239,46 @@
   const POS_PREMIUM = window.AFADraft ? AFADraft.POS_PREMIUM : { QB: 1.22, OT: 1.18, DE: 1.16, CB: 1.14, WR: 1.12, DT: 1.08, TE: 1.06, OG: 1.05, C: 1.05, LB: 1.04, S: 1.03, RB: 0.86, K: 0.35, P: 0.32 };
 
   function draftRound() {
-    return Math.floor((state.draftPick || 0) / 32) + 1;
+    return window.AFADraft ? AFADraft.pickSpot((state.draftPick || 0) + 1, 32).round : Math.floor((state.draftPick || 0) / 32) + 1;
+  }
+
+  function spotLabel(overall) {
+    if (window.AFADraft) return AFADraft.pickSpotLabel(overall, 32);
+    var n = Math.floor(Number(overall)) || 1;
+    return "Round " + Math.ceil(n / 32) + ", Pick " + (((n - 1) % 32) + 1) + " (" + n + " overall)";
+  }
+
+  function recordOverall(pk) {
+    if (!pk) return 0;
+    if (pk.overall != null) return Number(pk.overall);
+    if (pk.pickInRound == null && pk.pick != null) return Number(pk.pick);
+    if (pk.round && pk.pickInRound != null) return (Number(pk.round) - 1) * 32 + Number(pk.pickInRound);
+    return Number(pk.pick) || 0;
+  }
+
+  function normalizeDraftLabels() {
+    if (!window.AFADraft) return;
+    function walk(list) { (list || []).forEach(function (pk) { AFADraft.normalizePickRecord(pk, 32); }); }
+    walk(state.picks);
+    if (state.collegeDraft) walk(state.collegeDraft.picks);
+    if (state.lastCollegeDraft) walk(state.lastCollegeDraft.picks);
+  }
+
+  function playerDraftLine(player) {
+    if (!player || !player.id) return "";
+    var found = (state.picks || []).filter(function (pk) { return pk && pk.playerId === player.id; })[0];
+    if (found) return "Founding draft · " + spotLabel(recordOverall(found));
+    var pools = [];
+    if (state.collegeDraft && state.collegeDraft.picks) pools.push(state.collegeDraft.picks);
+    if (state.lastCollegeDraft && state.lastCollegeDraft.picks) pools.push(state.lastCollegeDraft.picks);
+    for (var i = 0; i < pools.length; i++) {
+      var hit = pools[i].filter(function (pk) { return pk && pk.playerId === player.id; })[0];
+      if (hit) {
+        var year = i === 0 && state.collegeDraft ? state.collegeDraft.year : state.lastCollegeDraft.year;
+        return (year || "College") + " college draft · " + spotLabel(recordOverall(hit));
+      }
+    }
+    return "";
   }
 
   function rosterPhase(teamId) {
@@ -1278,6 +1325,15 @@
     const onBoard = new Set(state.board);
     return r.filter((id) => onBoard.has(id)).map(playerById).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
   }
+  function draftStrategy(teamId) {
+    const club = window.AFACultures && AFACultures.culture(teamId);
+    if (!club) return "balanced";
+    if (club.philosophy === "Analytics driven") return "analytics";
+    if (club.owner === "Win-now" || club.patience === "Short") return "win-now";
+    if (club.owner === "Patient" || club.patience === "Long") return "patient";
+    return "balanced";
+  }
+
   function recommendPlayer(teamId) {
     const isUser = state.sleeperImport && teamId === state.userTeamId;
     if (isUser) { const k = pendingKeepers(); if (k.length) return k[0]; }
@@ -1297,6 +1353,7 @@
       teamId: teamId,
       pickIndex: state.draftPick,
       scheme: schemeContext(teamId),
+      strategy: draftStrategy(teamId),
       leagueRosters: league,
       availabilityFactor: (p) => realHoldBlocks(p) ? 0.45 : 1
     });
@@ -1331,7 +1388,20 @@
       state.picks = res.draft.picks;
       state.draftPick = res.draft.draftPick;
     }
-    if (!quiet) save();
+    if (!quiet) {
+      save();
+      const made = state.picks && state.picks[state.picks.length - 1];
+      if (made && window.AFAFranchise) {
+        const who = playerById(made.playerId);
+        state.leagueNews = state.leagueNews || [];
+        state.leagueNews.unshift(AFAFranchise.headline({
+          kind: "draft",
+          week: state.week,
+          text: displayName(teamById(made.teamId)) + " select " + (who ? who.name : "a player") + ". " + spotLabel(recordOverall(made)) + ". Simulated AFA draft."
+        }));
+        state.leagueNews = state.leagueNews.slice(0, 40);
+      }
+    }
     return true;
   }
 
@@ -1446,12 +1516,22 @@
     } finally { draftRunning = false; }
   }
 
+  function showPickCard(team, player, grade, label) {
+    const host = $("rec-box");
+    if (!host || !player) return;
+    const card = document.createElement("div");
+    card.className = "pick-reveal";
+    card.style.borderColor = team.primary || "";
+    card.innerHTML = `<p class="eyebrow">The pick is in</p><h3>${player.name}</h3><p>${label || ""}</p><p>${displayName(team)} · ${player.pos} · ${player.ovr}</p><p class="help">${grade ? grade.blurb : "Simulated draft grade."}</p>`;
+    host.prepend(card);
+  }
+
   function userDraft(playerId) {
     if (draftRunning) return;
     if (state.draftPick >= TOTAL_PICKS) return;
     const team = currentDraftTeam();
     if (state.mode === "single" && state.userTeamId && team.id !== state.userTeamId) {
-      toast("That's a CPU pick. Wait for your club — or hit Sim to your pick.");
+      toast("That's a CPU pick. Wait for your club, or hit Simulate to your pick.");
       return;
     }
     if (!makePick(team.id, playerId)) {
@@ -1463,7 +1543,12 @@
     }
     const pickedId = state.picks.length ? state.picks[state.picks.length - 1].playerId : playerId;
     const p = playerById(pickedId);
-    toast(displayName(team) + " select " + (p ? p.name : "a player"));
+    const made = state.picks.length ? state.picks[state.picks.length - 1] : null;
+    const label = made ? spotLabel(recordOverall(made)) : "";
+    const grade = window.AFAFranchise ? AFAFranchise.gradePick(p, null) : null;
+    if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) {} }
+    toast("The pick is in. " + label + ". " + displayName(team) + " select " + (p ? p.name : "a player") + (grade ? ". " + grade.blurb : ""));
+    showPickCard(team, p, grade, label);
     processAutoRun();
   }
 
@@ -1573,7 +1658,7 @@
     const feed = (state.picks || []).slice().reverse().slice(0, 24).map((pk) => {
       const t = teamById(pk.teamId);
       const p = playerById(pk.playerId);
-      return `<div class="pick-row"><span>#${pk.pick}</span> ${logoImg(t, "sm")} <strong>${displayName(t)}</strong> — ${p ? p.name : "?"} <span class="pos-pill pos-${p ? p.pos : "QB"}">${p ? p.pos : ""}</span></div>`;
+      return `<div class="pick-row"><span>${spotLabel(recordOverall(pk))}</span> ${logoImg(t, "sm")} <strong>${displayName(t)}</strong> — ${p ? p.name : "?"} <span class="pos-pill pos-${p ? p.pos : "QB"}">${p ? p.pos : ""}</span></div>`;
     }).join("");
     $("pick-feed").innerHTML = feed || `<p class="help">No picks recorded.</p>`;
     syncDraftNav();
@@ -1719,22 +1804,32 @@
     return out;
   }
 
+  function sourcedMadden(p) {
+    return window.AFARatings && AFARatings.lookup ? AFARatings.lookup(p) : null;
+  }
+
   function seedGradesAndContracts(force) {
     const statsPack = window.AFA_STATS_2025 || {};
     const G = window.AFAGrading;
     const vet = (window.AFABridge && window.AFABridge.veteranContractFor) || null;
     allPlayersList().forEach((p) => {
-      if (force || p.ovrBase == null) p.ovrBase = p.ovr;
-      if (G && (force || !p.grade)) {
+      const fresh = !!force;
+      if (!fresh && p.ovrBase == null) p.ovrBase = p.ovr;
+      const applied = fresh && window.AFARatings && AFARatings.applyFresh ? AFARatings.applyFresh(p) : null;
+      if (!fresh) p.externalRatings = { madden: sourcedMadden(p), pff: null };
+      if (G && (fresh || !p.grade)) {
         const lines = statsPack[p.id] || [];
-        let g = G.gradePlayer({ pos: p.pos, age: p.age, ovr: p.ovrBase }, lines, { applyAge: false });
+        const prior = p.ovrBase != null ? p.ovrBase : p.ovr;
+        let g = G.gradePlayer({ pos: p.pos, age: p.age, ovr: prior }, lines, { applyAge: false });
         if ((p.pos === "K" || p.pos === "P") && g && g.statRating != null && g.confidence >= 0.35) {
           const blended = Math.round(0.25 * (p.ovrBase || 70) + 0.75 * g.statRating);
           g = Object.assign({}, g, { overall: Math.max(40, Math.min(99, blended)), explanation: (g.explanation || "") + " K/P stat lean applied." });
         }
         p.grade = g;
-        if (state.useStatGrades && g && g.confidence > 0) p.ovr = g.overall;
-        else p.ovr = p.ovrBase;
+        // A sourced Madden overall stays the game rating. The counting-stat grade is kept beside it.
+        if (applied && applied.locked) p.ovr = applied.src.ovr;
+        else if (state.useStatGrades && g && g.confidence > 0) p.ovr = g.overall;
+        else if (fresh) p.ovr = p.ovrBase;
       }
       if (!p.contract) p.contract = vet ? vet(p) : { apy: 1500000, capHit: 1500000, yearsRemaining: 2, kind: "veteran-founding" };
     });
@@ -1757,8 +1852,14 @@
     };
   }
 
+  function teamDead(teamId) {
+    const bag = state.deadCap && state.deadCap[teamId];
+    if (!bag) return 0;
+    return Object.keys(bag).reduce((sum, key) => sum + (Number(bag[key]) || 0), 0);
+  }
+
   function teamCapHit(teamId) {
-    return rosterOf(teamId).reduce((s, p) => s + ((p.contract && Number(p.contract.capHit)) || 0), 0);
+    return rosterOf(teamId).reduce((s, p) => s + ((p.contract && Number(p.contract.capHit)) || 0), 0) + teamDead(teamId);
   }
 
   function formatMoney(n) {
@@ -2356,34 +2457,39 @@
     return (state.picks || []).filter((pk) => pk.teamId === teamId);
   }
 
+  function playerTable(screen, rows, columns, rowHtml, emptyHtml) {
+    const sorted = window.AFASort ? AFASort.sort(rows, screen, columns[0][0], "desc") : rows.slice();
+    const chrome = window.AFASort ? AFASort.select(screen, columns) : "";
+    const thead = window.AFASort ? AFASort.head(screen, columns) : "<tr>" + columns.map((col) => `<th>${col[1]}</th>`).join("") + "</tr>";
+    const body = sorted.map(rowHtml).join("") || (emptyHtml || `<tr><td colspan="${columns.length}" class="help">None.</td></tr>`);
+    return `<div class="sortable-player-table" data-sort-screen="${screen}">${chrome}<div class="pool-scroll"><table class="player-table"><thead>${thead}</thead><tbody>${body}</tbody></table></div></div>`;
+  }
+
   function renderDraftedHTML(team) {
     const picks = draftedPicksForTeam(team.id);
-    const rows = picks.map((pk) => {
+    const items = [];
+    picks.forEach((pk) => {
       const pl = playerById(pk.playerId);
-      if (!pl) return "";
-      const overall = pk.pick || pk.overall || 0;
-      const round = Math.floor((overall - 1) / 32) + 1;
-      const pickInRound = ((overall - 1) % 32) + 1;
-      return `<tr data-scout="${pl.id}" data-player-id="${pl.id}">
-        <td>R${round} · ${pickInRound}</td>
-        <td>#${overall}</td>
+      if (!pl) return;
+      const overall = recordOverall(pk);
+      const label = spotLabel(overall);
+      items.push(Object.assign({}, pl, { round: window.AFADraft ? AFADraft.pickSpot(overall, 32).round : 1, pickNo: overall, pickLabel: label }));
+    });
+    const columns = [["round", "Pick"], ["pickNo", "Overall"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]];
+    const table = playerTable("drafted", items, columns, (pl) => `<tr data-scout="${pl.id}" data-player-id="${pl.id}">
+        <td>${pl.pickLabel}</td>
+        <td>${pl.pickNo}</td>
         <td class="${ovrClass(pl.ovr)}">${pl.ovr}</td>
-        <td data-profile="${pl.id}">${pl.name}</td>
+        <td class="name-col" data-profile="${pl.id}">${pl.name}</td>
         <td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td>
         <td>${pl.age}</td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="6" class="help">No picks yet for this club. Draft from the Board tab.</td></tr>`;
+      </tr>`, `<tr><td colspan="6" class="help">No picks yet for this club. Draft from the Board tab.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
         <h2>${displayName(team)} · Drafted</h2>
         <span class="phase-chip">${picks.length} pick${picks.length === 1 ? "" : "s"}</span>
       </div>
-      <div class="panel"><div class="panel-b">
-        <table class="drafted-table">
-          <thead><tr><th>Round</th><th>Overall</th><th>OVR</th><th>Player</th><th>Pos</th><th>Age</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div></div>`;
+      <div class="panel"><div class="panel-b">${table}</div></div>`;
   }
 
   function renderDepthHTML(team) {
@@ -2400,12 +2506,15 @@
       }).join("");
       return `<div class="depth-card"><div class="dh">${card.tag} · ${card.label}</div>${body}</div>`;
     }).join("");
+    const roster = rosterOf(team.id);
+    const list = playerTable("depth", roster, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.age}</td></tr>`, `<tr><td colspan="4" class="help">No players on this roster.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
         <h2>${displayName(team)} · Depth Chart</h2>
-        <span class="help">Madden-style starters highlighted · ranked by OVR at position</span>
+        <span class="help">Starters stay in the chart. The list under it sorts the same roster.</span>
       </div>
-      <div class="depth-madden">${cards}</div>`;
+      <div class="depth-madden">${cards}</div>
+      <div class="panel" style="margin-top:12px"><div class="panel-b">${list}</div></div>`;
   }
 
   function fieldSlotHTML(slot) {
@@ -2423,6 +2532,12 @@
     </div>`;
   }
 
+  function menuFormLabel(form, key) {
+    const label = (form && form.label) || key || "";
+    if (label === "FG unit") return "Field goal unit";
+    return label;
+  }
+
   function renderLineupHTML(team) {
     const lu = buildLineup(team.id);
     const side = ui.lineupSide === "defense" ? "defense" : (ui.lineupSide === "special" ? "special" : "offense");
@@ -2432,11 +2547,11 @@
     const ST = (window.AFABridge && window.AFABridge.SPECIAL_FORMATIONS) || {};
     let formToggle = "";
     if (side === "offense") {
-      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(FORMATIONS).map((k) => `<button class="btn btn-sm ${(lu.formation || "11") === k ? "on" : ""}" data-form="${k}">${k}</button>`).join("")}</div>`;
+      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(FORMATIONS).map((k) => `<button class="btn btn-sm ${(lu.formation || "11") === k ? "on" : ""}" data-form="${k}">${menuFormLabel(FORMATIONS[k], k)}</button>`).join("")}</div>`;
     } else if (side === "defense") {
-      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(DEF).map((k) => `<button class="btn btn-sm ${(lu.defFormation || "base43") === k ? "on" : ""}" data-defform="${k}">${k}</button>`).join("")}</div>`;
+      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(DEF).map((k) => `<button class="btn btn-sm ${(lu.defFormation || "base43") === k ? "on" : ""}" data-defform="${k}">${menuFormLabel(DEF[k], k)}</button>`).join("")}</div>`;
     } else {
-      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(ST).map((k) => `<button class="btn btn-sm ${(lu.stFormation || "fg") === k ? "on" : ""}" data-stform="${k}">${k}</button>`).join("")}</div>`;
+      formToggle = `<div class="lineup-toggle" id="lineup-form-toggle">${Object.keys(ST).map((k) => `<button class="btn btn-sm ${(lu.stFormation || "fg") === k ? "on" : ""}" data-stform="${k}">${menuFormLabel(ST[k], k)}</button>`).join("")}</div>`;
     }
     const issues = side === "offense" ? lu.geometryIssues : (side === "defense" ? lu.defenseIssues : lu.specialIssues);
     const geo = (issues && issues.length) ? `<div class="geo-warn">⚠ Lineup geometry: ${issues.join("; ")}</div>` : "";
@@ -2445,17 +2560,16 @@
       if (side === "offense") return ["QB","RB","WR","TE","OT","OG","C"].includes(pl.pos);
       return ["DE","DT","LB","CB","S"].includes(pl.pos);
     });
-    const special = lu.special.map((s) => {
-      if (!s.player) return `<div class="bench-chip"><span>${s.slot}</span><span class="help">Open</span></div>`;
-      return `<div class="bench-chip" data-scout="${s.player.id}" data-player-id="${s.player.id}"><span data-profile="${s.player.id}">${s.slot} · <span class="jersey">#${jerseyNum(s.player)}</span> ${s.player.name}</span><span class="${ovrClass(s.player.ovr)}">${s.player.ovr}</span></div>`;
-    }).join("");
+    const specialRows = lu.special.filter((s) => s.player).map((s) => Object.assign({}, s.player, { slot: s.slot }));
+    const specialTable = playerTable("lineup-special", specialRows, [["slot", "Role"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"]], (pl) => `<tr data-player-id="${pl.id}"><td>${pl.slot}</td><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td></tr>`);
+    const benchRows = playerTable("lineup-bench", bench, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (pl) => `<tr data-player-id="${pl.id}"><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td><td>${pl.age}</td></tr>`, `<tr><td colspan="4" class="help">No bench players yet.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
         <h2>${displayName(team)} · Lineup${side === "offense" ? " · " + (lu.formLabel || lu.formation) : ""}</h2>
         <div class="lineup-toggle" id="lineup-side-toggle">
           <button class="btn btn-sm ${side === "offense" ? "on" : ""}" data-side="offense">Offense</button>
           <button class="btn btn-sm ${side === "defense" ? "on" : ""}" data-side="defense">Defense</button>
-          <button class="btn btn-sm ${side === "special" ? "on" : ""}" data-side="special">Special</button>
+          <button class="btn btn-sm ${side === "special" ? "on" : ""}" data-side="special">Special Teams</button>
         </div>
         ${formToggle}
       </div>
@@ -2464,11 +2578,9 @@
         <div class="field" data-formation="${lu.formation || "11"}">${slots.map(fieldSlotHTML).join("")}</div>
       </div>
       <p class="help" style="margin-top:12px">Special teams</p>
-      <div class="lineup-bench">${special}</div>
+      ${specialTable}
       <p class="help" style="margin-top:12px">${side === "offense" ? "Offense" : "Defense"} depth / bench</p>
-      <div class="lineup-bench">
-        ${bench.map((pl) => `<div class="bench-chip" data-player-id="${pl.id}"><span data-profile="${pl.id}"><span class="pos-pill pos-${pl.pos}">${pl.pos}</span> ${pl.name}</span><span class="${ovrClass(pl.ovr)}">${pl.ovr}</span></div>`).join("") || `<div class="help">No bench players yet.</div>`}
-      </div>`;
+      ${benchRows}`;
   }
 
   function syncDraftNav() {
@@ -2538,6 +2650,7 @@
     view.querySelectorAll("[data-back-board]").forEach((b) => {
       b.onclick = () => { ui.draftTab = "board"; renderDraft(); };
     });
+    if (window.AFASort) AFASort.bind(view, () => renderDraft());
     bindScoutHover(view);
   }
 
@@ -2664,13 +2777,13 @@
     syncHubDraftTab();
 
     const team = currentDraftTeam();
-    const round = Math.floor(state.draftPick / 32) + 1;
-    const pickInRound = (state.draftPick % 32) + 1;
     const overall = state.draftPick + 1;
+    const spot = window.AFADraft ? AFADraft.pickSpot(overall, 32) : { round: Math.floor(state.draftPick / 32) + 1, pick: (state.draftPick % 32) + 1, overall: overall };
+    const label = spotLabel(overall);
     const rec = recommendPlayer(team.id);
     const desk = state.desks[team.id] || "manual";
     const roundChip = $("draft-round-chip");
-    if (roundChip) roundChip.textContent = ROUNDS + " rounds · " + TOTAL_PICKS.toLocaleString() + " picks · Rd " + round;
+    if (roundChip) roundChip.textContent = ROUNDS + " rounds · " + TOTAL_PICKS.toLocaleString() + " picks · Round " + spot.round;
 
     const limit = state.clockLimit | 0;
     const paused = !!state.clockPaused || limit === 0;
@@ -2680,17 +2793,17 @@
         <div>
           <div class="clk-label">${state.mode === "single" && state.userTeamId && team.id === state.userTeamId ? "Your pick" : (state.mode === "single" ? "CPU on the clock" : "On the clock")}</div>
           <div class="nick" style="font-family:var(--display);font-size:22px;text-transform:uppercase">${displayName(team)}</div>
-          <div class="city" style="color:var(--muted)">Round ${round} · Pick ${pickInRound} · Overall ${overall} of ${TOTAL_PICKS}</div>
+          <div class="city" style="color:var(--muted)">${label}</div>
         </div>
       </div>
       <div>
         <div class="eyebrow">AFA Founding Snake Draft · ${ROUNDS} rounds</div>
         <div class="desk-modes" id="desk-modes">
           ${state.mode === "single" && state.userTeamId && team.id !== state.userTeamId
-            ? `<span class="phase-chip">CPU desk · Auto</span>`
+            ? `<span class="phase-chip">CPU desk · Automatic</span>`
             : `<button class="btn btn-sm ${desk === "manual" ? "on" : ""}" data-desk="manual">Manual</button>
           <button class="btn btn-sm ${desk === "assisted" ? "on" : ""}" data-desk="assisted">Assisted</button>
-          <button class="btn btn-sm ${desk === "auto" ? "on" : ""}" data-desk="auto">Auto</button>`}
+          <button class="btn btn-sm ${desk === "auto" ? "on" : ""}" data-desk="auto">Automatic</button>`}
         </div>
       </div>
       <div class="clock-panel">
@@ -2726,23 +2839,33 @@
         </div>
       </div>
       <p class="help">${state.mode === "single"
-        ? ("Single franchise: you only pick for " + displayName(teamById(state.userTeamId)) + ". Board is real NFL free agents after the fold. Use <strong>Sim to your pick</strong> to fast-forward CPU selections.")
-        : "Founding draft — every prospect is a real NFL free agent. Manual, Assisted, or Auto on each desk. Sim Draft fills the rest."}</p>
+        ? ("Single franchise: you only pick for " + displayName(teamById(state.userTeamId)) + ". Board is real NFL free agents after the fold. Use <strong>Simulate to your pick</strong> to fast-forward CPU selections.")
+        : "Founding draft. Every prospect is a real NFL free agent. Each desk is Manual, Assisted, or Automatic. Simulate draft fills the rest."}</p>
       <div class="sim-draft-bar">
-        <button class="btn btn-sim-draft" id="btn-sim-draft" title="Fill every remaining pick">Sim Draft</button>
+        <button class="btn btn-sim-draft" id="btn-sim-draft" title="Fill every remaining pick">Simulate draft</button>
+        ${state.syscheck ? '<button type="button" class="btn" id="btn-sys-trades">Open trades</button>' : ''}
         <div class="btn-row" style="justify-content:flex-start;margin:0;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-sm btn-primary" id="btn-sim-manual">${state.mode === "single" ? "Sim to your pick" : "Sim to next manual"}</button>
-          <button class="btn btn-sm" id="btn-sim-round">Sim this round</button>
-          <button class="btn btn-sm" id="btn-auto-rest">${state.mode === "single" ? "Auto-pick my remaining" : "Auto-complete draft"}</button>
-          ${state.mode === "single" ? "" : '<button class="btn btn-sm" id="btn-all-auto">Set remaining desks to Auto</button>'}
+          <button class="btn btn-sm btn-primary" id="btn-sim-manual">${state.mode === "single" ? "Simulate to your pick" : "Simulate to the next manual desk"}</button>
+          <button class="btn btn-sm" id="btn-sim-round">Simulate this round</button>
+          <button class="btn btn-sm" id="btn-auto-rest">${state.mode === "single" ? "Finish my remaining picks automatically" : "Complete the draft automatically"}</button>
+          ${state.mode === "single" ? "" : '<button class="btn btn-sm" id="btn-all-auto">Set remaining desks to automatic</button>'}
         </div>
-        <p class="help" style="margin:6px 0 0">Founding draft is <strong>${ROUNDS} rounds</strong> (${TOTAL_PICKS} picks). Hit <strong>Sim Draft</strong> anytime to finish the board.</p>
+        <p class="help" style="margin:6px 0 0">Founding draft is <strong>${ROUNDS} rounds</strong> (${TOTAL_PICKS} picks). Hit <strong>Simulate draft</strong> anytime to finish the board.</p>
       </div>
     `;
     const yourTurn = !(state.mode === "single" && state.userTeamId && team.id !== state.userTeamId);
     $("btn-take-rec").onclick = () => { if (yourTurn && rec) userDraft(rec.id); };
     $("btn-take-rec").disabled = !rec || !yourTurn;
     $("btn-sim-draft").onclick = () => simDraftRemaining();
+    const sysTrades = $("btn-sys-trades");
+    if (sysTrades) sysTrades.onclick = () => {
+      state.phase = "hub";
+      state.seasonStarted = true;
+      state.week = 1;
+      ui.hubTab = "trades";
+      showScreen("hub");
+      renderHub();
+    };
     const simRoundBtn = $("btn-sim-round");
     if (simRoundBtn) simRoundBtn.onclick = () => simDraftRound();
     $("btn-sim-manual").onclick = () => {
@@ -2766,7 +2889,10 @@
     let pool = state.board.map(playerById).filter(Boolean);
     if (ui.posFilter !== "ALL") pool = pool.filter((p) => p.pos === ui.posFilter);
     if (q) pool = pool.filter((p) => p.name.toLowerCase().includes(q));
-    pool.sort((a, b) => b.ovr - a.ovr);
+    if (window.AFASort && ui.boardSort && ui.boardSort.key) AFASort.set("draft-pool", ui.boardSort.key, ui.boardSort.dir);
+    if (window.AFASort) pool = AFASort.sort(pool, "draft-pool", "ovr", "desc");
+    else pool.sort((a, b) => b.ovr - a.ovr || String(a.name).localeCompare(String(b.name)) || String(a.id).localeCompare(String(b.id)));
+    if (window.AFASort) ui.boardSort = Object.assign({}, AFASort.get("draft-pool", "ovr", "desc"));
     const pageSize = 80;
     if (ui.boardPage == null) ui.boardPage = 0;
     const maxPage = Math.max(0, Math.ceil(pool.length / pageSize) - 1);
@@ -2781,19 +2907,46 @@
       b.onclick = () => { ui.posFilter = b.getAttribute("data-pos"); ui.boardPage = 0; renderDraft(); };
     });
 
+    const columns = window.AFAAttrs ? AFAAttrs.COLUMNS : [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]];
+    const resort = () => { ui.boardPage = 0; ui.boardSort = Object.assign({}, AFASort.get("draft-pool", "ovr", "desc")); renderDraft(); };
+    const head = $("pool-head");
+    if (head && window.AFASort) {
+      head.innerHTML = AFASort.head("draft-pool", columns);
+      AFASort.bind(head, resort);
+    }
+    const sortSelect = $("board-sort");
+    if (sortSelect && window.AFASort) {
+      const html = AFASort.select("draft-pool", columns);
+      const hold = document.createElement("div");
+      hold.innerHTML = html;
+      const built = hold.querySelector("select");
+      sortSelect.innerHTML = built ? built.innerHTML : "";
+      sortSelect.onchange = () => {
+        const parts = sortSelect.value.split(":");
+        AFASort.set("draft-pool", parts[0], parts[1] === "asc" ? "asc" : "desc");
+        resort();
+      };
+    }
+
     $("player-body").innerHTML = pagePool.map((p) => {
       const recRow = rec && rec.id === p.id ? " rec" : "";
-      return `<tr class="${recRow}" data-pid="${p.id}" data-scout="${p.id}" data-player-id="${p.id}">
-        <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
-        <td><span class="jersey">#${jerseyNum(p)}</span> ${p.name} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td>
-        <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
-        <td>${p.age}</td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="4" class="help">No players match.</td></tr>`;
+      const attrs = window.AFAAttrs ? AFAAttrs.attrsFor(p) : {};
+      const cells = columns.map(([key]) => {
+        if (key === "ovr") return `<td class="${ovrClass(p.ovr)}">${p.ovr}</td>`;
+        if (key === "name") return `<td class="name-col"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td>`;
+        if (key === "pos") return `<td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>`;
+        if (key === "age") return `<td>${p.age}</td>`;
+        if (!window.AFAAttrs || !AFAAttrs.shows(p, key)) return `<td class="attr-na">—</td>`;
+        const sourced = attrs.sourced && attrs.sourced[key];
+        const title = sourced ? "Madden NFL 27 attribute from the EA ratings page." : "Estimate. EA does not publish this as one number for this player.";
+        return `<td class="${sourced ? "attr-real" : "attr-est"}" title="${title}">${attrs[key]}</td>`;
+      }).join("");
+      return `<tr class="${recRow}" data-pid="${p.id}" data-scout="${p.id}" data-player-id="${p.id}">${cells}</tr>`;
+    }).join("") || `<tr><td colspan="${columns.length}" class="help">No players match.</td></tr>`;
     $("player-body").querySelectorAll("[data-pid]").forEach((row) => {
       row.onclick = () => {
         if (state.mode === "single" && state.userTeamId && currentDraftTeam().id !== state.userTeamId) {
-          toast("CPU is on the clock. Hit Sim to your pick.");
+          toast("CPU is on the clock. Hit Simulate to your pick.");
           return;
         }
         userDraft(row.getAttribute("data-pid"));
@@ -2826,7 +2979,7 @@
     }
     if (pager) {
       pager.innerHTML = pool.length
-        ? `<button class="btn btn-sm" id="board-prev" ${ui.boardPage <= 0 ? "disabled" : ""}>Prev</button>
+        ? `<button class="btn btn-sm" id="board-prev" ${ui.boardPage <= 0 ? "disabled" : ""}>Previous</button>
            <span class="help">${pageStart + 1}–${Math.min(pool.length, pageStart + pageSize)} of ${pool.length} prospects</span>
            <button class="btn btn-sm" id="board-next" ${ui.boardPage >= maxPage ? "disabled" : ""}>Next</button>`
         : "";
@@ -2841,9 +2994,9 @@
       const tm = teamById(pk.teamId);
       const pl = playerById(pk.playerId);
       return `<div class="pick-item" data-scout="${pk.playerId}" data-player-id="${pk.playerId}">
-        <div class="n">${pk.pick}</div>
+        <div class="n">${recordOverall(pk)}</div>
         ${logoImg(tm, "sm")}
-        <div><strong data-profile="${pk.playerId}">${pl.name}</strong><div class="city">${tm.abbr} · ${pl.pos} ${pl.ovr}</div></div>
+        <div><strong data-profile="${pk.playerId}">${pl.name}</strong><div class="city">${spotLabel(recordOverall(pk))} · ${tm.abbr} · ${pl.pos} ${pl.ovr}</div></div>
       </div>`;
     }).join("") || `<p class="help">Picks will land here.</p>`;
 
@@ -3361,6 +3514,20 @@
     g.overtime = !!(result.totals && result.totals.overtime) || (result.plays || []).some((p) => p.period > 4 || p.quarter > 4);
     if (isUserGame) state.lastWatchedGame = g;
 
+    g.statRows = window.AFAFranchise ? AFAFranchise.statRows([].concat(
+      (result.playerStatLines && result.playerStatLines.home) || [],
+      (result.playerStatLines && result.playerStatLines.away) || []
+    ).map((row) => ({
+      id: row.id || row.playerId,
+      name: row.name,
+      pos: row.pos,
+      passYd: row.passYds || row.passYd || row.py,
+      rushYd: row.rushYds || row.rushYd || row.ry,
+      recYd: row.recYds || row.recYd || row.recy,
+      passTd: row.passTd || row.ptd,
+      rushTd: row.rushTd,
+      recTd: row.recTd
+    }))) : [];
     foldStatLines(result.playerStatLines && result.playerStatLines.home);
     foldStatLines(result.playerStatLines && result.playerStatLines.away);
 
@@ -3396,6 +3563,29 @@
     try {
       if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onGameSim", { game: g, result });
     } catch (e) {}
+    applyGameProgression(g);
+    noteFranchiseGame(g);
+  }
+
+  function applyGameProgression(g) {
+    if (!window.AFAFranchise || !g) return;
+    [g.home, g.away].forEach((tid) => {
+      const won = (tid === g.home ? g.hs > g.as : g.as > g.hs);
+      rosterOf(tid).forEach((p, index) => {
+        AFAFranchise.applyWeekly(p, {
+          snaps: index < 22 ? 48 : 6,
+          grade: Math.max(40, Math.min(99, (Number(p.ovr) || 70) + (won ? 6 : -4))),
+          week: state.week
+        });
+      });
+    });
+  }
+
+  function progressionArrow(p) {
+    const last = p && p.progression && p.progression[p.progression.length - 1];
+    if (!last || !last.delta) return "";
+    const mark = last.delta > 0 ? "↑" : "↓";
+    return " <span class=\"prog-arrow\" title=\"" + last.reason + "\">" + mark + last.delta + "</span>";
   }
 
   function records() {
@@ -3469,10 +3659,86 @@
         if (p.ovrBase != null && typeof p.ovr === "number") {
           p.ovr = Math.round(p.ovr * 0.35 + p.ovrBase * 0.65);
         }
+        if (window.AFAFranchise) {
+          const swing = AFAFranchise.offseasonChange(p);
+          const before = p.ovr;
+          p.ovr = Math.max(40, Math.min(99, p.ovr + swing.delta));
+          if (!p.progression) p.progression = [];
+          p.progression.push({ week: "offseason", before: before, after: p.ovr, delta: swing.delta, reason: swing.reason, simulated: true });
+        }
       });
+      if (window.AFACultures) {
+        if (!state.cultureDrift) state.cultureDrift = {};
+        const recs = records();
+        TEAMS.forEach((t) => {
+          state.cultureDrift[t.id] = AFACultures.evolve(state.cultureDrift[t.id], recs[t.id], false);
+        });
+      }
       ensureCoachPool(true); // refresh FA coach board for next carousel
       if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onSeasonEnd", { state, year: state.seasonYear });
     } catch (e) { console.warn("season end modules", e); }
+  }
+
+  function shopCpuWeek() {
+    if (!window.AFAFranchise || !state.userTeamId || !state.seasonStarted) return;
+    const rec = records();
+    const mine = rosterOf(state.userTeamId);
+    if (!mine.length || !Array.isArray(state.tradeInbox)) state.tradeInbox = state.tradeInbox || [];
+    TEAMS.forEach((t) => {
+      if (t.id === state.userTeamId) return;
+      const needs = ["QB", "WR", "CB", "OT"].filter((pos) => rosterOf(t.id).filter((p) => p.pos === pos).length < 2);
+      const bias = window.AFACultures ? AFACultures.cpuBias(AFACultures.culture(t.id)) : { urgency: 0, spend: 0 };
+      const offer = AFAFranchise.cpuOffer({
+        id: t.id,
+        week: state.week,
+        wins: (rec[t.id] && rec[t.id].w) || 0,
+        needs: needs,
+        capRoom: (state.salaryCap || AFA_CAP) - teamCapHit(t.id),
+        offseason: !!state.seasonDone
+      });
+      if (!offer || offer.urgency + bias.urgency < 2) return;
+      if (bias.spend < 0 && offer.urgency < 3) return;
+      const id = "shop-" + t.id + "-w" + state.week;
+      if (state.tradeInbox.some((row) => row.id === id)) return;
+      const want = mine.slice().sort((a, b) => b.ovr - a.ovr)[0];
+      if (!want) return;
+      state.tradeInbox.push({
+        id: id,
+        from: t.id,
+        kind: "inquiry",
+        send: [],
+        want: [want.id],
+        status: "pending",
+        reason: offer.reason,
+        week: state.week,
+        simulated: true
+      });
+    });
+  }
+
+  function simThrough(target) {
+    const plan = window.AFAFranchise
+      ? AFAFranchise.simTarget({ week: state.week, seasonDone: state.seasonDone, seasonWeeks: SEASON_WEEKS }, target)
+      : { weeks: 0, label: "Sim is unavailable." };
+    if (!plan.weeks) { toast(plan.label); return; }
+    let guard = 0;
+    while (!state.seasonDone && state.week <= plan.stopWeek && guard < 20) {
+      const week = state.schedule[state.week - 1];
+      if (!week) break;
+      week.forEach((g) => { if (!g.played) simGame(g); });
+      if (state.week >= SEASON_WEEKS) {
+        state.seasonDone = true;
+        endSeasonRecalibrate();
+        break;
+      }
+      state.week += 1;
+      guard += 1;
+    }
+    save();
+    toast(plan.label + " Simulated results only.");
+    shopCpuWeek();
+    ui.hubTab = state.seasonDone ? "standings" : "slate";
+    renderHub();
   }
 
   function simWeek() {
@@ -3489,6 +3755,7 @@
       toast("Week " + (state.week - 1) + " is final.");
     }
     save();
+    shopCpuWeek();
     ui.hubTab = "slate";
     renderHub();
   }
@@ -3558,6 +3825,7 @@
 
     const body = $("hub-body");
     if (ui.hubTab === "home") body.innerHTML = renderLeagueHomeHTML(vt);
+    else if (ui.hubTab === "culture") body.innerHTML = renderCultureHTML(vt);
     else if (ui.hubTab === "standings") body.innerHTML = renderStandingsHTML();
     else if (ui.hubTab === "slate") body.innerHTML = renderSlateHTML();
     else if (ui.hubTab === "roster") body.innerHTML = renderRosterHTML(vt);
@@ -3709,6 +3977,118 @@
       </svg>`;
   }
 
+  function cultureHomeLine(team) {
+    const club = window.AFACultures && AFACultures.culture(team.id);
+    if (!club) return "";
+    const target = AFACultures.approvalTarget(club);
+    return "This club's owner is " + club.owner.toLowerCase() + " and wants the meter near " + target + ". " + club.tagline;
+  }
+
+  function cultureTradeNote(team) {
+    const club = window.AFACultures && AFACultures.culture(team && team.id);
+    if (!club) return "";
+    return " Culture: " + club.archetype + ", " + club.philosophy.toLowerCase() + ". " + club.tagline;
+  }
+
+  function cultureFitLine(player) {
+    if (!window.AFACultures || !player) return "";
+    const club = AFACultures.culture(viewTeamId());
+    const trait = AFACultures.simulatedTrait(player.id);
+    const fit = AFACultures.cultureFit(trait, club);
+    return `<p class="help">Simulated trait: ${trait}. ${fit.note || ""}</p>`;
+  }
+
+  function renderCultureHTML(team) {
+    const C = window.AFACultures;
+    if (!C) return `<p class="help">Culture data is not loaded.</p>`;
+    const club = C.culture(team.id);
+    const league = C.LEAGUE;
+    const drift = state.cultureDrift && state.cultureDrift[team.id];
+    if (!club) return `<p class="help">No culture is stored for this club.</p>`;
+    const rivals = club.rivals.map((id) => displayName(teamById(id))).join(", ");
+    return `<article class="culture-page" style="--club:${team.primary};--club2:${team.secondary}">
+      <header class="culture-hero">
+        ${logoImg(team, "lg")}
+        <div>
+          <p class="eyebrow">${league.name}</p>
+          <h2>${displayName(team)}</h2>
+          <p class="culture-tag">${club.tagline}</p>
+        </div>
+      </header>
+      <p class="help">${league.founding} Trophy: ${league.trophy}. Rivalry week: ${league.rivalryWeek}.</p>
+      <div class="culture-grid">
+        <div><span>Archetype</span><b>${club.archetype}</b></div>
+        <div><span>Owner</span><b>${club.owner}</b></div>
+        <div><span>Patience</span><b>${club.patience}</b></div>
+        <div><span>Front office</span><b>${club.philosophy}</b></div>
+        <div><span>Offense</span><b>${club.offense}</b></div>
+        <div><span>Defense</span><b>${club.defense}</b></div>
+        <div><span>Locker room</span><b>${club.vibe}</b></div>
+        <div><span>Market</span><b>${club.market} · ${club.appeal}</b></div>
+      </div>
+      <p>${club.fans}</p>
+      <p><strong>Ritual.</strong> ${club.ritual}</p>
+      <p><strong>Natural rivals.</strong> ${rivals}</p>
+      <p class="help">${drift ? drift.note : "The city culture is holding. A long winning run or a hard year can nudge patience. This is simulated AFA flavor."}</p>
+      <button type="button" class="btn" id="btn-culture-home">Back to League Home</button>
+    </article>`;
+  }
+
+  function leagueDeskHTML(team) {
+    if (window.AFAFranchise) AFAFranchise.defaults(state);
+    const score = state.approval && state.approval.score != null ? state.approval.score : 60;
+    const warning = score < 35 ? " Owner patience is thin." : "";
+    const firing = score < 20 ? " A firing is on the table if this keeps up." : "";
+    const news = (state.leagueNews || []).slice(0, 6).map((item) =>
+      `<li><span class="eyebrow">${item.tag || "Simulated AFA"}</span> ${item.text}</li>`
+    ).join("") || "<li>No simulated headlines yet. Play a week to fill the feed.</li>";
+    return `<section class="panel"><div class="panel-h"><strong>Owner approval</strong><span>${score}</span></div>
+      <div class="panel-b"><p class="help">This meter reacts to simulated wins, losses, and moves.${warning}${firing} ${cultureHomeLine(team)}</p>
+      <p><button type="button" class="btn btn-primary" id="btn-open-culture">Team culture</button></p>
+      <h3>In-league feed</h3><ul class="ws-roster">${news}</ul>
+      <p class="help">Headlines are simulated AFA fiction. They are not NFL news.</p>
+      ${franchiseToolsHTML(team)}
+      </div></section>`;
+  }
+
+  function franchiseToolsHTML(team) {
+    const F = window.AFAFranchise;
+    if (!F) return "";
+    const fit = F.schemeFit(state.scheme && state.scheme[team.id], state.scheme && state.scheme[team.id] || "outside zone");
+    const trait = F.traitNudge("leader");
+    const camp = F.campWinner({ id: "starter", name: "Starter", ovr: 80, camp: 1 }, { id: "challenger", name: "Challenger", ovr: 78, camp: 4 });
+    const claims = F.waiverOrder(TEAMS.map((t) => ({ id: t.id, wins: (records()[t.id] && records()[t.id].w) || 0 })));
+    const workout = F.combineShift({ forty: 88, jump: 76 });
+    const rivalry = F.rivalryBump(state.rivalries || {}, team.id, TEAMS.find((t) => t.id !== team.id).id, false);
+    return `<h3>Locker room</h3><p class="help">Leader trait ${trait.chemistry > 0 ? "helps" : "hurts"} chemistry. Scheme fit: ${fit.fit}. Simulated, not a real personality test.</p>
+      <h3>Camp and waivers</h3><p class="help">Position battle winner: ${camp.name}. Waiver priority starts with ${displayName(teamById(claims[0].id))}. Practice-squad and 53-man cuts use this order.</p>
+      <h3>Combine, awards, achievements</h3><p class="help">${workout.note} Stock shift ${workout.shift}. Rivalry with the next club is ${rivalry.intensity}.</p>
+      <div class="btn-row">
+        <button type="button" class="btn" id="btn-recap">Save recap card</button>
+        <button type="button" class="btn" id="btn-export-league">Export league file</button>
+        <button type="button" class="btn" id="btn-hot-seat">Pass the hot seat</button>
+      </div>
+      <p class="help">Export is a save file friends can import on this static site. Live online multiplayer would need a server, accounts, and a shared database. This build does not add those.</p>
+      <canvas id="recap-card" width="640" height="360" hidden></canvas>`;
+  }
+
+  function noteFranchiseGame(g) {
+    if (!window.AFAFranchise || !state.userTeamId || !g) return;
+    AFAFranchise.defaults(state);
+    if (g.home !== state.userTeamId && g.away !== state.userTeamId) return;
+    const won = g.home === state.userTeamId ? g.hs > g.as : g.as > g.hs;
+    state.approval = AFAFranchise.approvalStep(state.approval, won ? "win" : "loss");
+    const home = teamById(g.home);
+    const away = teamById(g.away);
+    state.leagueNews.unshift(AFAFranchise.headline({
+      kind: "game",
+      week: state.week,
+      text: home.nick + " " + g.hs + ", " + away.nick + " " + g.as + "."
+    }));
+    state.leagueNews = state.leagueNews.slice(0, 40);
+    if (state.approval.firing) toast("Owner warning: " + (state.approval.warning || "The seat is hot."));
+  }
+
   function renderLeagueHomeHTML(team) {
     const roster = rosterOf(team.id);
     const avg = roster.length ? Math.round(roster.reduce((s, p) => s + p.ovr, 0) / roster.length) : 0;
@@ -3739,6 +4119,7 @@
     ).join("") || `<p class="help">No roster yet.</p>`;
 
     return `<div class="league-home">
+      ${leagueDeskHTML(team)}
       <div class="home-study" role="navigation" aria-label="Real NFL study">
         <button type="button" class="study-card" id="btn-hub-players"><span class="eyebrow">Directory</span><strong>Players</strong><span>Real NFL teams, stats, and photos.</span></button>
         <button type="button" class="study-card" id="btn-hub-scouting"><span class="eyebrow">Workspace</span><strong>Scouting</strong><span>NFL grades, plus OGFFL or Dynasty kept apart.</span></button>
@@ -3758,7 +4139,7 @@
       ${collegeCtaHTML()}
       <div class="home-actions">
         <button class="btn btn-primary" data-home-tab="lineup">Set Lineup</button>
-        <button class="btn" data-home-tab="trades">Make a Trade</button>
+        <button class="btn btn-primary" data-home-tab="trades">Propose Trade</button>
         <button class="btn" data-home-tab="roster">Edit Roster</button>
         <button class="btn" data-home-tab="signings">Free Agency</button>
         <button class="btn" data-home-tab="slate">View Schedule</button>
@@ -3872,6 +4253,39 @@
     return g;
   }
 
+  function boxScoreTable(g) {
+    const rows = g.statRows || [];
+    if (!rows.length) return `<p class="help">Simulated final: no player lines were stored for this game.</p>`;
+    const cols = [["name", "Player"], ["pos", "Pos"], ["passYd", "Pass"], ["rushYd", "Rush"], ["recYd", "Rec"], ["td", "TD"]];
+    const sorted = window.AFASort ? AFASort.sort(rows, "box-score", "td", "desc") : rows;
+    const head = window.AFASort ? AFASort.head("box-score", cols) : "";
+    const menu = window.AFASort ? AFASort.select("box-score", cols) : "";
+    return menu + `<div class="pool-scroll"><table class="player-table"><thead>${head}</thead><tbody>` +
+      sorted.map((row) => `<tr><td class="name-col">${row.name}</td><td>${row.pos}</td><td>${row.passYd}</td><td>${row.rushYd}</td><td>${row.recYd}</td><td>${row.td}</td></tr>`).join("") +
+      `</tbody></table></div><p class="help">These lines are simulated for this AFA game. They are not NFL stats.</p>`;
+  }
+
+  function textDriveHTML() {
+    if (!window.AFAFranchise) return "";
+    if (!state.textGame) state.textGame = { down: 1, toGo: 10, yard: 25, quarter: 1, scoreOff: 0, scoreDef: 0, log: [] };
+    const g = state.textGame;
+    const log = (g.log || []).slice(-6).map((line) => `<li>${line}</li>`).join("") || "<li>No snaps yet.</li>";
+    return `<section class="panel text-drive"><div class="panel-h" style="background:var(--team-primary);color:var(--on-primary)"><strong>Text drive</strong><span>${g.scoreOff}–${g.scoreDef}</span></div>
+      <div class="panel-b"><p>Q${g.quarter} · ${g.down} and ${g.toGo} · ball on ${g.yard}. Simulated AFA broadcast.</p>
+      <div class="btn-row"><button type="button" class="btn" data-playcall="run">Run</button><button type="button" class="btn" data-playcall="pass">Pass</button><button type="button" class="btn" data-playcall="punt">Punt</button><button type="button" class="btn" data-playcall="field-goal">Field goal</button><button type="button" class="btn" data-playcall="go">Go for it</button></div>
+      <ul>${log}</ul></div></section>`;
+  }
+
+  function callTextPlay(call) {
+    if (!window.AFAFranchise) return;
+    if (!state.textGame) state.textGame = { down: 1, toGo: 10, yard: 25, quarter: 1, scoreOff: 0, scoreDef: 0, log: [] };
+    const next = AFAFranchise.nextSnap(state.textGame, call, 82, 76);
+    state.textGame = Object.assign(state.textGame, next);
+    state.textGame.log = (state.textGame.log || []).concat(next.note);
+    save();
+    renderHub();
+  }
+
   function renderGameDayHTML(team) {
     if (!window.AFAGameDay) return `<p class="help">GameDay module not loaded.</p>`;
     const settings = AFAGameDay.getSettings ? AFAGameDay.getSettings() : { replayView: ui.replayView || "aerial" };
@@ -3884,7 +4298,8 @@
       <button class="btn btn-sm" id="btn-watch-all-views">Prep all views</button>
     </div>`;
     let body = `<div class="madden-head"><h2>Game Day</h2>${toggle}</div>
-      <p class="help">Use <strong>Watch next slate game</strong> for a live timeline. Toggle aerial / sideline / suite / off.</p>
+      ${textDriveHTML()}
+      <p class="help">Use <strong>Watch next slate game</strong> for a live timeline. Toggle aerial / sideline / suite / off. The text drive is a simulated AFA broadcast, not a real game.</p>
       <div id="gamedayMount"></div>`;
     if (g && g.timeline && (g.timeline.events || g.timeline).length && ui.replayView !== "off") {
       body += `<div class="panel" style="margin-top:12px"><div class="panel-h"><strong>Last watched · ${displayName(teamById(g.home))} ${g.hs}–${g.as} ${displayName(teamById(g.away))}</strong> · ${ui.replayView}</div>
@@ -3892,8 +4307,8 @@
     } else if (g) {
       body += `<div class="panel" style="margin-top:12px"><div class="panel-b">
         <strong>${displayName(teamById(g.home))} ${g.hs}–${g.as} ${displayName(teamById(g.away))}</strong>
-        <p class="help">${ui.replayView === "off" ? "Replay off — box only." : "No timeline yet — click Watch next slate game."}</p>
-        <pre style="white-space:pre-wrap;font-size:11px;opacity:.8">${JSON.stringify(g.box || {}, null, 2).slice(0, 1200)}</pre>
+        <p class="help">Simulated AFA result. ${ui.replayView === "off" ? "Replay is off, so this is the box score only." : "No timeline yet. Watch the next slate game for the play-by-play."}</p>
+        ${boxScoreTable(g)}
       </div></div>`;
     } else {
       body += `<p class="help">Click <strong>Watch next slate game</strong> to sim your upcoming matchup with a full timeline.</p>`;
@@ -3925,12 +4340,9 @@
 
   function renderStandingsHTML() {
     const rec = records();
-    const sortFn = (a, b) => {
-      const ra = rec[a.id]; const rb = rec[b.id];
-      const pa = ra.w + ra.t * 0.5; const pb = rb.w + rb.t * 0.5;
-      if (pb !== pa) return pb - pa;
-      return (rb.pf - rb.pa) - (ra.pf - ra.pa);
-    };
+    const sortFn = (a, b) => window.AFAFranchise
+      ? AFAFranchise.compareClubs(a, b, { records: rec, schedule: state.schedule })
+      : ((rec[b.id].w + rec[b.id].t * 0.5) - (rec[a.id].w + rec[a.id].t * 0.5)) || ((rec[b.id].pf - rec[b.id].pa) - (rec[a.id].pf - rec[a.id].pa));
     const you = state.userTeamId;
     const confHTML = ["Eastern", "Western"].map((conf) => {
       const divs = DIVISIONS[conf].map((div) => {
@@ -3975,7 +4387,7 @@
         }).join("") +
         `<div class="conf-block"><h3>AFA Championship</h3>${gLine(po.championship)}</div></div>`;
     }
-    return `<div class="standings-wrap">${confHTML}${bracket}</div>`;
+    return `<div class="standings-wrap"><p class="help">Simulated AFA season. Tiebreakers are wins, head-to-head, point differential, then points scored.</p>${confHTML}${bracket}</div>`;
   }
 
   function renderSlateHTML() {
@@ -4000,29 +4412,22 @@
   }
 
   function renderRosterHTML(team) {
-    const roster = rosterOf(team.id).sort((a, b) => {
-      const pa = POSITIONS.indexOf(a.pos); const pb = POSITIONS.indexOf(b.pos);
-      if (pa !== pb) return pa - pb;
-      return b.ovr - a.ovr;
-    });
-    const hc = coachById(state.coachAssign[team.id]);
-    const groups = Object.keys(POS_GROUPS).map((g) => {
-      const blocks = POS_GROUPS[g].map((pos) => {
-        const at = roster.filter((p) => p.pos === pos);
-        const rows = at.length
-          ? at.map((p) => `<div class="depth-row" data-scout="${p.id}" data-player-id="${p.id}"><span data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${gradeDeltaBadge(p)}${p.onIR ? " <span class=\"ir-tag\">IR</span>" : ""}</span><span><span class="pos-pill pos-${p.pos}">${p.pos}</span> <span class="${ovrClass(p.ovr)}">${p.ovr}</span>${p.contract ? " <span class=\"cap-chip\">" + formatMoney(p.contract.capHit) + "</span>" : ""}
-              <button class="btn btn-sm" data-cut="${p.id}">Cut</button></span></div>`).join("")
-          : `<div class="depth-row empty">No ${pos} on roster</div>`;
-        return `<div class="pos-block"><div class="lab">${pos}</div>${rows}</div>`;
-      }).join("");
-      return `<div><h3>${g}</h3>${blocks}</div>`;
-    }).join("");
+    const roster = rosterOf(team.id).map((p) => Object.assign({}, p, { cap: p.contract ? p.contract.capHit : null }));
+    const columns = [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"], ["cap", "Cap"]];
+    const table = playerTable("roster", roster, columns, (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
+      <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
+      <td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${progressionArrow(p)}${gradeDeltaBadge(p)}${p.onIR ? ' <span class="ir-tag">IR</span>' : ""}</td>
+      <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
+      <td>${p.age}</td>
+      <td>${p.contract ? formatMoney(p.contract.capHit) : "—"} <button class="btn btn-sm" data-cut="${p.id}">Cut</button></td>
+    </tr>`);
     const avg = roster.length ? Math.round(roster.reduce((s, p) => s + p.ovr, 0) / roster.length) : "—";
     const hit = teamCapHit(team.id);
     const cap = state.salaryCap || AFA_CAP;
     const over = hit > cap;
+    const hc = coachById(state.coachAssign[team.id]);
     return `<p class="help">Head coach: ${hc ? hc.name + " (" + hc.ovr + " OVR, " + hc.style + ")" : "Vacant"} · Roster ${roster.length} · Avg ${avg} OVR · Cap ${formatMoney(hit)} / ${formatMoney(cap)}${over ? " <span class=\"cap-over\">OVER CAP</span>" : ""}</p>
-      <div class="depth">${groups}</div>`;
+      ${table}`;
   }
 
   // Madden Franchise-style trade value (tiers, age, depth, cornerstones)
@@ -4241,6 +4646,79 @@
     return playerTradeValue(p) + Math.max(0, positionalNeedBonus(receiverId, p, []));
   }
 
+  function tradeDesk() {
+    return window.AFATradeDesk || null;
+  }
+
+  function currentTradeWindow() {
+    const desk = tradeDesk();
+    if (desk) return desk.tradeWindow(state);
+    return { open: true, label: "Trades are open", detail: "" };
+  }
+
+  function ensureTradeInbox() {
+    if (!Array.isArray(state.tradeInbox)) state.tradeInbox = [];
+    if (state.tradeInbox.length || !state.userTeamId) return;
+    const mine = rosterOf(state.userTeamId);
+    if (mine.length < 2) return;
+    const partners = TEAMS.filter((t) => t.id !== state.userTeamId && rosterOf(t.id).length);
+    if (!partners.length) return;
+    const want = mine.slice().sort((a, b) => a.ovr - b.ovr)[Math.min(2, mine.length - 1)];
+    const partner = partners[0];
+    const give = rosterOf(partner.id).slice().sort((a, b) => Math.abs(a.ovr - want.ovr) - Math.abs(b.ovr - want.ovr))[0];
+    if (give && want) {
+      state.tradeInbox.push({
+        id: "inbox-offer-1",
+        from: partner.id,
+        kind: "offer",
+        send: [give.id],
+        want: [want.id],
+        status: "pending",
+        reason: "positional need"
+      });
+    }
+    const star = mine.slice().sort((a, b) => b.ovr - a.ovr)[0];
+    const asker = partners[1] || partners[0];
+    if (star && asker) {
+      state.tradeInbox.push({
+        id: "inbox-inquiry-1",
+        from: asker.id,
+        kind: "inquiry",
+        send: [],
+        want: [star.id],
+        status: "pending",
+        reason: "inquiring about " + star.name
+      });
+    }
+  }
+
+  function inboxReply(id, decision) {
+    const windowState = currentTradeWindow();
+    if (!windowState.open) { toast(windowState.label); return; }
+    const item = (state.tradeInbox || []).find((row) => row.id === id);
+    if (!item || item.status !== "pending") return;
+    if (decision === "decline" || decision === "counter") {
+      item.status = decision === "counter" ? "countered" : "declined";
+      toast(decision === "counter" ? "Counter sent. They walked away: not enough value." : "You declined.");
+      save();
+      renderHub();
+      return;
+    }
+    if (item.kind !== "offer" || !item.send.length || !item.want.length) {
+      item.status = "declined";
+      toast("An inquiry needs a package. Open Propose Trade to build one.");
+      save();
+      renderHub();
+      return;
+    }
+    item.send.forEach((pid) => movePlayer(item.from, state.userTeamId, pid));
+    item.want.forEach((pid) => movePlayer(state.userTeamId, item.from, pid));
+    item.status = "accepted";
+    save();
+    toast("Trade accepted.");
+    renderHub();
+  }
+
   function renderTradesHTML() {
     const left = teamById(ui.tradeLeft || viewTeamId());
     const right = teamById(ui.tradeRight || TEAMS.find((t) => t.id !== left.id).id);
@@ -4262,17 +4740,13 @@
             ${selPicks.map((pk) => `<div class="sel-pill pick-pill">${pickLabel(pk)} · TV ${pickTradeValue(pk)}<button class="btn btn-sm" data-un${key}pick="${pk.id}">×</button></div>`).join("")}
             ${selected.length || selPicks.length ? "" : "<p class='help'>No players or picks on this side yet.</p>"}
           </div>
-          <table class="player-table"><thead><tr><th>OVR</th><th>Player</th><th>Pos</th><th>TV</th></tr></thead><tbody>
-            ${rosterOf(team.id).map((p) => {
-              const on = bucket.includes(p.id) ? " on-offer" : "";
-              return `<tr class="${on}" data-${key}="${p.id}" data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${isCornerstone(team.id, p) ? ' <span class="corner-tag">★</span>' : ""}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td class="tv">${playerTradeValue(p)}</td></tr>`;
-            }).join("")}
-          </tbody></table>
+          ${playerTable("trade-" + key, rosterOf(team.id).map((p) => Object.assign({}, p, { tv: playerTradeValue(p) })), [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["tv", "TV"]], (p) => {
+            const on = bucket.includes(p.id) ? " on-offer" : "";
+            return `<tr class="${on}" data-${key}="${p.id}" data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}${isCornerstone(team.id, p) ? ' <span class="corner-tag">★</span>' : ""}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td class="tv">${p.tv}</td></tr>`;
+          })}
           <div class="pick-section">
             <div class="eyebrow" style="margin:12px 0 6px">Future picks (${owned.length})</div>
-            <table class="player-table pick-table"><thead><tr><th>Year</th><th>Pick</th><th>TV</th></tr></thead><tbody>
-              ${owned.map((pk) => `<tr class="pick-row${pbucket.includes(pk.id) ? " on-offer" : ""}" data-${key}pick="${pk.id}"><td>${pk.year}</td><td>${pickLabel(pk, true)}</td><td class="tv">${pickTradeValue(pk)}</td></tr>`).join("") || "<tr><td colspan='3' class='help'>No picks owned.</td></tr>"}
-            </tbody></table>
+            ${playerTable("trade-" + key + "-picks", owned.map((pk) => Object.assign({}, pk, { name: pickLabel(pk, true), tv: pickTradeValue(pk) })), [["year", "Year"], ["name", "Pick"], ["tv", "TV"]], (pk) => `<tr class="pick-row${pbucket.includes(pk.id) ? " on-offer" : ""}" data-${key}pick="${pk.id}"><td>${pk.year}</td><td>${pickLabel(pk, true)}</td><td class="tv">${pk.tv}</td></tr>`)}
           </div>
         </div>
       </div>`;
@@ -4281,63 +4755,77 @@
     const primary = analysis.primary;
     const statusClass = analysis.accepted ? "yes" : (primary.status === "close" ? "close" : (primary.status === "empty" ? "idle" : "no"));
     const meter = primary.meter || 0;
-    const ready = analysis.accepted && (ui.offer.length + ui.offerPicks.length) > 0 && (ui.ask.length + ui.askPicks.length) > 0;
-    const leftUser = state.mode === "single" && left.id === state.userTeamId;
-    const rightUser = state.mode === "single" && right.id === state.userTeamId;
-    const cpuName = (!rightUser ? displayName(right) : displayName(left));
-    return `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    const windowState = currentTradeWindow();
+    ensureTradeInbox();
+    const replyOf = tradeDesk() ? tradeDesk().cpuReply(analysis) : { decision: analysis.accepted ? "Accept" : "Decline", reason: primary.detail || "not enough value" };
+    const ready = windowState.open && (ui.offer.length + ui.offerPicks.length) > 0 && (ui.ask.length + ui.askPicks.length) > 0;
+    const inbox = (state.tradeInbox || []).map((item) => {
+      const from = teamById(item.from);
+      const want = (item.want || []).map(playerById).filter(Boolean).map((p) => p.name).join(", ") || "a player";
+      const send = (item.send || []).map(playerById).filter(Boolean).map((p) => p.name + " " + p.ovr).join(", ");
+      const pending = item.status === "pending";
+      return `<article class="inbox-card">
+        <p><strong>${displayName(from)}</strong> · ${item.kind === "inquiry" ? "Inquiry" : "Offer"} · ${item.reason}</p>
+        <p class="help">${item.kind === "inquiry" ? "Asking about " + want + "." : "They send " + send + " for " + want + "."}</p>
+        <p class="help">Status: ${item.status}</p>
+        ${pending && windowState.open ? `<div class="btn-row"><button type="button" class="btn btn-primary" data-inbox="accept" data-inbox-id="${item.id}">Accept</button><button type="button" class="btn" data-inbox="decline" data-inbox-id="${item.id}">Decline</button><button type="button" class="btn" data-inbox="counter" data-inbox-id="${item.id}">Counter</button></div>` : ""}
+      </article>`;
+    }).join("");
+    return `<div class="trade-deadline ${windowState.open ? "open" : "locked"}">
+        <strong>${windowState.label}</strong>
+        <p class="help">${windowState.detail} Cap room ${formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(left.id)))}. CPU clubs refuse deals that would put them over the cap. ${cultureTradeNote(left)}</p>
+      </div>
+      <div class="trade-toolbar">
         <label>Your side <select id="trade-left">${opts(left.id)}</select></label>
         <label>Trade partner <select id="trade-right">${opts(right.id)}</select></label>
-        <span class="help">Madden rules: CPU only accepts fair value. Cornerstones (★) need a clear overpay.</span>
       </div>
+      <div class="trade-propose-bar">
+        <button class="btn btn-primary" id="btn-propose-trade" ${ready ? "" : "disabled"}>${windowState.open ? "Propose Trade" : "Trades locked"}</button>
+        <button class="btn" id="btn-clear-trade">Clear</button>
+      </div>
+      <div class="trade-inbox"><h3>Inbox</h3>${inbox || "<p class='help'>No clubs have called yet.</p>"}</div>
       <div class="trade-grid">${side(left, ui.offer, "offer")}${side(right, ui.ask, "ask")}</div>
       <div class="verdict ${statusClass}">
         <div class="trade-analyzer">
           <div class="ta-top">
-            <strong>Trade Analyzer</strong>
-            <span class="ta-status">${analysis.accepted ? "ACCEPTED" : primary.label}</span>
+            <strong>CPU reply</strong>
+            <span class="ta-status">${replyOf.decision}</span>
           </div>
-          <div class="ta-meter" aria-label="Interest meter">
-            <div class="ta-fill" style="width:${meter}%"></div>
-            <div class="ta-mark" style="left:58%" title="Accept threshold"></div>
-          </div>
-          <div class="ta-vals">
-            <span>${displayName(left)} gets TV ${analysis.leftEval.gain} / sends ${analysis.leftEval.loss}</span>
-            <span>${displayName(right)} gets TV ${analysis.rightEval.gain} / sends ${analysis.rightEval.loss}</span>
-          </div>
-          <p class="ta-detail">${primary.detail}${analysis.accepted ? " " + cpuName + " will take this deal." : ""}</p>
-        </div>
-        <div class="btn-row" style="justify-content:flex-start;margin-top:10px">
-          <button class="btn btn-primary" id="btn-execute-trade" ${ready ? "" : "disabled"}>${ready ? "Confirm trade" : "Offer not accepted"}</button>
-          <button class="btn" id="btn-clear-trade">Clear</button>
+          <p class="ta-detail">${replyOf.reason}. ${primary.detail || ""}</p>
         </div>
       </div>`;
   }
 
   function renderSigningsHTML(team) {
-    const fa = (state.fa || []).map(playerById).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
+    const fa = window.AFASort ? AFASort.sort((state.fa || []).map(playerById).filter(Boolean), "free-agents", "ovr", "desc") : (state.fa || []).map(playerById).filter(Boolean);
+    const top = fa[0];
+    const bid = top && window.AFAFranchise ? AFAFranchise.faChoice(top, TEAMS.filter((t) => t.id !== team.id).slice(0, 6).map((t) => ({
+      teamId: t.id,
+      money: (top.ovr || 70) * 80000,
+      capRoom: (state.salaryCap || AFA_CAP) - teamCapHit(t.id),
+      contender: ((records()[t.id] && records()[t.id].w) || 0) >= 6,
+      role: "starter"
+    }))) : null;
+    const bidNote = bid ? " Simulated bidding: " + displayName(teamById(bid.teamId)) + " leads for " + top.name + " on money, contention, and role." : "";
     const canSign = state.mode !== "single" || team.id === state.userTeamId;
+    const faTable = playerTable("free-agents", fa, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
+              <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
+              <td class="name-col" data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td>
+              <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
+              <td>${p.age} <button class="btn btn-sm btn-primary" data-sign="${p.id}" ${canSign ? "" : "disabled"}>Sign</button></td>
+            </tr>`);
+    const mine = playerTable("signing-roster", rosterOf(team.id), [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (p) => `<tr data-scout="${p.id}" data-player-id="${p.id}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col" data-profile="${p.id}">${p.name}</td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.age}</td></tr>`);
     return `<div class="sign-grid">
       <div class="panel">
         <div class="panel-h"><strong>Free agents</strong><span>${fa.length} available</span></div>
         <div class="panel-b">
-          <p class="help">${canSign ? "Sign a player to " + displayName(team) + "." : "Single-franchise mode: switch to your club to sign."}</p>
-          <table class="player-table"><thead><tr><th>OVR</th><th>Player</th><th>Pos</th><th></th></tr></thead>
-          <tbody>
-            ${fa.map((p) => `<tr data-scout="${p.id}" data-player-id="${p.id}">
-              <td class="${ovrClass(p.ovr)}">${p.ovr}</td>
-              <td data-profile="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> ${p.name}</td>
-              <td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td>
-              <td><button class="btn btn-sm btn-primary" data-sign="${p.id}" ${canSign ? "" : "disabled"}>Sign</button></td>
-            </tr>`).join("") || "<tr><td colspan='4' class='help'>No free agents left. Cut a player to populate the market.</td></tr>"}
-          </tbody></table>
+          <p class="help">${canSign ? "Sign a player to " + displayName(team) + ". Cap room " + formatMoney(Math.max(0, (state.salaryCap || AFA_CAP) - teamCapHit(team.id))) + (teamDead(team.id) ? " including " + formatMoney(teamDead(team.id)) + " dead money." : ".") + bidNote + cultureTradeNote(team) : "Single-franchise mode: switch to your club to sign."}</p>
+          ${faTable}
         </div>
       </div>
       <div class="panel">
         <div class="panel-h"><strong>${displayName(team)} roster</strong></div>
-        <div class="panel-b">
-          ${rosterOf(team.id).map((p) => `<div class="depth-row" data-scout="${p.id}" data-player-id="${p.id}"><span data-profile="${p.id}">${p.name} · ${p.pos}</span><span class="${ovrClass(p.ovr)}">${p.ovr}</span></div>`).join("") || "<p class='help'>Empty roster.</p>"}
-        </div>
+        <div class="panel-b">${mine}</div>
       </div>
     </div>`;
   }
@@ -4346,21 +4834,73 @@
     return `<div class="panel" style="max-width:640px">
       <div class="panel-h"><strong>Simulation desk</strong></div>
       <div class="panel-b">
-        <p class="help">Scores use roster averages, a star-player bump, and the head coach's overall — plus weekly variance. This is a v0.1 stub, not a full engine.</p>
+        <p class="help">Simulated AFA games. Results use the roster ratings already in this save. They are not NFL scores.</p>
         <p>Current: ${state.seasonDone ? "Regular season complete" : "Week " + state.week + " of " + SEASON_WEEKS}</p>
         <div class="btn-row" style="justify-content:flex-start;margin-top:16px">
-          <button class="btn btn-primary" id="btn-sim-week" ${state.seasonDone ? "disabled" : ""}>Sim this week</button>
-          <button class="btn" id="btn-sim-rest" ${state.seasonDone ? "disabled" : ""}>Sim rest of season</button>
+          <button class="btn btn-primary" id="btn-sim-week" ${state.seasonDone ? "disabled" : ""}>Simulate this week</button>
+          <button class="btn" id="btn-sim-deadline" ${state.seasonDone ? "disabled" : ""}>Simulate to the deadline</button>
+          <button class="btn" id="btn-sim-playoffs" ${state.seasonDone ? "disabled" : ""}>Simulate to the playoffs</button>
         </div>
         ${collegeCtaHTML()}
       </div>
     </div>`;
   }
 
+  function drawRecapCard() {
+    const team = teamById(viewTeamId());
+    const canvas = $("recap-card");
+    if (!canvas || !team) return;
+    canvas.hidden = false;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = team.primary;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = team.secondary;
+    ctx.fillRect(0, 280, canvas.width, 80);
+    ctx.fillStyle = window.AFATheme ? AFATheme.inkFor(team.primary) : "#fff";
+    ctx.font = "700 42px Oswald, sans-serif";
+    ctx.fillText(team.city + " " + team.nick, 32, 120);
+    ctx.font = "24px sans-serif";
+    const rec = records()[team.id] || { w: 0, l: 0, t: 0 };
+    ctx.fillText("Simulated AFA season  " + rec.w + "-" + rec.l + (rec.t ? "-" + rec.t : ""), 32, 180);
+    const first = (state.picks || []).filter((pk) => pk && pk.teamId === team.id).sort((a, b) => recordOverall(a) - recordOverall(b))[0];
+    if (first) {
+      ctx.font = "18px sans-serif";
+      ctx.fillText(spotLabel(recordOverall(first)), 32, 220);
+    }
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = team.id + "-afa-recap.png";
+    link.click();
+    toast("Recap card saved. It is a simulated AFA graphic.");
+  }
+
+  function exportLeagueFile() {
+    if (!window.AFAFranchise) return;
+    const blob = new Blob([AFAFranchise.exportLeague(state)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "afa-league-v029.json";
+    link.click();
+    toast("League file downloaded. A friend can import it on this site. There is no live server.");
+  }
+
+  function passHotSeat() {
+    const ids = TEAMS.map((t) => t.id);
+    const current = state.hotSeat || state.userTeamId || ids[0];
+    const next = ids[(ids.indexOf(current) + 1) % ids.length];
+    state.hotSeat = next;
+    state.userTeamId = next;
+    ui.viewTeamId = next;
+    syncTeamTheme();
+    toast("Hot seat passed to " + displayName(teamById(next)) + ". Hand the device over.");
+    renderHub();
+  }
+
   function bindHubEvents() {
     $("hub-team-select").onchange = () => {
       ui.viewTeamId = $("hub-team-select").value;
       if (ui.hubTab === "trades") ui.tradeLeft = ui.viewTeamId;
+      syncTeamTheme();
       renderHub();
     };
     const hubPlayers = $("btn-hub-players");
@@ -4512,26 +5052,60 @@
     document.querySelectorAll("[data-unask]").forEach((b) => {
       b.onclick = (e) => { e.stopPropagation(); ui.ask = ui.ask.filter((id) => id !== b.getAttribute("data-unask")); renderHub(); };
     });
-    const ex = $("btn-execute-trade");
+    const ex = $("btn-propose-trade");
     if (ex) ex.onclick = executeTrade;
+    document.querySelectorAll("[data-inbox]").forEach((btn) => {
+      btn.onclick = () => inboxReply(btn.getAttribute("data-inbox-id"), btn.getAttribute("data-inbox"));
+    });
+    if (window.AFASort) AFASort.bind($("hub-body"), () => renderHub());
+    document.querySelectorAll("[data-playcall]").forEach((btn) => {
+      btn.onclick = () => callTextPlay(btn.getAttribute("data-playcall"));
+    });
+    const recap = $("btn-recap");
+    if (recap) recap.onclick = drawRecapCard;
+    const exp = $("btn-export-league");
+    if (exp) exp.onclick = exportLeagueFile;
+    const seat = $("btn-hot-seat");
+    if (seat) seat.onclick = passHotSeat;
+    const cultureBtn = $("btn-open-culture");
+    if (cultureBtn) cultureBtn.onclick = () => { ui.hubTab = "culture"; renderHub(); };
+    const cultureHome = $("btn-culture-home");
+    if (cultureHome) cultureHome.onclick = () => { ui.hubTab = "home"; renderHub(); };
     const cl = $("btn-clear-trade");
     if (cl) cl.onclick = () => { ui.offer = []; ui.ask = []; ui.offerPicks = []; ui.askPicks = []; renderHub(); };
     const sw = $("btn-sim-week");
     if (sw) sw.onclick = simWeek;
+    const deadline = $("btn-sim-deadline");
+    if (deadline) deadline.onclick = () => simThrough("deadline");
+    const playoffs = $("btn-sim-playoffs");
+    if (playoffs) playoffs.onclick = () => simThrough("playoffs");
     const sr = $("btn-sim-rest");
     if (sr) sr.onclick = () => {
       sr.disabled = true;
       sr.textContent = "Simming…";
       simRestOfSeason({ chunk: 2, onProgress: (w, done) => {
-        sr.textContent = done ? "Sim rest of season" : ("Week " + w + "…");
-      }}).then(() => { sr.disabled = false; sr.textContent = "Sim rest of season"; });
+        sr.textContent = done ? "Simulate the rest of the season" : ("Week " + w + "…");
+      }}).then(() => { sr.disabled = false; sr.textContent = "Simulate the rest of the season"; });
     };
   }
 
   /* ---------- FUTURE DRAFT PICKS (Madden-style) ---------- */
   const PICK_YEARS_AHEAD = 3;
   const COLLEGE_ROUNDS = 7;
-  function ordinal(n) { return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"); }
+  function futurePickOverall(pk) {
+    if (!pk) return 1;
+    if (pk.overall != null && pk.pickInRound != null) return Number(pk.overall);
+    const order = standingsOrder();
+    const idx = order.indexOf(pk.originalTeamId);
+    const slot = idx >= 0 ? idx + 1 : 1;
+    return (Number(pk.round) - 1) * 32 + slot;
+  }
+  function pickLabel(pk, short) {
+    const label = spotLabel(futurePickOverall(pk));
+    const orig = teamById(pk.originalTeamId);
+    const via = pk && pk.originalTeamId !== pk.ownerTeamId ? " via " + (orig ? orig.city : pk.originalTeamId) : "";
+    return (short || !pk ? "" : pk.year + " ") + label + via;
+  }
   function makePickObj(year, round, teamId) {
     return { id: "pick_" + year + "_r" + round + "_" + teamId, year, round, originalTeamId: teamId, ownerTeamId: teamId };
   }
@@ -4555,12 +5129,6 @@
   function picksOwnedBy(teamId) {
     return (state.ownedPicks || []).filter((pk) => pk.ownerTeamId === teamId)
       .sort((a, b) => a.year - b.year || a.round - b.round || String(a.originalTeamId).localeCompare(String(b.originalTeamId)));
-  }
-  function pickLabel(pk, short) {
-    const base = (short ? "" : pk.year + " ") + ordinal(pk.round);
-    const orig = teamById(pk.originalTeamId);
-    if (pk.originalTeamId !== pk.ownerTeamId) return base + " via " + (orig ? orig.abbr : pk.originalTeamId);
-    return base + " (" + (orig ? orig.abbr : pk.originalTeamId) + ")";
   }
   const PICK_CHART = { 1: [120, 100, 85], 2: [55, 45, 38], 3: [28, 22, 18], 4: [14, 11, 9], 5: [8, 6, 5], 6: [5, 4, 3], 7: [3, 2, 2] };
   function standingsOrder() {
@@ -4711,9 +5279,11 @@
       const slotOrder = standingsOrder();
       const order = [];
       for (let r = 1; r <= COLLEGE_ROUNDS; r++) {
-        slotOrder.forEach((orig, k) => {
-          const pk = pickById("pick_" + year + "_r" + r + "_" + orig);
-          order.push({ overall: order.length + 1, round: r, pick: k + 1, originalTeamId: orig, ownerTeamId: pk ? pk.ownerTeamId : orig, pickId: pk ? pk.id : null });
+        slotOrder.forEach((orig) => {
+          const overall = order.length + 1;
+          const spot = window.AFADraft ? AFADraft.pickSpot(overall, 32) : { overall: overall, round: r, pick: ((overall - 1) % 32) + 1 };
+          const pk = pickById("pick_" + year + "_r" + spot.round + "_" + orig);
+          order.push({ overall: spot.overall, round: spot.round, pick: spot.pick, pickInRound: spot.pick, originalTeamId: orig, ownerTeamId: pk ? pk.ownerTeamId : orig, pickId: pk ? pk.id : null });
         });
       }
       state.collegeDraft = { year, order, idx: 0, board: pool.map((p) => p.id), picks: [], pos: "ALL" };
@@ -4761,6 +5331,15 @@
           if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onCollegePick", { player: pl, slot: slot, year: cd.year });
         } catch (e) {}
       }
+      if (window.AFAFranchise) {
+        state.leagueNews = state.leagueNews || [];
+        state.leagueNews.unshift(AFAFranchise.headline({
+          kind: "draft",
+          week: state.week,
+          text: displayName(teamById(slot.ownerTeamId)) + " select " + (pl ? pl.name : "a prospect") + ". " + spotLabel(slot.overall) + ". Simulated AFA college draft."
+        }));
+        state.leagueNews = state.leagueNews.slice(0, 40);
+      }
     } else if (!already) return true;
     return true;
   }
@@ -4770,7 +5349,7 @@
     const slot = cd.order[cd.idx];
     const board = cd.board.map(playerById).filter(Boolean);
     const best = window.AFADraft ? AFADraft.recommendProspect({
-      board: board, roster: rosterOf(slot.ownerTeamId), teamId: slot.ownerTeamId, round: slot.round, scheme: schemeContext(slot.ownerTeamId)
+      board: board, roster: rosterOf(slot.ownerTeamId), teamId: slot.ownerTeamId, round: slot.round, scheme: schemeContext(slot.ownerTeamId), strategy: draftStrategy(slot.ownerTeamId)
     }) : null;
     return best ? collegeMakePick(best.id) : false;
   }
@@ -4792,7 +5371,7 @@
     const cd = state.collegeDraft;
     if (!cd) return;
     const slot = cd.order[cd.idx];
-    if (!collegeUserControls(slot.ownerTeamId)) { toast("CPU is on the clock — Sim to your pick."); return; }
+    if (!collegeUserControls(slot.ownerTeamId)) { toast("CPU is on the clock. Simulate to your pick."); return; }
     if (!collegeMakePick(pid)) { toast("Can't draft that prospect."); return; }
     toast(displayName(teamById(slot.ownerTeamId)) + " select " + playerById(pid).name);
     if (cd.idx >= cd.order.length || !cd.board.length) { finishCollegeDraft(); return; }
@@ -4866,11 +5445,10 @@
     const pos = cd.pos || "ALL";
     let pool = cd.board.map(playerById).filter(Boolean);
     if (pos !== "ALL") pool = pool.filter((p) => p.pos === pos);
-    pool.sort((a, b) => b.ovr - a.ovr || a.name.localeCompare(b.name));
     const myNext = state.mode === "single" ? cd.order.slice(cd.idx).filter((s) => s.ownerTeamId === state.userTeamId).slice(0, 7) : [];
     const feed = cd.picks.slice().reverse().slice(0, 16).map((pk) => {
       const t = teamById(pk.teamId), pl = playerById(pk.playerId);
-      return `<div class="pick-item" data-scout="${pk.playerId}"><div class="n">${pk.overall}</div>${logoImg(t, "sm")}<div><strong>${pl ? pl.name : "?"}${pl && pl.fictional ? " (Fictional)" : ""}</strong><div class="city">${t.abbr}${pk.originalTeamId !== pk.teamId ? " (via " + teamById(pk.originalTeamId).abbr + ")" : ""} · ${pl ? pl.pos + " · " + (pl.fictional ? "Fictional" : (pl.college || "—")) : ""}</div></div></div>`;
+      return `<div class="pick-item" data-scout="${pk.playerId}"><div class="n">${recordOverall(pk)}</div>${logoImg(t, "sm")}<div><strong>${pl ? pl.name : "?"}${pl && pl.fictional ? " (Fictional)" : ""}</strong><div class="city">${spotLabel(recordOverall(pk))} · ${t.city}${pk.originalTeamId !== pk.teamId ? " (via " + teamById(pk.originalTeamId).city + ")" : ""} · ${pl ? pl.pos + " · " + (pl.fictional ? "Fictional" : (pl.college || "—")) : ""}</div></div></div>`;
     }).join("") || `<p class="help">Picks will land here.</p>`;
     return `<div class="college-draft">
       <div class="panel"><div class="panel-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
@@ -4878,21 +5456,19 @@
         <div style="flex:1;min-width:220px">
           <div class="eyebrow">${cd.year} AFA College Draft · ${mine ? "Your pick" : "CPU on the clock"}</div>
           <h2 style="margin:2px 0">${displayName(team)}</h2>
-          <div class="help">Round ${slot.round} · Pick ${slot.pick} · Overall ${slot.overall} of ${cd.order.length}${slot.originalTeamId !== slot.ownerTeamId ? " · via " + orig.abbr : ""}</div>
+          <div class="help">${spotLabel(slot.overall)}${slot.originalTeamId !== slot.ownerTeamId ? " · via " + orig.city : ""}</div>
           ${myNext.length ? `<div class="help">Your picks: ${myNext.map((s) => "#" + s.overall).join(", ")}</div>` : ""}
         </div>
         <div class="btn-row" style="margin:0;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" id="btn-college-next">${state.mode === "single" ? "Sim to your pick" : "Auto-pick this slot"}</button>
-          <button class="btn btn-sim-draft btn-sm" id="btn-college-sim">Sim Draft</button>
+          <button class="btn btn-primary btn-sm" id="btn-college-next">${state.mode === "single" ? "Simulate to your pick" : "Pick this slot automatically"}</button>
+          <button class="btn btn-sim-draft btn-sm" id="btn-college-sim">Simulate draft</button>
         </div>
       </div></div>
       <div class="trade-grid">
         <div class="panel"><div class="panel-h"><strong>Prospect board</strong><span class="help">${cd.board.length} available · click to draft</span></div>
           <div class="panel-b">
             <div class="chips">${["ALL"].concat(POSITIONS).map((p) => `<button class="chip ${pos === p ? "on" : ""}" data-cpos="${p}">${p}</button>`).join("")}</div>
-            <table class="player-table"><thead><tr><th>OVR</th><th>Prospect</th><th>Pos</th><th>College</th></tr></thead><tbody>
-              ${pool.slice(0, 120).map((p) => `<tr data-cpick="${p.id}" data-scout="${p.id}" data-player-id="${p.id}" class="${mine ? "" : "dim"}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td>${p.name}${p.fictional ? " <span class='help'>(Fictional)</span>" : ""} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.fictional ? "Fictional" : (p.college || "—")}</td></tr>`).join("") || "<tr><td colspan='4' class='help'>No prospects match.</td></tr>"}
-            </tbody></table>
+            ${playerTable("college-board", pool, [["ovr", "OVR"], ["name", "Prospect"], ["pos", "Pos"], ["college", "College"], ["age", "Age"]], (p) => `<tr data-cpick="${p.id}" data-scout="${p.id}" data-player-id="${p.id}" class="${mine ? "" : "dim"}"><td class="${ovrClass(p.ovr)}">${p.ovr}</td><td class="name-col">${p.name}${p.fictional ? " <span class='help'>(Fictional)</span>" : ""} <button type="button" class="btn btn-sm" data-profile="${p.id}" title="Full profile" onclick="event.stopPropagation()">▣</button></td><td><span class="pos-pill pos-${p.pos}">${p.pos}</span></td><td>${p.fictional ? "Fictional" : (p.college || "—")}</td><td>${p.age == null ? "—" : p.age}</td></tr>`)}
           </div></div>
         <div class="panel"><div class="panel-h"><strong>Pick feed</strong></div><div class="panel-b">${feed}</div></div>
       </div>
@@ -4915,6 +5491,8 @@
   }
 
   function executeTrade() {
+    const windowState = currentTradeWindow();
+    if (!windowState.open) { toast(windowState.label + " " + windowState.detail); return; }
     const left = ui.tradeLeft;
     const right = ui.tradeRight;
     if (left === right) { toast("Pick two different clubs."); return; }
@@ -4955,8 +5533,11 @@
       return;
     }
     const analysis = analyzeTrade(left, right, ui.offer, ui.ask, ui.offerPicks, ui.askPicks);
+    const reply = tradeDesk() ? tradeDesk().cpuReply(analysis) : null;
     if (!analysis.accepted) {
-      toast(analysis.primary.label + " — " + (analysis.primary.detail || "CPU rejected the offer."));
+      const decision = reply ? reply.decision : "Decline";
+      const reason = reply ? reply.reason : (analysis.primary.detail || "not enough value");
+      toast(decision + " — " + reason);
       renderHub();
       return;
     }
@@ -4993,8 +5574,14 @@
         AFAStadiums.fanEvent(state.stadiums[teamId], "starCut", { ovr: cut.ovr });
       }
     } catch (e) {}
+    const dead = window.AFAFranchise ? AFAFranchise.deadMoney(cut && cut.contract) : 0;
+    if (dead) {
+      if (!state.deadCap) state.deadCap = {};
+      if (!state.deadCap[teamId]) state.deadCap[teamId] = {};
+      state.deadCap[teamId][pid] = dead;
+    }
     save();
-    toast((cut && cut.name) || "Player" + " released.");
+    toast(((cut && cut.name) || "Player") + " released." + (dead ? " Dead money " + formatMoney(dead) + " stays on the cap." : ""));
     renderHub();
   }
 
@@ -5160,6 +5747,31 @@
     $("btn-sim-now").onclick = () => { ui.hubTab = "sim"; renderHub(); };
   }
 
+  function startSyscheck() {
+    state = freshState();
+    state.mode = "single";
+    state.userTeamId = TEAMS[0].id;
+    state.phase = "draft";
+    state.syscheck = true;
+    state.week = 1;
+    state.seasonStarted = false;
+    const pool = ((window.AFA && AFA.PLAYERS) || window.AFA_NFL_PLAYERS || []).filter((p) => p && p.id);
+    const ids = pool.slice(0, 48).map((p) => p.id);
+    state.board = ids.slice(0, 30);
+    state.rosters[TEAMS[0].id] = ids.slice(30, 38);
+    state.rosters[TEAMS[1].id] = ids.slice(38, 46);
+    state.desks = Object.fromEntries(TEAMS.map((t) => [t.id, "manual"]));
+    state.draftPick = 0;
+    ui.viewTeamId = state.userTeamId;
+    ui.selectedTeam = state.userTeamId;
+    ui.tradeLeft = state.userTeamId;
+    ui.tradeRight = TEAMS[1].id;
+    try { seedGradesAndContracts(true); } catch (e) { console.warn("syscheck seed", e); }
+    try { ensurePicks(); } catch (e) { console.warn("syscheck picks", e); }
+    showScreen("draft");
+    renderDraft();
+  }
+
   function init() {
     registerCollegeProspects();
     if (!load()) {
@@ -5176,6 +5788,7 @@
     syncHubDraftTab();
     updateDraftRoomFab();
     const params = new URLSearchParams(location.search);
+    if (params.get("syscheck") === "1") { startSyscheck(); return; }
     if (params.get("screen") === "players") { openDirectory(); return; }
     if (params.get("screen") === "scouting") { openScouting(); return; }
     startBoot();

@@ -338,92 +338,59 @@
     overflow: visible !important;
   }
 
-  /* Header already has Save — never let the floating SAVE cover OVR/names in the pool */
-  body.screen-draft-active .save-fab,
-  body.screen-draft-active .draft-fab {
-    display: none !important;
-  }
+  /* The floating Save sits in the reserved lane under the pool, not on top of names. */
 
-  /* Hub nav → bottom tab bar (primary) + overflow hamburger */
+  /* League menu stays in the page as wrapping tiles. Full labels, no bottom-bar clip. */
+  body.screen-hub-active { --mobile-tab-h: 0px; }
   .hub-nav {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 50;
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 0;
-    padding: 4px 4px calc(4px + var(--safe-bottom));
-    border-top: 1px solid var(--line);
-    border-bottom: 0;
-    background: linear-gradient(180deg, #121922, #0a0e14);
-    box-shadow: 0 -8px 24px rgba(0,0,0,0.35);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scroll-snap-type: x proximity;
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    z-index: 1;
+    display: grid;
+    flex-wrap: unset;
+    gap: 10px;
+    padding: 10px 12px 4px;
+    border-top: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-2);
+    box-shadow: none;
+    overflow: visible;
+    scroll-snap-type: none;
   }
-  .hub-nav::after {
-    content: "";
-    flex: 0 0 28px;
-  }
+  .hub-nav::after { display: none; }
   .hub-nav .btn {
-    flex: 0 0 auto;
-    border-radius: 10px;
-    border: 0;
-    background: transparent;
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    text-transform: none;
-    padding: 6px 8px;
-    min-width: 58px;
-    max-width: 76px;
-    min-height: 50px;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    white-space: nowrap;
-    scroll-snap-align: start;
+    flex: unset;
+    max-width: none;
+    min-width: 0;
+    width: auto;
+    font-size: 14px;
+    letter-spacing: 0;
+    padding: 8px 10px;
+    min-height: 44px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    scroll-snap-align: unset;
   }
-  .hub-nav .btn.on {
-    background: rgba(224, 177, 69, 0.16);
-    color: var(--gold-2);
-    border: 0;
-  }
-  .hub-nav .btn-draft-tab {
-    background: linear-gradient(180deg, #ffb065, #e06710) !important;
-    color: #1a0c02 !important;
-  }
-  /* Fade cue on the right edge of the tab bar */
-  #screen-hub.active::after {
-    content: "";
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    width: 28px;
-    height: calc(var(--mobile-tab-h) + var(--safe-bottom));
-    pointer-events: none;
-    z-index: 51;
-    background: linear-gradient(90deg, transparent, rgba(7,9,13,0.92));
-  }
+  #screen-hub.active::after { display: none; }
 
   /* Mobile overflow menu (hamburger) */
   .mobile-menu-btn {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    width: 44px;
+    width: auto;
+    min-width: 44px;
     height: 44px;
+    padding: 0 12px;
     border-radius: 10px;
     border: 1px solid var(--line-2);
     background: var(--panel);
     color: var(--gold-2);
-    font-size: 20px;
+    font-size: 14px;
+    font-weight: 700;
     line-height: 1;
     cursor: pointer;
     flex-shrink: 0;
@@ -457,17 +424,20 @@
     font-size: 16px;
   }
   .mobile-drawer-panel button {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
     text-align: left;
     margin-bottom: 6px;
     min-height: 44px;
+    white-space: normal;
   }
 
   /* FABs clear the bottom tab bar; hide on boot/menu/story */
   .save-fab {
     left: max(12px, var(--safe-left));
-    bottom: calc(var(--mobile-tab-h) + var(--safe-bottom) + 12px);
+    bottom: calc(var(--save-fab-gap) + var(--safe-bottom));
   }
   .draft-fab {
     right: max(12px, var(--safe-right));
@@ -482,15 +452,11 @@
   body.screen-story-active .draft-fab {
     display: none !important;
   }
-  /* Pre-hub: hide SAVE FAB wherever the screen already has a Save control.
-   * (Coach + draft headers have Save; FAB was covering names/OVR on iPhone.) */
+  /* Coach footer owns the bottom edge. The draft header already has Save, and a floating pill covers the pool and Simulate draft. */
   body.screen-mode-active .save-fab,
   body.screen-coaches-active .save-fab,
   body.screen-draft-active .save-fab,
-  body.screen-directory-active .save-fab,
-  body.screen-scouting-active .save-fab,
-  body.screen-directory-active .draft-fab,
-  body.screen-scouting-active .draft-fab {
+  body.screen-draft-active .draft-fab {
     display: none !important;
   }
   body.screen-mode-active .draft-fab,
@@ -606,7 +572,7 @@
     min-width: 420px;
   }
   #hub-body {
-    padding-bottom: var(--mobile-pad-bottom);
+    padding-bottom: calc(12px + var(--save-lane));
   }
 
   /* Game day */
@@ -780,6 +746,6 @@
 
 /* Very narrow phones */
 @media (max-width: 380px) {
-  .hub-nav .btn { min-width: 52px; font-size: 9px; padding: 6px 4px; max-width: 68px; }
-  .eyebrow { letter-spacing: 0.18em; font-size: 10px; }
+  .hub-nav .btn { font-size: 14px; max-width: none; min-width: 0; padding: 8px 10px; }
+  .eyebrow { letter-spacing: 0.12em; font-size: 10px; }
 }

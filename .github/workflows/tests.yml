@@ -13,6 +13,10 @@ jobs:
           node-version: "22"
       - name: Draft regression
         run: node tests/draft-regression.mjs
+      - name: Draft rounds
+        run: node tests/draft-rounds.test.mjs
+      - name: Draft value
+        run: node tests/draft-value.test.mjs
       - name: News schedule
         run: node tests/news-and-schedule.test.mjs
       - name: Players and leagues
@@ -23,3 +27,13 @@ jobs:
         run: node tests/real-status.test.mjs
       - name: League scouting
         run: node tests/league-scout.test.mjs
+      - name: Rating sources
+        run: node tests/rating-sources.test.mjs
+      - name: Refresh news failure
+        run: node tests/refresh-news.test.mjs
+      - name: Roster integration
+        run: node tests/roster-integration.test.mjs
+      - name: Team cultures
+        run: node tests/team-cultures.test.mjs
+      - name: Pool sort and trades
+        run: node tests/pool-and-trades.test.mjs

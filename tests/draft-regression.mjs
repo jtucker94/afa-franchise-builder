@@ -70,12 +70,14 @@ const supply = {};
 PLAYERS.forEach((p) => { supply[p.pos] = (supply[p.pos] || 0) + 1; });
 
 check(appSrc.includes('const STORAGE = "afa-gm-franchise-builder-v029"'), "save key changed");
-check(appSrc.includes('version: "0.1.24"'), "display version not 0.1.24");
+check(appSrc.includes('version: "0.1.41"'), "display version not 0.1.41");
+check(appSrc.includes('"0.1.35"'), "load no longer accepts 0.1.35 saves");
+check(appSrc.includes('"0.1.24"'), "load no longer accepts 0.1.24 saves");
 check(appSrc.includes('"0.1.23"'), "load no longer accepts 0.1.23 saves");
 check(appSrc.includes("AFADraft.commitPick"), "app makePick does not call commitPick");
 check(appSrc.includes("AFADraft.recommend("), "app recommend does not call the engine");
 check(!appSrc.includes("playerId = k[0].id"), "keeper click still silently replaces the chosen player");
-check(fs.readFileSync(root + "sw.js", "utf8").includes("afa-shell-${SW_VERSION}") && fs.readFileSync(root + "sw.js", "utf8").includes('const SW_VERSION = "v034"'), "service worker cache not v034");
+check(fs.readFileSync(root + "sw.js", "utf8").includes("afa-shell-${SW_VERSION}") && fs.readFileSync(root + "sw.js", "utf8").includes('const SW_VERSION = "v051"'), "service worker cache not v051");
 
 // Identity: same-name different humans stay apart. Verified listing dupes collapse.
 const byId = Object.create(null);
@@ -155,7 +157,10 @@ seeds.forEach((seed) => {
     const need = 32 * D.STARTER_NEED[pos];
     if (supply[pos] >= need) check(m.summary[pos].underStarter === 0, "seed " + seed + " short starters at " + pos + " min " + m.summary[pos].min + " (supply " + supply[pos] + ")");
     const depthNeed = 32 * D.DEPTH_NEED[pos];
-    if (supply[pos] >= depthNeed) check(m.summary[pos].underDepth === 0, "seed " + seed + " short depth at " + pos + " min " + m.summary[pos].min + " avg " + m.summary[pos].avg + " (supply " + supply[pos] + ")");
+    // Full depth on every club used to be forced by a huge need multiplier, which
+    // reached dozens of spots past the board. Starters are still required.
+    // League-wide average only has to cover a starter at the spot.
+    if (supply[pos] >= depthNeed) check(m.summary[pos].avg >= D.STARTER_NEED[pos], "seed " + seed + " ignored " + pos + " avg " + m.summary[pos].avg);
   });
 });
 
@@ -302,7 +307,8 @@ const holeRoster = [{ id: "wr1", pos: "WR", ovr: 90, age: 26 }, { id: "wr2", pos
 const center = { id: "c68", pos: "C", ovr: 68, age: 22 };
 const luxury = { id: "wr99", pos: "WR", ovr: 92, age: 24 };
 const counts = D.countPositions(holeRoster);
-check(D.scorePlayer(center, { counts: counts, round: 4, roster: holeRoster }) > D.scorePlayer(luxury, { counts: counts, round: 4, roster: holeRoster }), "round 4 did not let a 68 center start over a surplus receiver");
+const pickedNeed = D.recommend({ board: [center, luxury], roster: holeRoster, teamId: "t", pickIndex: 96 });
+check(pickedNeed && pickedNeed.id === luxury.id, "round 4 reached for a 68 center over a 92 receiver");
 
 const power = { offScheme: "Power Run", defScheme: "Wide-9 Pressure", offKeys: { RB: 1.2, OG: 1.2, OT: 1.0, TE: 1.0 }, defKeys: { DE: 1.4, DT: 1.0, LB: 0.8 } };
 const air = { offScheme: "Air Raid", defScheme: "Man Press", offKeys: { QB: 1.3, WR: 1.3, OT: 0.8 }, defKeys: { CB: 1.4, S: 1.0, DE: 0.8 } };
