@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.30",
+      version: "0.1.32",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.31";
+      state.version = "0.1.32";
       const payload = {
-        version: "0.1.31",
+        version: "0.1.32",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.31";
+      state.version = "0.1.32";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -3477,6 +3477,7 @@
       if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onGameSim", { game: g, result });
     } catch (e) {}
     applyGameProgression(g);
+    noteFranchiseGame(g);
   }
 
   function applyGameProgression(g) {
@@ -3879,6 +3880,37 @@
       </svg>`;
   }
 
+  function leagueDeskHTML(team) {
+    if (window.AFAFranchise) AFAFranchise.defaults(state);
+    const score = state.approval && state.approval.score != null ? state.approval.score : 60;
+    const warning = score < 35 ? " Owner patience is thin." : "";
+    const firing = score < 20 ? " A firing is on the table if this keeps up." : "";
+    const news = (state.leagueNews || []).slice(0, 6).map((item) =>
+      `<li><span class="eyebrow">${item.tag || "Simulated AFA"}</span> ${item.text}</li>`
+    ).join("") || "<li>No simulated headlines yet. Play a week to fill the feed.</li>";
+    return `<section class="panel"><div class="panel-h"><strong>Owner approval</strong><span>${score}</span></div>
+      <div class="panel-b"><p class="help">This meter reacts to simulated wins, losses, and moves.${warning}${firing}</p>
+      <h3>In-league feed</h3><ul class="ws-roster">${news}</ul>
+      <p class="help">Headlines are simulated AFA fiction. They are not NFL news.</p></div></section>`;
+  }
+
+  function noteFranchiseGame(g) {
+    if (!window.AFAFranchise || !state.userTeamId || !g) return;
+    AFAFranchise.defaults(state);
+    if (g.home !== state.userTeamId && g.away !== state.userTeamId) return;
+    const won = g.home === state.userTeamId ? g.hs > g.as : g.as > g.hs;
+    state.approval = AFAFranchise.approvalStep(state.approval, won ? "win" : "loss");
+    const home = teamById(g.home);
+    const away = teamById(g.away);
+    state.leagueNews.unshift(AFAFranchise.headline({
+      kind: "game",
+      week: state.week,
+      text: home.nick + " " + g.hs + ", " + away.nick + " " + g.as + "."
+    }));
+    state.leagueNews = state.leagueNews.slice(0, 40);
+    if (state.approval.firing) toast("Owner warning: " + (state.approval.warning || "The seat is hot."));
+  }
+
   function renderLeagueHomeHTML(team) {
     const roster = rosterOf(team.id);
     const avg = roster.length ? Math.round(roster.reduce((s, p) => s + p.ovr, 0) / roster.length) : 0;
@@ -3909,6 +3941,7 @@
     ).join("") || `<p class="help">No roster yet.</p>`;
 
     return `<div class="league-home">
+      ${leagueDeskHTML(team)}
       <div class="home-study" role="navigation" aria-label="Real NFL study">
         <button type="button" class="study-card" id="btn-hub-players"><span class="eyebrow">Directory</span><strong>Players</strong><span>Real NFL teams, stats, and photos.</span></button>
         <button type="button" class="study-card" id="btn-hub-scouting"><span class="eyebrow">Workspace</span><strong>Scouting</strong><span>NFL grades, plus OGFFL or Dynasty kept apart.</span></button>
