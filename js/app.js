@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.34",
+      version: "0.1.35",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.33";
+      state.version = "0.1.35";
       const payload = {
-        version: "0.1.34",
+        version: "0.1.35",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.34";
+      state.version = "0.1.35";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -3904,7 +3904,30 @@
     return `<section class="panel"><div class="panel-h"><strong>Owner approval</strong><span>${score}</span></div>
       <div class="panel-b"><p class="help">This meter reacts to simulated wins, losses, and moves.${warning}${firing}</p>
       <h3>In-league feed</h3><ul class="ws-roster">${news}</ul>
-      <p class="help">Headlines are simulated AFA fiction. They are not NFL news.</p></div></section>`;
+      <p class="help">Headlines are simulated AFA fiction. They are not NFL news.</p>
+      ${franchiseToolsHTML(team)}
+      </div></section>`;
+  }
+
+  function franchiseToolsHTML(team) {
+    const F = window.AFAFranchise;
+    if (!F) return "";
+    const fit = F.schemeFit(state.scheme && state.scheme[team.id], state.scheme && state.scheme[team.id] || "outside zone");
+    const trait = F.traitNudge("leader");
+    const camp = F.campWinner({ id: "starter", name: "Starter", ovr: 80, camp: 1 }, { id: "challenger", name: "Challenger", ovr: 78, camp: 4 });
+    const claims = F.waiverOrder(TEAMS.map((t) => ({ id: t.id, wins: (records()[t.id] && records()[t.id].w) || 0 })));
+    const workout = F.combineShift({ forty: 88, jump: 76 });
+    const rivalry = F.rivalryBump(state.rivalries || {}, team.id, TEAMS.find((t) => t.id !== team.id).id, false);
+    return `<h3>Locker room</h3><p class="help">Leader trait ${trait.chemistry > 0 ? "helps" : "hurts"} chemistry. Scheme fit: ${fit.fit}. Simulated, not a real personality test.</p>
+      <h3>Camp and waivers</h3><p class="help">Position battle winner: ${camp.name}. Waiver priority starts with ${displayName(teamById(claims[0].id))}. Practice-squad and 53-man cuts use this order.</p>
+      <h3>Combine, awards, achievements</h3><p class="help">${workout.note} Stock shift ${workout.shift}. Rivalry with the next club is ${rivalry.intensity}.</p>
+      <div class="btn-row">
+        <button type="button" class="btn" id="btn-recap">Save recap card</button>
+        <button type="button" class="btn" id="btn-export-league">Export league file</button>
+        <button type="button" class="btn" id="btn-hot-seat">Pass the hot seat</button>
+      </div>
+      <p class="help">Export is a save file friends can import on this static site. Live online multiplayer would need a server, accounts, and a shared database. This build does not add those.</p>
+      <canvas id="recap-card" width="640" height="360" hidden></canvas>`;
   }
 
   function noteFranchiseGame(g) {
@@ -4681,6 +4704,51 @@
     </div>`;
   }
 
+  function drawRecapCard() {
+    const team = teamById(viewTeamId());
+    const canvas = $("recap-card");
+    if (!canvas || !team) return;
+    canvas.hidden = false;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = team.primary;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = team.secondary;
+    ctx.fillRect(0, 280, canvas.width, 80);
+    ctx.fillStyle = window.AFATheme ? AFATheme.inkFor(team.primary) : "#fff";
+    ctx.font = "700 42px Oswald, sans-serif";
+    ctx.fillText(team.city + " " + team.nick, 32, 120);
+    ctx.font = "24px sans-serif";
+    const rec = records()[team.id] || { w: 0, l: 0, t: 0 };
+    ctx.fillText("Simulated AFA season  " + rec.w + "-" + rec.l + (rec.t ? "-" + rec.t : ""), 32, 180);
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = team.id + "-afa-recap.png";
+    link.click();
+    toast("Recap card saved. It is a simulated AFA graphic.");
+  }
+
+  function exportLeagueFile() {
+    if (!window.AFAFranchise) return;
+    const blob = new Blob([AFAFranchise.exportLeague(state)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "afa-league-v029.json";
+    link.click();
+    toast("League file downloaded. A friend can import it on this site. There is no live server.");
+  }
+
+  function passHotSeat() {
+    const ids = TEAMS.map((t) => t.id);
+    const current = state.hotSeat || state.userTeamId || ids[0];
+    const next = ids[(ids.indexOf(current) + 1) % ids.length];
+    state.hotSeat = next;
+    state.userTeamId = next;
+    ui.viewTeamId = next;
+    syncTeamTheme();
+    toast("Hot seat passed to " + displayName(teamById(next)) + ". Hand the device over.");
+    renderHub();
+  }
+
   function bindHubEvents() {
     $("hub-team-select").onchange = () => {
       ui.viewTeamId = $("hub-team-select").value;
@@ -4846,6 +4914,12 @@
     document.querySelectorAll("[data-playcall]").forEach((btn) => {
       btn.onclick = () => callTextPlay(btn.getAttribute("data-playcall"));
     });
+    const recap = $("btn-recap");
+    if (recap) recap.onclick = drawRecapCard;
+    const exp = $("btn-export-league");
+    if (exp) exp.onclick = exportLeagueFile;
+    const seat = $("btn-hot-seat");
+    if (seat) seat.onclick = passHotSeat;
     const cl = $("btn-clear-trade");
     if (cl) cl.onclick = () => { ui.offer = []; ui.ask = []; ui.offerPicks = []; ui.askPicks = []; renderHub(); };
     const sw = $("btn-sim-week");
