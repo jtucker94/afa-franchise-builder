@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.42",
+      version: "0.1.43",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.42";
+      state.version = "0.1.43";
       const payload = {
-        version: "0.1.42",
+        version: "0.1.43",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.42","0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.43","0.1.42","0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.42";
+      state.version = "0.1.43";
       try { normalizeDraftLabels(); } catch (e) { console.warn("draft label migrate", e); }
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
