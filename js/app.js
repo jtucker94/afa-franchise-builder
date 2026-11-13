@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.27",
+      version: "0.1.28",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.27";
+      state.version = "0.1.28";
       const payload = {
-        version: "0.1.27",
+        version: "0.1.28",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.27";
+      state.version = "0.1.28";
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
       if (!state.salaryCap) state.salaryCap = AFA_CAP;
@@ -278,6 +278,7 @@
       if (typeof state.clockLimit !== "number") state.clockLimit = 15;
       if (typeof state.clockPaused !== "boolean") state.clockPaused = state.clockLimit === 0;
       if (typeof state.liveDataEffects !== "boolean") state.liveDataEffects = false;
+      if (window.AFAFranchise) AFAFranchise.defaults(state);
       if (window.AFARealStatus) AFARealStatus.migrate(state);
       else if (!state.realWorldStatus) state.realWorldStatus = { enabled: false, scope: null, holds: {}, form: null };
       if (typeof savedState.seasonStarted !== "boolean") {
@@ -3420,6 +3421,20 @@
     g.overtime = !!(result.totals && result.totals.overtime) || (result.plays || []).some((p) => p.period > 4 || p.quarter > 4);
     if (isUserGame) state.lastWatchedGame = g;
 
+    g.statRows = window.AFAFranchise ? AFAFranchise.statRows([].concat(
+      (result.playerStatLines && result.playerStatLines.home) || [],
+      (result.playerStatLines && result.playerStatLines.away) || []
+    ).map((row) => ({
+      id: row.id || row.playerId,
+      name: row.name,
+      pos: row.pos,
+      passYd: row.passYds || row.passYd || row.py,
+      rushYd: row.rushYds || row.rushYd || row.ry,
+      recYd: row.recYds || row.recYd || row.recy,
+      passTd: row.passTd || row.ptd,
+      rushTd: row.rushTd,
+      recTd: row.recTd
+    }))) : [];
     foldStatLines(result.playerStatLines && result.playerStatLines.home);
     foldStatLines(result.playerStatLines && result.playerStatLines.away);
 
@@ -3532,6 +3547,30 @@
       ensureCoachPool(true); // refresh FA coach board for next carousel
       if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.run("onSeasonEnd", { state, year: state.seasonYear });
     } catch (e) { console.warn("season end modules", e); }
+  }
+
+  function simThrough(target) {
+    const plan = window.AFAFranchise
+      ? AFAFranchise.simTarget({ week: state.week, seasonDone: state.seasonDone, seasonWeeks: SEASON_WEEKS }, target)
+      : { weeks: 0, label: "Sim is unavailable." };
+    if (!plan.weeks) { toast(plan.label); return; }
+    let guard = 0;
+    while (!state.seasonDone && state.week <= plan.stopWeek && guard < 20) {
+      const week = state.schedule[state.week - 1];
+      if (!week) break;
+      week.forEach((g) => { if (!g.played) simGame(g); });
+      if (state.week >= SEASON_WEEKS) {
+        state.seasonDone = true;
+        endSeasonRecalibrate();
+        break;
+      }
+      state.week += 1;
+      guard += 1;
+    }
+    save();
+    toast(plan.label + " Simulated results only.");
+    ui.hubTab = state.seasonDone ? "standings" : "slate";
+    renderHub();
   }
 
   function simWeek() {
@@ -3931,6 +3970,18 @@
     return g;
   }
 
+  function boxScoreTable(g) {
+    const rows = g.statRows || [];
+    if (!rows.length) return `<p class="help">Simulated final: no player lines were stored for this game.</p>`;
+    const cols = [["name", "Player"], ["pos", "Pos"], ["passYd", "Pass"], ["rushYd", "Rush"], ["recYd", "Rec"], ["td", "TD"]];
+    const sorted = window.AFASort ? AFASort.sort(rows, "box-score", "td", "desc") : rows;
+    const head = window.AFASort ? AFASort.head("box-score", cols) : "";
+    const menu = window.AFASort ? AFASort.select("box-score", cols) : "";
+    return menu + `<div class="pool-scroll"><table class="player-table"><thead>${head}</thead><tbody>` +
+      sorted.map((row) => `<tr><td class="name-col">${row.name}</td><td>${row.pos}</td><td>${row.passYd}</td><td>${row.rushYd}</td><td>${row.recYd}</td><td>${row.td}</td></tr>`).join("") +
+      `</tbody></table></div><p class="help">These lines are simulated for this AFA game. They are not NFL stats.</p>`;
+  }
+
   function renderGameDayHTML(team) {
     if (!window.AFAGameDay) return `<p class="help">GameDay module not loaded.</p>`;
     const settings = AFAGameDay.getSettings ? AFAGameDay.getSettings() : { replayView: ui.replayView || "aerial" };
@@ -3951,8 +4002,8 @@
     } else if (g) {
       body += `<div class="panel" style="margin-top:12px"><div class="panel-b">
         <strong>${displayName(teamById(g.home))} ${g.hs}–${g.as} ${displayName(teamById(g.away))}</strong>
-        <p class="help">${ui.replayView === "off" ? "Replay off — box only." : "No timeline yet — click Watch next slate game."}</p>
-        <pre style="white-space:pre-wrap;font-size:11px;opacity:.8">${JSON.stringify(g.box || {}, null, 2).slice(0, 1200)}</pre>
+        <p class="help">Simulated AFA result. ${ui.replayView === "off" ? "Replay is off, so this is the box score only." : "No timeline yet. Watch the next slate game for the play-by-play."}</p>
+        ${boxScoreTable(g)}
       </div></div>`;
     } else {
       body += `<p class="help">Click <strong>Watch next slate game</strong> to sim your upcoming matchup with a full timeline.</p>`;
@@ -3984,12 +4035,9 @@
 
   function renderStandingsHTML() {
     const rec = records();
-    const sortFn = (a, b) => {
-      const ra = rec[a.id]; const rb = rec[b.id];
-      const pa = ra.w + ra.t * 0.5; const pb = rb.w + rb.t * 0.5;
-      if (pb !== pa) return pb - pa;
-      return (rb.pf - rb.pa) - (ra.pf - ra.pa);
-    };
+    const sortFn = (a, b) => window.AFAFranchise
+      ? AFAFranchise.compareClubs(a, b, { records: rec, schedule: state.schedule })
+      : ((rec[b.id].w + rec[b.id].t * 0.5) - (rec[a.id].w + rec[a.id].t * 0.5)) || ((rec[b.id].pf - rec[b.id].pa) - (rec[a.id].pf - rec[a.id].pa));
     const you = state.userTeamId;
     const confHTML = ["Eastern", "Western"].map((conf) => {
       const divs = DIVISIONS[conf].map((div) => {
@@ -4034,7 +4082,7 @@
         }).join("") +
         `<div class="conf-block"><h3>AFA Championship</h3>${gLine(po.championship)}</div></div>`;
     }
-    return `<div class="standings-wrap">${confHTML}${bracket}</div>`;
+    return `<div class="standings-wrap"><p class="help">Simulated AFA season. Tiebreakers are wins, head-to-head, point differential, then points scored.</p>${confHTML}${bracket}</div>`;
   }
 
   function renderSlateHTML() {
@@ -4472,11 +4520,12 @@
     return `<div class="panel" style="max-width:640px">
       <div class="panel-h"><strong>Simulation desk</strong></div>
       <div class="panel-b">
-        <p class="help">Scores use roster averages, a star-player bump, and the head coach's overall — plus weekly variance. This is a v0.1 stub, not a full engine.</p>
+        <p class="help">Simulated AFA games. Results use the roster ratings already in this save. They are not NFL scores.</p>
         <p>Current: ${state.seasonDone ? "Regular season complete" : "Week " + state.week + " of " + SEASON_WEEKS}</p>
         <div class="btn-row" style="justify-content:flex-start;margin-top:16px">
           <button class="btn btn-primary" id="btn-sim-week" ${state.seasonDone ? "disabled" : ""}>Sim this week</button>
-          <button class="btn" id="btn-sim-rest" ${state.seasonDone ? "disabled" : ""}>Sim rest of season</button>
+          <button class="btn" id="btn-sim-deadline" ${state.seasonDone ? "disabled" : ""}>Sim to the deadline</button>
+          <button class="btn" id="btn-sim-playoffs" ${state.seasonDone ? "disabled" : ""}>Sim to the playoffs</button>
         </div>
         ${collegeCtaHTML()}
       </div>
@@ -4649,6 +4698,10 @@
     if (cl) cl.onclick = () => { ui.offer = []; ui.ask = []; ui.offerPicks = []; ui.askPicks = []; renderHub(); };
     const sw = $("btn-sim-week");
     if (sw) sw.onclick = simWeek;
+    const deadline = $("btn-sim-deadline");
+    if (deadline) deadline.onclick = () => simThrough("deadline");
+    const playoffs = $("btn-sim-playoffs");
+    if (playoffs) playoffs.onclick = () => simThrough("playoffs");
     const sr = $("btn-sim-rest");
     if (sr) sr.onclick = () => {
       sr.disabled = true;

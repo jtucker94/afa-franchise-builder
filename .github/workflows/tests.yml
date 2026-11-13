@@ -29,5 +29,7 @@ jobs:
         run: node tests/refresh-news.test.mjs
       - name: Roster integration
         run: node tests/roster-integration.test.mjs
+      - name: Franchise rules
+        run: node tests/franchise-mode.test.mjs
       - name: Pool sort and trades
         run: node tests/pool-and-trades.test.mjs

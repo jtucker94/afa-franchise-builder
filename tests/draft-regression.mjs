@@ -70,14 +70,14 @@ const supply = {};
 PLAYERS.forEach((p) => { supply[p.pos] = (supply[p.pos] || 0) + 1; });
 
 check(appSrc.includes('const STORAGE = "afa-gm-franchise-builder-v029"'), "save key changed");
-check(appSrc.includes('version: "0.1.27"'), "display version not 0.1.27");
-check(appSrc.includes('"0.1.26"'), "load no longer accepts 0.1.26 saves");
+check(appSrc.includes('version: "0.1.28"'), "display version not 0.1.28");
+check(appSrc.includes('"0.1.27"'), "load no longer accepts 0.1.27 saves");
 check(appSrc.includes('"0.1.24"'), "load no longer accepts 0.1.24 saves");
 check(appSrc.includes('"0.1.23"'), "load no longer accepts 0.1.23 saves");
 check(appSrc.includes("AFADraft.commitPick"), "app makePick does not call commitPick");
 check(appSrc.includes("AFADraft.recommend("), "app recommend does not call the engine");
 check(!appSrc.includes("playerId = k[0].id"), "keeper click still silently replaces the chosen player");
-check(fs.readFileSync(root + "sw.js", "utf8").includes("afa-shell-${SW_VERSION}") && fs.readFileSync(root + "sw.js", "utf8").includes('const SW_VERSION = "v037"'), "service worker cache not v037");
+check(fs.readFileSync(root + "sw.js", "utf8").includes("afa-shell-${SW_VERSION}") && fs.readFileSync(root + "sw.js", "utf8").includes('const SW_VERSION = "v038"'), "service worker cache not v038");
 
 // Identity: same-name different humans stay apart. Verified listing dupes collapse.
 const byId = Object.create(null);
