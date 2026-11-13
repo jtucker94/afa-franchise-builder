@@ -3,7 +3,28 @@
   "use strict";
   var D = function () { return root.AFAWorkspaceData; };
   var PAGE = 40;
+  var dataClock = null;
   var dirState = { page: 0, pos: "", team: "", sort: "name", dir: "asc", text: "", selected: null };
+
+  function freshnessHtml() {
+    if (!dataClock) return "";
+    var clock = dataClock;
+    return '<p class="data-as-of" id="data-as-of">' + esc(clock.label) + '</p>' +
+      (clock.stale && clock.notice ? '<p class="data-stale" id="data-stale">' + esc(clock.notice) + '</p>' : '');
+  }
+
+  function loadRefreshStatus(repaint) {
+    fetch("data/refresh-status.json").then(function (r) {
+      if (!r.ok) throw new Error("unreadable");
+      return r.json();
+    }).then(function (data) {
+      dataClock = D().dataAsOf(data, new Date());
+      if (repaint) repaint();
+    }).catch(function () {
+      dataClock = D().dataAsOf(null, new Date());
+      if (repaint) repaint();
+    });
+  }
   var scoutState = { league: "nfl", tab: "overview", compare: [], watch: [], occupiedBy: {}, newsFails: 0, snapshotAt: null };
   var newsTimer = null;
   var newsItems = [];
@@ -93,7 +114,7 @@
     return rows;
   }
   function rowsNow() {
-    var rows = withListedRatings(D().directoryRows(players(), sleeperMap(), root.AFA_NFL_AVAIL || null));
+    var rows = withListedRatings(D().directoryRows(players(), sleeperMap(), root.AFA_NFL_AVAIL || null, !!(dataClock && dataClock.stale)));
     if (root.AFASort) {
       var st = AFASort.get("directory", dirState.sort || "name", dirState.dir || "asc");
       dirState.sort = st.key;
@@ -119,6 +140,7 @@
       '<select id="dir-team" aria-label="Real NFL team"><option value="">All NFL teams</option>' + teams.map(function (t) { return '<option value="' + esc(t) + '"' + (dirState.team === t ? " selected" : "") + '>' + esc(t === "FA" ? "Free agent" : t) + '</option>'; }).join("") + '</select>' +
       '<select id="dir-sort" aria-label="Sort"><option value="name:asc">Name ascending</option><option value="name:desc">Name descending</option><option value="ovr:desc">Rating descending</option><option value="ovr:asc">Rating ascending</option><option value="pos:asc">Position ascending</option><option value="pos:desc">Position descending</option><option value="age:asc">Age ascending</option><option value="age:desc">Age descending</option><option value="nfl:asc">Team ascending</option><option value="nfl:desc">Team descending</option><option value="status:asc">Status ascending</option><option value="status:desc">Status descending</option></select>' +
       '</div>' +
+      '<div id="data-freshness">' + freshnessHtml() + '</div>' +
       '<p class="help" id="dir-count"></p>' +
       '<label class="ws-toggle"><input type="checkbox" id="dir-live"' + ((saveState() && saveState().liveDataEffects) ? " checked" : "") + '> Show this save\'s AFA club beside the real NFL team. This box does not change ratings or availability.</label>' +
       realStatusHtml() +
@@ -154,6 +176,7 @@
       paintDirectory();
     });
     paintDirectory();
+    loadRefreshStatus(paintDirectory);
   }
 
   function realStatusHtml() {
@@ -185,6 +208,8 @@
   }
 
   function paintDirectory() {
+    var slot = $("data-freshness");
+    if (slot) slot.innerHTML = freshnessHtml();
     var filtered = rowsNow();
     var slice = D().pageSlice(filtered, dirState.page, PAGE);
     dirState.page = slice.page;
@@ -220,7 +245,7 @@
     if (!p) { host.innerHTML = '<p class="help">Select a player. Photos and logos that fail to load are marked unavailable. Nothing is invented.</p>'; return; }
     var sl = sleeperMap()[p.id] || null;
     var team = D().nflTeam(p, sl, root.AFA_NFL_AVAIL || null);
-    var avail = D().availability(p, sl, root.AFA_NFL_AVAIL || null);
+    var avail = D().availability(p, sl, root.AFA_NFL_AVAIL || null, { stale: !!(dataClock && dataClock.stale) });
     var line = D().seasonLine(root.AFA_STATS_2025, p.id);
     var sheet = D().statSheet(p, line);
     var shot = D().headshot(p);
@@ -289,6 +314,7 @@
       storeWatch();
     });
     paintScouting();
+    loadRefreshStatus(paintScouting);
     fetch("data/league-settings.json").then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
       if (data) { root.AFA_LEAGUE_SETTINGS = data; if (scoutState.tab === "overview" || scoutState.tab === "stats") paintScouting(); }
     }).catch(function () {});
@@ -309,7 +335,7 @@
     var panel = $("scout-panel");
     if (!panel) return;
     var fn = { overview: tabOverview, evaluation: tabEval, compare: tabCompare, news: tabNews, stats: tabStats, watch: tabWatch }[scoutState.tab] || tabOverview;
-    panel.innerHTML = fn();
+    panel.innerHTML = freshnessHtml() + fn();
     if (root.AFASort) AFASort.bind(panel, function () { paintScouting(); });
   }
 
@@ -357,10 +383,11 @@
       '<h3>Your roster</h3>' +
       sortableScout("scout-roster", slice.mine.map(function (p) {
         var team = D().nflTeam(p, sleeperMap()[p.id], root.AFA_NFL_AVAIL || null);
+        var avail = D().availability(p, sleeperMap()[p.id], root.AFA_NFL_AVAIL || null, { stale: !!(dataClock && dataClock.stale) });
         var pts = recordedFor(p, lg);
-        return Object.assign({}, p, { teamLabel: team.label, points: pts.total, pointsLabel: pts.total == null ? "not scored" : String(pts.total) + (pts.season ? " (" + pts.season + ")" : "") });
-      }), [["name", "Player"], ["pos", "Pos"], ["ovr", "Rating"], ["teamLabel", "Team"], ["points", "Recorded"]], function (p) {
-        return '<tr><td class="name-col"><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + '</td><td>' + esc(p.pos) + '</td><td>' + esc(p.ovr) + '</td><td>' + esc(p.teamLabel) + '</td><td>' + esc(p.pointsLabel) + '</td></tr>';
+        return Object.assign({}, p, { teamLabel: team.label, status: avail.text, points: pts.total, pointsLabel: pts.total == null ? "not scored" : String(pts.total) + (pts.season ? " (" + pts.season + ")" : "") });
+      }), [["name", "Player"], ["pos", "Pos"], ["ovr", "Rating"], ["teamLabel", "Team"], ["status", "Status"], ["points", "Recorded"]], function (p) {
+        return '<tr><td class="name-col"><button type="button" class="btn" data-add="' + esc(p.id) + '">Compare</button> ' + esc(p.name) + '</td><td>' + esc(p.pos) + '</td><td>' + esc(p.ovr) + '</td><td>' + esc(p.teamLabel) + '</td><td>' + esc(p.status) + '</td><td>' + esc(p.pointsLabel) + '</td></tr>';
       }) +
       faHtml(lg, slice.mine) +
       '<h3>Advanced projections</h3><p class="help">' + esc((root.AFALeagueScout ? root.AFALeagueScout.projections() : { label: "Unavailable." }).label) + '</p>';

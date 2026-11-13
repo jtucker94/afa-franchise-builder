@@ -288,17 +288,41 @@ try {
   let directory = null;
   for (let i = 0; i < 20; i++) {
     await wait(400);
-    directory = await evalJson("JSON.stringify({sort:!!document.getElementById('dir-sort'), headers:document.querySelectorAll('#dir-list [data-afasort]').length, rows:document.querySelectorAll('#dir-list [data-dir]').length})");
-    if (directory && directory.rows > 0 && directory.headers > 3) break;
+    directory = await evalJson("JSON.stringify({sort:!!document.getElementById('dir-sort'), headers:document.querySelectorAll('#dir-list [data-afasort]').length, rows:document.querySelectorAll('#dir-list [data-dir]').length, asOf:(document.getElementById('data-as-of')||{}).textContent||'', stale:(document.getElementById('data-stale')||{}).textContent||'', status:(document.querySelector('#dir-list tr td:last-child')||{}).textContent||''})");
+    if (directory && directory.rows > 0 && directory.headers > 3 && /Data as of/.test(directory.asOf || "")) break;
   }
   status.steps.directory = directory;
   if (!directory || directory.headers < 3) throw new Error("players workspace has no sortable columns");
+  if (!/Data as of/.test(directory.asOf || "")) throw new Error("players workspace has no data-as-of label");
+  if (!/out of date/i.test(directory.stale || "")) throw new Error("stale snapshot did not warn");
+  if (String(directory.status || "").toLowerCase() === "healthy") throw new Error("stale status was shown as healthy");
   await evalJson("JSON.stringify((function(){var s=document.getElementById('dir-sort'); if(s){s.value='age:asc'; s.dispatchEvent(new Event('change'));} return true;})())");
   await wait(300);
   await metrics(390, 844);
   await shot("directory-sorted-iphone");
   await metrics(360, 740);
   await shot("directory-sorted-360");
+  await metrics(1280, 900);
+  const directoryDesktop = await evalJson("JSON.stringify({asOf:(document.getElementById('data-as-of')||{}).textContent||'', stale:(document.getElementById('data-stale')||{}).textContent||'', healthy:Array.from(document.querySelectorAll('#dir-list td')).some(function(td){return /^healthy$/i.test(td.textContent.trim());})})");
+  status.steps.directoryDesktop = directoryDesktop;
+  if (!directoryDesktop || !/Data as of/.test(directoryDesktop.asOf || "") || !/out of date/i.test(directoryDesktop.stale || "")) throw new Error("desktop players view lost the freshness label");
+  if (directoryDesktop.healthy) throw new Error("desktop stale status was shown as healthy");
+  await shot("directory-sorted-desktop");
+
+  await send("Page.navigate", { url: "http://127.0.0.1:8765/?screen=scouting" }, sessionId);
+  let scouting = null;
+  for (let i = 0; i < 20; i++) {
+    await wait(400);
+    scouting = await evalJson("JSON.stringify((function(){var b=document.querySelector('[data-lg=\"ogffl\"]'); if(b) b.click(); return {asOf:(document.getElementById('data-as-of')||{}).textContent||'', stale:(document.getElementById('data-stale')||{}).textContent||'', unknown:Array.from(document.querySelectorAll('#scout-panel td')).some(function(td){return /^unknown$/i.test(td.textContent.trim());}), healthy:Array.from(document.querySelectorAll('#scout-panel td')).some(function(td){return /^healthy$/i.test(td.textContent.trim());})};})())");
+    if (scouting && /Data as of/.test(scouting.asOf || "") && scouting.unknown) break;
+  }
+  status.steps.scouting = scouting;
+  if (!scouting || !/Data as of/.test(scouting.asOf || "")) throw new Error("scouting has no data-as-of label");
+  if (!/out of date/i.test(scouting.stale || "")) throw new Error("scouting stale snapshot did not warn");
+  if (!scouting.unknown || scouting.healthy) throw new Error("league roster status was not unknown");
+  await shot("scouting-roster-desktop");
+  await metrics(390, 844);
+  await shot("scouting-roster-iphone");
 
   let live = { ok: false };
   try {

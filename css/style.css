@@ -2023,6 +2023,8 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .study-card span:last-child { color: var(--muted); font-size: 14px; line-height: 1.4; }
 .study-card:focus-visible, .ws-row:focus-visible, .ws-tabs .btn:focus-visible, .ws-switch .btn:focus-visible { outline: 2px solid var(--gold-2); outline-offset: 2px; }
 .ws-toolbar, .ws-switch, .ws-tabs, .ws-pager { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.data-as-of, .data-stale { margin: 6px 0; font-size: 13px; line-height: 1.35; }
+.data-stale { color: var(--gold-2); }
 .ws-toolbar { margin-bottom: 8px; }
 .ws-toolbar .search, .ws-toolbar select { min-height: 44px; }
 .ws-toggle { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 12px; font-size: 14px; }
