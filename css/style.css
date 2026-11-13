@@ -20,6 +20,10 @@
   --font: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --display: "Oswald", "Arial Narrow", Impact, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --save-fab-h: 52px;
+  --save-fab-gap: 12px;
+  --save-lane: calc(var(--save-fab-h) + var(--save-fab-gap) + var(--safe-bottom));
 }
 
 * { box-sizing: border-box; }
@@ -248,6 +252,12 @@ button, input, select { font-family: inherit; }
   border-radius: 99px;
 }
 .workspace { flex: 1; overflow: auto; padding: 16px; }
+body.screen-hub-active .workspace,
+body.screen-draft-active .workspace,
+body.screen-directory-active .workspace,
+body.screen-scouting-active .workspace {
+  padding-bottom: calc(16px + var(--save-lane));
+}
 
 /* ---------- COACH ASSIGN ---------- */
 #screen-coaches {
@@ -1536,9 +1546,10 @@ body.save-cta-hover .draft-fab:not(:hover):not(:focus-visible) {
   position: fixed;
   left: 18px;
   right: auto;
-  bottom: 18px;
+  bottom: calc(var(--save-fab-gap) + var(--safe-bottom));
   z-index: 40;
   min-width: 88px;
+  min-height: 44px;
   padding: 12px 18px;
   border-radius: 999px;
   border: 1px solid rgba(201,162,39,0.55);
@@ -2183,11 +2194,12 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .real-news-ticker[hidden] { display: none !important; }
 body.has-real-ticker .screen.active { padding-bottom: calc(var(--rnt-h) + var(--rnt-bottom)); }
 body.has-real-ticker .save-fab,
-body.has-real-ticker .draft-fab { bottom: calc(var(--rnt-h) + var(--rnt-bottom) + 12px); }
-body.screen-directory-active .save-fab,
-body.screen-scouting-active .save-fab,
-body.screen-directory-active .draft-fab,
-body.screen-scouting-active .draft-fab { display: none; }
+body.has-real-ticker .draft-fab { bottom: calc(var(--rnt-h) + var(--rnt-bottom) + var(--save-fab-gap)); }
+body.screen-boot-active .save-fab,
+body.screen-menu-active .save-fab,
+body.screen-story-active .save-fab,
+body.screen-mode-active .save-fab,
+body.screen-coaches-active .save-fab { display: none; }
 .rnt-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .rnt-fresh { margin: 0; font-size: 11px; line-height: 1.2; color: #d5ddcf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rnt-kicker { flex: 0 0 auto; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-2); font-weight: 700; }

@@ -247,6 +247,10 @@ try {
   status.steps.culture = culture;
   if (!culture || !culture.tag) throw new Error("culture page did not open");
   await shot("culture-providence-iphone");
+  const saveClear = await evalJson("JSON.stringify((function(){var scroller=document.getElementById('hub-body'); if(scroller) scroller.scrollTop=scroller.scrollHeight; function box(el){if(!el) return null; var r=el.getBoundingClientRect(); var cs=getComputedStyle(el); return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,w:r.width,h:r.height,disp:cs.display};} function hit(a,b){if(!a||!b||a.disp==='none'||a.h<2||b.h<2) return false; return !(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);} var fab=box(document.getElementById('btn-save-anywhere')); var last=box(document.getElementById('btn-culture-home')); var ticker=box(document.getElementById('real-news-ticker')); var pause=box(document.querySelector('.rnt-btn')); return {fab:fab&&fab.disp, overlapLast:hit(fab,last), overlapTicker:hit(fab,ticker), overlapPause:hit(fab,pause)}; })())");
+  status.steps.saveClear390 = saveClear;
+  if (!saveClear || saveClear.overlapLast || saveClear.overlapTicker || saveClear.overlapPause) throw new Error("save button covers the culture page at 390");
+  if (saveClear.fab === "none") throw new Error("save button is missing on the phone hub");
   await metrics(360, 740);
   const menuFit360 = await evalJson("JSON.stringify((function(){var bad=[]; document.querySelectorAll('#hub-nav button').forEach(function(b){ if(b.hidden) return; var text=(b.querySelector('.hub-nav-text')||b).textContent.replace(/\\s+/g,' ').trim(); if(b.scrollWidth>b.clientWidth+2) bad.push(text); }); return {bad:bad}; })())");
   status.steps.menuFit360 = menuFit360;
@@ -254,6 +258,9 @@ try {
   await shot("culture-providence-360");
   await metrics(1280, 900);
   await shot("culture-providence-desktop");
+  const saveClearDesk = await evalJson("JSON.stringify((function(){var scroller=document.getElementById('hub-body'); if(scroller) scroller.scrollTop=scroller.scrollHeight; function box(el){if(!el) return null; var r=el.getBoundingClientRect(); var cs=getComputedStyle(el); return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,w:r.width,h:r.height,disp:cs.display};} function hit(a,b){if(!a||!b||a.disp==='none'||a.h<2||b.h<2) return false; return !(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);} var fab=box(document.getElementById('btn-save-anywhere')); var last=box(document.getElementById('btn-culture-home')); var ticker=box(document.getElementById('real-news-ticker')); return {overlapLast:hit(fab,last), overlapTicker:hit(fab,ticker)}; })())");
+  status.steps.saveClearDesktop = saveClearDesk;
+  if (!saveClearDesk || saveClearDesk.overlapLast || saveClearDesk.overlapTicker) throw new Error("save button covers the culture page on desktop");
   await evalJson("JSON.stringify((function(){var s=document.getElementById('hub-team-select'); if(s){s.value='sfe'; s.dispatchEvent(new Event('change'));} var b=document.getElementById('btn-open-culture'); if(b) b.click(); return true;})())");
   await wait(400);
   await shot("culture-santa-fe-desktop");

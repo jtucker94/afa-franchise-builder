@@ -338,11 +338,7 @@
     overflow: visible !important;
   }
 
-  /* Header already has Save — never let the floating SAVE cover OVR/names in the pool */
-  body.screen-draft-active .save-fab,
-  body.screen-draft-active .draft-fab {
-    display: none !important;
-  }
+  /* The floating Save sits in the reserved lane under the pool, not on top of names. */
 
   /* League menu stays in the page as wrapping tiles. Full labels, no bottom-bar clip. */
   body.screen-hub-active { --mobile-tab-h: 0px; }
@@ -441,7 +437,7 @@
   /* FABs clear the bottom tab bar; hide on boot/menu/story */
   .save-fab {
     left: max(12px, var(--safe-left));
-    bottom: calc(var(--mobile-tab-h) + var(--safe-bottom) + 12px);
+    bottom: calc(var(--save-fab-gap) + var(--safe-bottom));
   }
   .draft-fab {
     right: max(12px, var(--safe-right));
@@ -456,15 +452,9 @@
   body.screen-story-active .draft-fab {
     display: none !important;
   }
-  /* Pre-hub: hide SAVE FAB wherever the screen already has a Save control.
-   * (Coach + draft headers have Save; FAB was covering names/OVR on iPhone.) */
+  /* Coach footer and the mode picker already own the bottom edge. */
   body.screen-mode-active .save-fab,
-  body.screen-coaches-active .save-fab,
-  body.screen-draft-active .save-fab,
-  body.screen-directory-active .save-fab,
-  body.screen-scouting-active .save-fab,
-  body.screen-directory-active .draft-fab,
-  body.screen-scouting-active .draft-fab {
+  body.screen-coaches-active .save-fab {
     display: none !important;
   }
   body.screen-mode-active .draft-fab,
@@ -580,7 +570,7 @@
     min-width: 420px;
   }
   #hub-body {
-    padding-bottom: var(--mobile-pad-bottom);
+    padding-bottom: calc(12px + var(--save-lane));
   }
 
   /* Game day */

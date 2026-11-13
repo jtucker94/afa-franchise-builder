@@ -96,14 +96,10 @@ h1, .menu-card h1, .story-copy h2, .draft-intro h2, #draft-intro-title {
   .eyebrow { box-shadow: 2px 2px 0 var(--ember); }
 }
 
-/* v0.1.21/v0.1.22: on iPhone the floating SAVE pill covered rows and Sim Draft.
- * These screens already have a Save button in their top bar, so the FAB is hidden there.
- * Coach assignment also uses a sticky footer Sim — keep FAB hidden so it does not overlay. */
+/* Floating Save stays in a reserved lane above the ticker. Header Save covers coaches and the main menu. */
 @media (max-width: 900px) {
   body.screen-mode-active .save-fab,
-  body.screen-coaches-active .save-fab,
-  body.screen-draft-active .save-fab,
-  body.screen-hub-active .save-fab { display: none !important; }
+  body.screen-coaches-active .save-fab { display: none !important; }
 }
 /* Desktop hover scout card: never taller than the window */
 @media (min-width: 901px) {
