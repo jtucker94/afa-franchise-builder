@@ -1,35 +1,86 @@
 {
-  "fetchedAt": "2026-11-07T00:38:44.924Z",
+  "fetchedAt": "2026-11-14T10:29:24.708Z",
   "ok": true,
+  "coreOk": true,
   "pieces": {
     "pool": {
       "count": 2532,
       "withSleeperId": 2492
     },
     "state": {
+      "ok": true,
       "season": "2026",
-      "week": 9,
+      "week": 10,
       "season_type": "regular"
     },
     "leagues": {
+      "ok": true,
       "ogffl": {
         "players": 31,
         "starters": 20,
         "owner": "jtuck94"
       },
       "dd": {
-        "players": 21,
+        "players": 22,
         "starters": 14,
         "owner": "jtuck94"
       }
     },
     "NFL": {
-      "headlines": 25
+      "ok": true,
+      "headlines": 25,
+      "source": "ESPN public NFL site API",
+      "attempts": [
+        {
+          "url": "https://www.espn.com/espn/rss/nfl/news",
+          "httpStatus": 202,
+          "contentType": "text/html; charset=UTF-8",
+          "bodyBytes": 0,
+          "bodyStart": "",
+          "parsed": 0
+        },
+        {
+          "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=25",
+          "httpStatus": 200,
+          "contentType": "application/json;charset=UTF-8",
+          "bodyBytes": 106412,
+          "bodyStart": "{\"header\":\"NFL News\",\"link\":{\"language\":\"en\",\"rel\":[\"index\",\"desktop\",\"league\"],\"href\":\"https://www.espn.com/nfl/\",\"text\":\"All NFL News\",\"shortText\":\"All News\",",
+          "parsed": 25
+        }
+      ]
     },
     "NCAAF": {
-      "headlines": 21
+      "ok": true,
+      "headlines": 25,
+      "source": "ESPN public college football site API",
+      "attempts": [
+        {
+          "url": "https://www.espn.com/espn/rss/ncf/news",
+          "httpStatus": 202,
+          "contentType": "text/html; charset=UTF-8",
+          "bodyBytes": 0,
+          "bodyStart": "",
+          "parsed": 0
+        },
+        {
+          "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/news?limit=25",
+          "httpStatus": 200,
+          "contentType": "application/json;charset=UTF-8",
+          "bodyBytes": 119673,
+          "bodyStart": "{\"header\":\"NCAAF News\",\"link\":{\"language\":\"en\",\"rel\":[\"index\",\"desktop\",\"league\"],\"href\":\"https://www.espn.com/college-football/\",\"text\":\"All NCAAF News\",\"short",
+          "parsed": 25
+        }
+      ]
+    },
+    "news": {
+      "ok": true,
+      "stale": false,
+      "fetchedAt": "2026-11-14T10:29:24.708Z",
+      "freshHeadlines": 50,
+      "kept": 0
     },
     "availability": {
+      "ok": true,
       "matched": 2492,
       "poolWithSleeperId": 2492
     }
