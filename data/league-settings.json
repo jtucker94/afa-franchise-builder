@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-15T10:32:15.122Z",
+  "fetchedAt": "2026-11-16T10:31:47.692Z",
   "source": "https://api.sleeper.app/v1",
   "state": {
     "season": "2026",
@@ -400,11 +400,11 @@
       "starters": [
         "nfl_6770",
         "nfl_6813",
-        "nfl_12512",
+        "nfl_7611",
         "nfl_6794",
         "nfl_9487",
         "nfl_10859",
-        "nfl_12491",
+        "nfl_12512",
         "nfl_13276",
         "nfl_7042",
         "GB",
