@@ -1,9 +1,9 @@
 {
-  "fetchedAt": "2026-11-16T10:31:47.692Z",
+  "fetchedAt": "2026-11-17T10:50:32.157Z",
   "source": "https://api.sleeper.app/v1",
   "state": {
     "season": "2026",
-    "week": 10,
+    "week": 11,
     "season_type": "regular"
   },
   "leagues": {

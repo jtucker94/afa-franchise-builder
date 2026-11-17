@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-16T10:31:47.692Z",
+  "fetchedAt": "2026-11-17T10:50:32.157Z",
   "ok": true,
   "coreOk": true,
   "pieces": {
@@ -10,7 +10,7 @@
     "state": {
       "ok": true,
       "season": "2026",
-      "week": 10,
+      "week": 11,
       "season_type": "regular"
     },
     "leagues": {
@@ -43,7 +43,7 @@
           "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=25",
           "httpStatus": 200,
           "contentType": "application/json;charset=UTF-8",
-          "bodyBytes": 144631,
+          "bodyBytes": 96168,
           "bodyStart": "{\"header\":\"NFL News\",\"link\":{\"language\":\"en\",\"rel\":[\"index\",\"desktop\",\"league\"],\"href\":\"https://www.espn.com/nfl/\",\"text\":\"All NFL News\",\"shortText\":\"All News\",",
           "parsed": 25
         }
@@ -66,7 +66,7 @@
           "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/news?limit=25",
           "httpStatus": 200,
           "contentType": "application/json;charset=UTF-8",
-          "bodyBytes": 196361,
+          "bodyBytes": 130475,
           "bodyStart": "{\"header\":\"NCAAF News\",\"link\":{\"language\":\"en\",\"rel\":[\"index\",\"desktop\",\"league\"],\"href\":\"https://www.espn.com/college-football/\",\"text\":\"All NCAAF News\",\"short",
           "parsed": 25
         }
@@ -75,7 +75,7 @@
     "news": {
       "ok": true,
       "stale": false,
-      "fetchedAt": "2026-11-16T10:31:47.692Z",
+      "fetchedAt": "2026-11-17T10:50:32.157Z",
       "freshHeadlines": 50,
       "kept": 0
     },
