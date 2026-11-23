@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-23T10:03:36.774Z",
+  "fetchedAt": "2026-11-23T10:53:55.572Z",
   "ok": true,
   "coreOk": true,
   "pieces": {
@@ -29,54 +29,38 @@
     "NFL": {
       "ok": true,
       "headlines": 25,
-      "source": "ESPN public NFL site API",
+      "source": "ESPN public NFL RSS",
       "attempts": [
         {
           "url": "https://www.espn.com/espn/rss/nfl/news",
-          "httpStatus": 202,
-          "contentType": "text/html; charset=UTF-8",
-          "bodyBytes": 0,
-          "bodyStart": "",
-          "parsed": 0
-        },
-        {
-          "url": "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=25",
           "httpStatus": 200,
-          "contentType": "application/json;charset=UTF-8",
-          "bodyBytes": 167533,
-          "bodyStart": "{\"header\":\"NFL News\",\"link\":{\"language\":\"en\",\"rel\":[\"index\",\"desktop\",\"league\"],\"href\":\"https://www.espn.com/nfl/\",\"text\":\"All NFL News\",\"shortText\":\"All News\",",
+          "contentType": "text/xml;charset=UTF-8",
+          "bodyBytes": 17524,
+          "bodyStart": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:sy=\"http://purl.org/rss/1.0/modules/syndication/\" xml",
           "parsed": 25
         }
       ]
     },
     "NCAAF": {
       "ok": true,
-      "headlines": 25,
-      "source": "ESPN public college football site API",
+      "headlines": 18,
+      "source": "ESPN public college football RSS",
       "attempts": [
         {
           "url": "https://www.espn.com/espn/rss/ncf/news",
-          "httpStatus": 202,
-          "contentType": "text/html; charset=UTF-8",
-          "bodyBytes": 0,
-          "bodyStart": "",
-          "parsed": 0
-        },
-        {
-          "url": "https://site.api.espn.com/apis/site/v2/sports/football/college-football/news?limit=25",
           "httpStatus": 200,
-          "contentType": "application/json;charset=UTF-8",
-          "bodyBytes": 199137,
-          "bodyStart": "{\"header\":\"NCAAF News\",\"link\":{\"language\":\"en\",\"rel\":[\"index\",\"desktop\",\"league\"],\"href\":\"https://www.espn.com/college-football/\",\"text\":\"All NCAAF News\",\"short",
-          "parsed": 25
+          "contentType": "text/xml;charset=UTF-8",
+          "bodyBytes": 10834,
+          "bodyStart": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:sy=\"http://purl.org/rss/1.0/modules/syndication/\" xml",
+          "parsed": 18
         }
       ]
     },
     "news": {
       "ok": true,
       "stale": false,
-      "fetchedAt": "2026-11-23T10:03:36.774Z",
-      "freshHeadlines": 50,
+      "fetchedAt": "2026-11-23T10:53:55.572Z",
+      "freshHeadlines": 43,
       "kept": 0
     },
     "availability": {
