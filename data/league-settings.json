@@ -1,9 +1,9 @@
 {
-  "fetchedAt": "2026-11-23T10:53:55.572Z",
+  "fetchedAt": "2026-11-24T10:47:00.536Z",
   "source": "https://api.sleeper.app/v1",
   "state": {
     "season": "2026",
-    "week": 11,
+    "week": 12,
     "season_type": "regular"
   },
   "leagues": {
@@ -374,7 +374,6 @@
         "idp_tkl_ast": 0.5
       },
       "playerIds": [
-        "nfl_10218",
         "nfl_10232",
         "nfl_10859",
         "nfl_11584",
@@ -403,14 +402,14 @@
         "nfl_6813",
         "nfl_11584",
         "nfl_6794",
-        "nfl_9487",
+        "nfl_6801",
         "nfl_10859",
         "nfl_13345",
-        "nfl_7594",
+        "nfl_9487",
         "nfl_7042",
         "DEN",
         "nfl_13363",
-        "nfl_11727",
+        "nfl_12578",
         "nfl_8392",
         "nfl_8267"
       ],

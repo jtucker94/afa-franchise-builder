@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-23T10:53:55.572Z",
+  "fetchedAt": "2026-11-24T10:47:00.536Z",
   "ok": true,
   "coreOk": true,
   "pieces": {
@@ -10,7 +10,7 @@
     "state": {
       "ok": true,
       "season": "2026",
-      "week": 11,
+      "week": 12,
       "season_type": "regular"
     },
     "leagues": {
@@ -21,7 +21,7 @@
         "owner": "jtuck94"
       },
       "dd": {
-        "players": 23,
+        "players": 22,
         "starters": 14,
         "owner": "jtuck94"
       }
@@ -35,7 +35,7 @@
           "url": "https://www.espn.com/espn/rss/nfl/news",
           "httpStatus": 200,
           "contentType": "text/xml;charset=UTF-8",
-          "bodyBytes": 17524,
+          "bodyBytes": 15122,
           "bodyStart": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:sy=\"http://purl.org/rss/1.0/modules/syndication/\" xml",
           "parsed": 25
         }
@@ -43,24 +43,24 @@
     },
     "NCAAF": {
       "ok": true,
-      "headlines": 18,
+      "headlines": 20,
       "source": "ESPN public college football RSS",
       "attempts": [
         {
           "url": "https://www.espn.com/espn/rss/ncf/news",
           "httpStatus": 200,
           "contentType": "text/xml;charset=UTF-8",
-          "bodyBytes": 10834,
+          "bodyBytes": 12299,
           "bodyStart": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><rss version=\"2.0\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:sy=\"http://purl.org/rss/1.0/modules/syndication/\" xml",
-          "parsed": 18
+          "parsed": 20
         }
       ]
     },
     "news": {
       "ok": true,
       "stale": false,
-      "fetchedAt": "2026-11-23T10:53:55.572Z",
-      "freshHeadlines": 43,
+      "fetchedAt": "2026-11-24T10:47:00.536Z",
+      "freshHeadlines": 45,
       "kept": 0
     },
     "availability": {
