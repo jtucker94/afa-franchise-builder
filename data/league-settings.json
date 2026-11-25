@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-24T10:47:00.536Z",
+  "fetchedAt": "2026-11-25T10:48:46.895Z",
   "source": "https://api.sleeper.app/v1",
   "state": {
     "season": "2026",
@@ -218,6 +218,7 @@
         "nfl_13287",
         "nfl_13298",
         "nfl_13345",
+        "nfl_13360",
         "nfl_13377",
         "nfl_13388",
         "nfl_13453",
@@ -232,18 +233,17 @@
         "nfl_8155",
         "nfl_8349",
         "nfl_8395",
-        "nfl_8396",
         "nfl_9482",
         "nfl_9509"
       ],
       "starters": [
         "nfl_4046",
+        "nfl_9509",
         "nfl_13345",
-        "nfl_8155",
         "nfl_8137",
-        "nfl_13279",
-        "nfl_9482",
         "nfl_12540",
+        "nfl_10236",
+        "nfl_8155",
         "nfl_13264",
         "nfl_6650",
         "nfl_10892",
@@ -256,7 +256,7 @@
         "nfl_12605",
         "nfl_13517",
         "nfl_13388",
-        "nfl_8396"
+        "nfl_12597"
       ],
       "note": "settings.type is stored as Sleeper returned it. This file does not translate that integer into redraft or dynasty."
     },
@@ -377,6 +377,7 @@
         "nfl_10232",
         "nfl_10859",
         "nfl_11584",
+        "nfl_11705",
         "nfl_11727",
         "nfl_12512",
         "nfl_12534",
@@ -393,7 +394,6 @@
         "nfl_7594",
         "nfl_7611",
         "nfl_8267",
-        "nfl_8392",
         "nfl_9487",
         "DEN"
       ],
@@ -410,7 +410,7 @@
         "DEN",
         "nfl_13363",
         "nfl_12578",
-        "nfl_8392",
+        "nfl_0",
         "nfl_8267"
       ],
       "note": "settings.type is stored as Sleeper returned it. This file does not translate that integer into redraft or dynasty."
