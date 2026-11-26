@@ -1,5 +1,5 @@
 {
-  "fetchedAt": "2026-11-25T10:48:46.895Z",
+  "fetchedAt": "2026-11-26T10:49:27.859Z",
   "source": "https://api.sleeper.app/v1",
   "state": {
     "season": "2026",
@@ -223,6 +223,7 @@
         "nfl_13388",
         "nfl_13453",
         "nfl_13517",
+        "nfl_13555",
         "nfl_4046",
         "nfl_5850",
         "nfl_6650",
@@ -231,9 +232,7 @@
         "nfl_7647",
         "nfl_8137",
         "nfl_8155",
-        "nfl_8349",
         "nfl_8395",
-        "nfl_9482",
         "nfl_9509"
       ],
       "starters": [
@@ -249,13 +248,13 @@
         "nfl_10892",
         "nfl_10898",
         "nfl_13377",
-        "nfl_8349",
+        "nfl_13388",
         "nfl_13453",
         "nfl_6949",
         "nfl_8395",
-        "nfl_12605",
+        "nfl_13360",
         "nfl_13517",
-        "nfl_13388",
+        "nfl_7647",
         "nfl_12597"
       ],
       "note": "settings.type is stored as Sleeper returned it. This file does not translate that integer into redraft or dynasty."
