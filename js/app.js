@@ -4242,58 +4242,51 @@
       `<div class="home-star" data-scout="${p.id}" data-player-id="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> <strong data-profile="${p.id}">${p.name}</strong> <span class="pos-pill pos-${p.pos}">${p.pos}</span> <span class="${ovrClass(p.ovr)}">${p.ovr}</span></div>`
     ).join("") || `<p class="help">No roster yet.</p>`;
 
+    const weeks = state.schedule || [];
+    let scoreWeek = null;
+    let scoreLabel = "This week";
+    for (let i = weeks.length - 1; i >= 0; i--) {
+      if ((weeks[i] || []).some((g) => g.played)) { scoreWeek = weeks[i]; scoreLabel = "Week " + (i + 1) + " scores"; break; }
+    }
+    if (!scoreWeek) {
+      const idx = Math.max(0, (state.week || 1) - 1);
+      scoreWeek = weeks[idx] || [];
+      scoreLabel = "Week " + (idx + 1) + " upcoming";
+    }
+    let yourScore = "Your club has not played yet.";
+    const scoreLines = (scoreWeek || []).map((g) => {
+      const h = teamById(g.home);
+      const a = teamById(g.away);
+      const mine = state.userTeamId && (g.home === state.userTeamId || g.away === state.userTeamId);
+      if (mine && g.played) yourScore = displayName(a) + " " + g.as + ", " + displayName(h) + " " + g.hs + ". Simulated AFA score.";
+      const line = g.played ? (a.abbr + " " + g.as + "–" + g.hs + " " + h.abbr) : (a.abbr + " at " + h.abbr);
+      return `<div class="score-line${mine ? " you" : ""}">${line}</div>`;
+    }).join("");
+    const news = rec.w + rec.l + rec.t
+      ? (displayName(team) + " are " + rec.w + "–" + rec.l + (rec.t ? "–" + rec.t : "") + " after simulated AFA games.")
+      : "No simulated headlines yet. Play a week to fill the wire.";
     return `<div class="league-home">
       ${leagueDeskHTML(team)}
-      <div class="home-study" role="navigation" aria-label="Real NFL study">
-        <button type="button" class="study-card" id="btn-hub-players"><span class="eyebrow">Directory</span><strong>Players</strong><span>Real NFL teams, stats, and photos.</span></button>
-        <button type="button" class="study-card" id="btn-hub-scouting"><span class="eyebrow">Workspace</span><strong>Scouting</strong><span>NFL grades, plus OGFFL or Dynasty kept apart.</span></button>
-      </div>
-      <div class="home-hero" style="--club:${team.primary}">
-        <div class="home-hero-main">
-          ${logoImg(team, "lg")}
-          <div>
-            <div class="eyebrow">AFA Franchise · ${(state.seasonYear || 2027) - 1} season</div>
-            <h1>${displayName(team)}</h1>
-            <div class="help">${team.conference} · ${team.division}${hc ? " · HC " + hc.name : ""}</div>
-            <div class="home-rec">${rec.w}-${rec.l}${rec.t ? "-" + rec.t : ""} · Roster ${roster.length} · Avg ${avg} OVR</div>
-          </div>
-        </div>
-        <div class="home-hero-next">${nextHtml}</div>
-      </div>
-      ${collegeCtaHTML()}
       <div class="home-actions">
-        <button class="btn btn-primary" data-home-tab="lineup">Set Lineup</button>
-        <button class="btn btn-primary" data-home-tab="trades">Propose Trade</button>
-        <button class="btn" data-home-tab="roster">Edit Roster</button>
+        <button class="btn btn-primary" data-home-tab="lineup">Depth Chart</button>
+        <button class="btn btn-primary" data-home-tab="roster">Roster</button>
+        <button class="btn" data-home-tab="trades">Trades</button>
         <button class="btn" data-home-tab="signings">Free Agency</button>
-        <button class="btn" data-home-tab="slate">View Schedule</button>
+        <button class="btn" data-home-tab="slate">Schedule</button>
+        <button class="btn" data-home-tab="standings">Standings</button>
         <button class="btn btn-live" data-home-tab="sim">Play Week</button>
       </div>
+      ${nextHtml}
       <div class="home-grid">
         <div class="panel">
-          <div class="panel-h"><strong>Top talent</strong><span class="help">Tap for scout card</span></div>
-          <div class="panel-b home-stars">${starHtml}</div>${picksHtml}
+          <div class="panel-h"><strong>${scoreLabel}</strong><span class="help">Simulated AFA</span></div>
+          <div class="panel-b score-board">${scoreLines || "<p class='help'>No slate yet.</p>"}<p class="help">${yourScore}</p></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><strong>GM desk</strong></div>
-          <div class="panel-b">
-            <p class="help">Madden-style franchise hub. Build your lineup, swing trades, sign free agents, then sim the week when you’re ready.</p>
-            <ul class="home-checklist">
-              <li>Review depth on <strong>Lineup</strong></li>
-              <li>Shop the board on <strong>Trades</strong> / <strong>Free Agency</strong></li>
-              <li>Advance the season from <strong>Play Week</strong></li>
-            </ul>
-          </div>
+          <div class="panel-h"><strong>AFA news</strong><span class="help">Simulated</span></div>
+          <div class="panel-b"><p>${news}</p>${collegeCtaHTML()}</div>
         </div>
       </div>
-      <details class="chart-panel" open>
-        <summary>Positional strength <span class="help">top-3 avg OVR by spot</span></summary>
-        <div class="chart-body">${svgPosBars(team.id)}</div>
-      </details>
-      <details class="chart-panel">
-        <summary>Season trend <span class="help">W-L · points for/against</span></summary>
-        <div class="chart-body">${seasonTrendSVG(team.id)}</div>
-      </details>
     </div>`;
   }
 
