@@ -5810,6 +5810,27 @@
     renderHub();
   }
 
+  function queueTrade(pid) {
+    const from = Object.keys(state.rosters || {}).find((tid) => (state.rosters[tid] || []).indexOf(pid) >= 0);
+    if (!from) { toast("That player is not on a roster to trade."); return; }
+    ui.hubTab = "trades";
+    ui.offer = [];
+    ui.ask = [];
+    ui.offerPicks = [];
+    ui.askPicks = [];
+    if (!state.userTeamId || from === state.userTeamId || state.mode !== "single") {
+      ui.tradeLeft = state.userTeamId || from;
+      ui.offer = [pid];
+      ui.tradeRight = TEAMS.map((t) => t.id).find((id) => id !== ui.tradeLeft) || ui.tradeLeft;
+    } else {
+      ui.tradeLeft = state.userTeamId;
+      ui.tradeRight = from;
+      ui.ask = [pid];
+    }
+    showScreen("hub");
+    renderHub();
+  }
+
   function signPlayer(teamId, pid) {
     if (state.mode === "single" && teamId !== state.userTeamId) {
       toast("Switch to your franchise to sign.");
@@ -6093,7 +6114,7 @@
     },
     seedGradesAndContracts, simRestOfSeason, endSeasonRecalibrate, simGame, legacySimGame,
     ensureStadiums, ensureDynasty, dynastyEndSeason, stadiumOffseason, runPlayoffs, playoffResult, ensureCoachPool, clearLeagueInjuries, hireReplacementCoach, refillRostersFromFA, rebuildFreeAgency, syncCoachToDynasty, watchLiveGame, picksOwnedBy, ensurePicks, generateSchedule, validateSchedule, SEASON_WEEKS, GAMES_PER_TEAM,
-    teamCapHit, playerTradeValue, getState: () => state, getUi: () => ui, showScoutCard, hideScoutCard, bindScoutHover,
+    teamCapHit, playerTradeValue, cutPlayer, signPlayer, queueTrade, getState: () => state, getUi: () => ui, showScoutCard, hideScoutCard, bindScoutHover,
     foldStatLines, teamPower, AFA_CAP, hashStr, TEAMS: () => TEAMS, rosterOf, playerById
   };
 
