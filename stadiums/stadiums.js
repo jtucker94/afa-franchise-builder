@@ -43,9 +43,24 @@
 
   function cityData(teamId) { return BY_ID[teamId]; }
 
+  const PARKS = {
+    prov: "Narragansett Yard", hart: "Charter Oak Stadium", alb: "Hudson Gate", syr: "Salt City Bowl",
+    sav: "River Street Field", chs: "Battery Park Stadium", wilm: "Cape Fear Field", ral: "Oakwood Stadium",
+    ash: "Blue Ridge Bowl", knx: "Smoky Gap Field", bir: "Red Mountain Stadium", mob: "Bayfront Field",
+    lou: "Ohio Falls Stadium", lex: "Bluegrass Bowl", gso: "Gate City Field", roc: "Genesee Gate",
+    spk: "Falls View Stadium", eug: "Willamette Field", boi: "Table Rock Stadium", anc: "Cook Inlet Field",
+    tuc: "Sonoran Bowl", sfe: "Plaza View Stadium", elp: "Franklin Mountain Field", ren: "Truckee Meadows Stadium",
+    cos: "Pikes Peak Field", bil: "Rimrock Stadium", far: "Red River Field", sxf: "Falls Park Stadium",
+    fre: "Valley Fig Field", bak: "Kern River Stadium", oma: "Missouri River Field", dsm: "Capitol View Stadium"
+  };
+  function parkName(teamId) {
+    const c = BY_ID[teamId];
+    return PARKS[teamId] || (c && c.city ? c.city + " Field" : "AFA Field");
+  }
+
   function defaultStadium(teamId, name) {
     const c = BY_ID[teamId];
-    return { teamId, name: name || "AFA Field", namingRights: false, roof: c.climateCold > 0.8 ? "dome" : "open", bowl: "bowl",
+    return { teamId, name: name || parkName(teamId), namingRights: false, roof: c.climateCold > 0.8 ? "dome" : "open", bowl: "bowl",
       surface: "grass", board: "basic", suites: Math.round(30 + 50 * c.marketNorm), clubSeats: Math.round((2000 + 4000 * c.marketNorm) / 100) * 100, ticketPrice: 85, baseCapacity: c.baseCapacity,
       addedCapacity: 0, built: [], pending: [], cash: 40e6, seasons: [], fanGrowth: 0 };
   }
@@ -425,7 +440,7 @@
     const a = attendance(s, {}); return { capacity: a.capacity, attendance: a.attendance, fill: a.fill, loyalty: Math.round(s.fans.loyalty), fansK: dynastyFans(s) };
   }
 
-  const API = { DATA, ROOFS, BOWLS, SURFACES, BOARDS, UPGRADES, TIER_REVENUE, CAPS, NOISE_RECORD, cityData, defaultStadium, capacity, attendance,
+  const API = { DATA, ROOFS, BOWLS, SURFACES, BOARDS, UPGRADES, TIER_REVENUE, CAPS, NOISE_RECORD, cityData, parkName, defaultStadium, capacity, attendance,
     gameRevenue, seasonRevenue, noiseDb, noiseIndex, noiseEffects, gameDay, rollVisitorPenalties, unlockedTier, availableUpgrades,
     startUpgrade, endSeason, faAppeal, cpuPersonality, cpuOffseason, leagueTable, initLeague,
     attendanceLegacy, ensureFans, fairPrices, priceRatio, setPrices, setFairPrices, fanEvent, investCommunity, recordHomeGame, fanOffseason,

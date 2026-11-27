@@ -1974,7 +1974,11 @@
     if (!window.AFAStadiums) return null;
     if (!state.stadiums) state.stadiums = AFAStadiums.initLeague(TEAMS.map((t) => t.id));
     TEAMS.forEach((t) => {
-      if (!state.stadiums[t.id]) state.stadiums[t.id] = AFAStadiums.defaultStadium(t.id, displayName(t));
+      if (!state.stadiums[t.id]) state.stadiums[t.id] = AFAStadiums.defaultStadium(t.id);
+      const st = state.stadiums[t.id];
+      if (st && !st.namingRights && (!st.name || st.name === "AFA Field" || st.name === displayName(t))) {
+        st.name = AFAStadiums.parkName ? AFAStadiums.parkName(t.id) : st.name;
+      }
     });
     if (typeof AFAStadiums.registerLeague === "function") AFAStadiums.registerLeague(state.stadiums);
     if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.stadiums = AFAStadiums;
