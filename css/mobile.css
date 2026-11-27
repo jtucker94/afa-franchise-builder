@@ -361,16 +361,17 @@
     scroll-snap-type: none;
   }
   .hub-nav::after { display: none; }
-  .hub-nav .btn {
-    flex: unset;
+  .hub-nav .btn,
+  .hub-nav > .nav-drop > summary {
+    flex: 0 0 auto;
     max-width: none;
-    min-width: 0;
+    min-width: max-content;
     width: auto;
     font-size: 14px;
     letter-spacing: 0;
     padding: 8px 10px;
     min-height: 44px;
-    white-space: normal;
+    white-space: nowrap;
     overflow: visible;
     text-overflow: clip;
     scroll-snap-align: unset;
@@ -853,12 +854,15 @@
   #screen-hub .nav-drop-panel { left: 100%; top: 0; }
   #screen-hub .hub-nav-group { display: flex; flex-direction: column; gap: 2px; }
   #screen-hub .hub-nav-label { margin: 8px 4px 2px; }
-  #screen-hub .hub-nav .btn {
+  #screen-hub .hub-nav .btn,
+  #screen-hub .hub-nav > .nav-drop > summary {
     min-height: 44px;
     width: 100%;
+    min-width: 0;
     max-width: none;
     font-size: 13px;
     padding: 4px 8px;
+    white-space: normal;
   }
   #screen-hub #hub-body {
     grid-column: 2;

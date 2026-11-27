@@ -76,11 +76,25 @@ function parseRss(xml, feed) {
   return items;
 }
 
+function httpsUrl(href) {
+  if (typeof href !== "string") return null;
+  if (href.startsWith("https://")) return href;
+  if (/^http:\/\/((?:www|m)\.espn\.com|m\.espn\.go\.com)\//i.test(href)) return "https://" + href.slice("http://".length);
+  return null;
+}
+
 function articleUrl(article) {
   const links = article && article.links;
   if (!links) return null;
-  if (typeof links.href === "string" && links.href.startsWith("https://")) return links.href;
-  if (links.web && typeof links.web.href === "string" && links.web.href.startsWith("https://")) return links.web.href;
+  const candidates = [
+    links.web && links.web.href,
+    typeof links.href === "string" ? links.href : null,
+    links.mobile && links.mobile.href
+  ];
+  for (const href of candidates) {
+    const url = httpsUrl(href);
+    if (url) return url;
+  }
   return null;
 }
 

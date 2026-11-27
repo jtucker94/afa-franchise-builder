@@ -315,8 +315,12 @@ try {
   status.steps.directory = directory;
   if (!directory || directory.headers < 3) throw new Error("players workspace has no sortable columns");
   if (!/Data as of/.test(directory.asOf || "")) throw new Error("players workspace has no data-as-of label");
-  if (!/out of date/i.test(directory.stale || "")) throw new Error("stale snapshot did not warn");
-  if (String(directory.status || "").toLowerCase() === "healthy") throw new Error("stale status was shown as healthy");
+  const refresh = JSON.parse(fs.readFileSync(new URL("../data/refresh-status.json", import.meta.url), "utf8"));
+  const snapStale = Date.now() - new Date(refresh.fetchedAt).getTime() > 36 * 60 * 60 * 1000;
+  const warned = /out of date/i.test(directory.stale || "");
+  if (snapStale && !warned) throw new Error("stale snapshot did not warn");
+  if (!snapStale && warned) throw new Error("fresh snapshot warned that it was old");
+  if (snapStale && String(directory.status || "").toLowerCase() === "healthy") throw new Error("stale status was shown as healthy");
   await evalJson("JSON.stringify((function(){var s=document.getElementById('dir-sort'); if(s){s.value='age:asc'; s.dispatchEvent(new Event('change'));} return true;})())");
   await wait(300);
   await metrics(390, 844);
@@ -326,8 +330,9 @@ try {
   await metrics(1280, 900);
   const directoryDesktop = await evalJson("JSON.stringify({asOf:(document.getElementById('data-as-of')||{}).textContent||'', stale:(document.getElementById('data-stale')||{}).textContent||'', healthy:Array.from(document.querySelectorAll('#dir-list td')).some(function(td){return /^healthy$/i.test(td.textContent.trim());})})");
   status.steps.directoryDesktop = directoryDesktop;
-  if (!directoryDesktop || !/Data as of/.test(directoryDesktop.asOf || "") || !/out of date/i.test(directoryDesktop.stale || "")) throw new Error("desktop players view lost the freshness label");
-  if (directoryDesktop.healthy) throw new Error("desktop stale status was shown as healthy");
+  const deskWarned = /out of date/i.test((directoryDesktop && directoryDesktop.stale) || "");
+  if (!directoryDesktop || !/Data as of/.test(directoryDesktop.asOf || "") || deskWarned !== snapStale) throw new Error("desktop players view lost the freshness label");
+  if (snapStale && directoryDesktop.healthy) throw new Error("desktop stale status was shown as healthy");
   await shot("directory-sorted-desktop");
 
   await send("Page.navigate", { url: "http://127.0.0.1:8765/?screen=scouting" }, sessionId);
@@ -338,9 +343,11 @@ try {
     if (scouting && /Data as of/.test(scouting.asOf || "") && scouting.unknown) break;
   }
   status.steps.scouting = scouting;
+  const scoutWarned = /out of date/i.test((scouting && scouting.stale) || "");
   if (!scouting || !/Data as of/.test(scouting.asOf || "")) throw new Error("scouting has no data-as-of label");
-  if (!/out of date/i.test(scouting.stale || "")) throw new Error("scouting stale snapshot did not warn");
-  if (!scouting.unknown || scouting.healthy) throw new Error("league roster status was not unknown");
+  if (snapStale && !scoutWarned) throw new Error("scouting stale snapshot did not warn");
+  if (!snapStale && scoutWarned) throw new Error("scouting fresh snapshot warned that it was old");
+  if (snapStale && (!scouting.unknown || scouting.healthy)) throw new Error("league roster status was not unknown");
   await shot("scouting-roster-desktop");
   await metrics(390, 844);
   await shot("scouting-roster-iphone");
