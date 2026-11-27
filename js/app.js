@@ -391,6 +391,42 @@
 
   function $(id) { return document.getElementById(id); }
 
+  const CLUB_STATE = {
+    prov: "Rhode Island", hart: "Connecticut", alb: "New York", syr: "New York",
+    sav: "Georgia", chs: "South Carolina", wilm: "North Carolina", ral: "North Carolina",
+    ash: "North Carolina", knx: "Tennessee", bir: "Alabama", mob: "Alabama",
+    lou: "Kentucky", lex: "Kentucky", gso: "North Carolina", roc: "New York",
+    spk: "Washington", eug: "Oregon", boi: "Idaho", anc: "Alaska",
+    tuc: "Arizona", sfe: "New Mexico", elp: "Texas", ren: "Nevada",
+    cos: "Colorado", bil: "Montana", far: "North Dakota", sxf: "South Dakota",
+    fre: "California", bak: "California", oma: "Nebraska", dsm: "Iowa"
+  };
+
+  function updateClubBar() {
+    const bar = $("club-bar");
+    if (!bar) return;
+    const active = document.querySelector(".screen.active");
+    const screenId = active && active.id;
+    const hideOn = { "screen-boot": 1, "screen-menu": 1, "screen-mode": 1, "screen-story": 1 };
+    const id = (ui && (ui.viewTeamId || (state && state.userTeamId))) || (state && state.userTeamId) || null;
+    const team = id && typeof teamById === "function" ? teamById(id) : null;
+    if (!team || !screenId || hideOn[screenId]) { bar.hidden = true; return; }
+    bar.hidden = false;
+    const name = $("club-bar-name");
+    const place = $("club-bar-place");
+    const recEl = $("club-bar-rec");
+    const logo = $("club-bar-logo");
+    if (name) name.textContent = team.city + " " + team.nick;
+    if (place) place.textContent = team.city + (CLUB_STATE[team.id] ? ", " + CLUB_STATE[team.id] : "");
+    let rec = { w: 0, l: 0, t: 0 };
+    try { rec = (records()[team.id]) || rec; } catch (e) {}
+    if (recEl) recEl.textContent = rec.w + "–" + rec.l + (rec.t ? "–" + rec.t : "");
+    if (logo) {
+      if (team.logo) { logo.src = "logos/" + team.logo; logo.alt = ""; logo.hidden = false; }
+      else logo.hidden = true;
+    }
+  }
+
   function syncTeamTheme() {
     if (!window.AFATheme) return;
     const id = (ui && (ui.viewTeamId || (state && state.userTeamId))) || null;
@@ -416,6 +452,7 @@
     }
     updateDraftRoomFab();
     syncTeamTheme();
+    try { updateClubBar(); } catch (e) {}
     if (window.AFANewsTicker && AFANewsTicker.onScreen) {
       try { AFANewsTicker.onScreen(); } catch (e) {}
     }
@@ -3929,6 +3966,7 @@
 
     bindHubEvents();
     bindScoutHover(body);
+    try { updateClubBar(); } catch (e) {}
   }
 
 

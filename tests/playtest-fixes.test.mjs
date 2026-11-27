@@ -22,6 +22,7 @@ check(!/"ovr": 98/.test(lb), "LB Jefferson overall still matches the old shared 
 check(app.includes("function removeFromAllRosters") && app.includes("ensureRoster(teamId).push(pid)"), "signings do not write the live roster");
 check(app.includes("state.depthOrders") && app.includes("function moveDepth"), "depth chart edits are not saved");
 check(app.includes("data-slate-week") && app.includes("function slateWeekNumber"), "schedule cannot browse weeks");
+check(app.includes("id=\"club-bar\"") === false && app.includes("function updateClubBar") && app.includes("Rhode Island"), "club header is missing");
 check(app.includes("ui.slateWeek = n") && !app.includes("state.week = n"), "browsing a week simulates or changes the league week");
 
 import vm from "vm";
