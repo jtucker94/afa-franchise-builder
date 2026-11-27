@@ -3509,11 +3509,10 @@
     h = Math.max(3, Math.min(55, Math.round(h * 0.92 + 2)));
     a = Math.max(3, Math.min(55, Math.round(a * 0.92 + 2)));
     if (h === a) {
-      // Overtime — sudden-death-ish; ~18% of remaining ties stay tied after OT rare
-      if (Math.random() < 0.55) h += (Math.random() < 0.5 ? 3 : 6);
-      else if (Math.random() < 0.55) a += (Math.random() < 0.5 ? 3 : 6);
-      else if (Math.random() > 0.12) { if (Math.random() < 0.5) h += 3; else a += 3; }
-      // else true tie after OT
+      const settle = window.AFAGameDay && AFAGameDay.settleTiedScore;
+      const settled = settle ? settle(h, a, Math.random, hp - ap) : { home: h + 3, away: a, stayedTied: false };
+      h = settled.home;
+      a = settled.away;
       g.overtime = true;
     }
     g.hs = h; g.as = a; g.played = true;

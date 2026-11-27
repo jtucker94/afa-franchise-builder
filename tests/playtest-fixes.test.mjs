@@ -22,6 +22,22 @@ check(!/"ovr": 98/.test(lb), "LB Jefferson overall still matches the old shared 
 check(app.includes("function removeFromAllRosters") && app.includes("ensureRoster(teamId).push(pid)"), "signings do not write the live roster");
 check(app.includes("state.depthOrders") && app.includes("function moveDepth"), "depth chart edits are not saved");
 
+import vm from "vm";
+const sandbox = { window: {}, console };
+sandbox.window = sandbox;
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(root + "gameday/engine.js", "utf8"), sandbox);
+const settle = sandbox.AFAGameDay.settleTiedScore;
+let ties = 0;
+const rnd = (() => { let s = 2026; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; })();
+for (let i = 0; i < 2720; i++) {
+  const out = settle(20, 20, rnd, 0);
+  if (out.stayedTied) ties++;
+  else if (out.home === out.away) ties++;
+}
+check(ties >= 10 && ties <= 120, "tie rate " + ties + " over 2720 tied arrivals is outside about 0-2 per season");
+check(settle(24, 17, rnd, 0).stayedTied === false, "a decided game was turned into a tie");
+
 if (failures.length) {
   console.error("FAILED " + failures.length);
   failures.forEach((msg) => console.error(" - " + msg));
