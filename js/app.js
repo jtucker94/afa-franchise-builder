@@ -58,7 +58,8 @@
     defFormation: "base43",
     stFormation: "fg",
     replayView: "aerial",
-    tableSort: {}
+    tableSort: {},
+    slateWeek: null
   };
 
   function freshState() {
@@ -131,7 +132,8 @@
       defFormation: ui.defFormation || "base43",
       stFormation: ui.stFormation || "fg",
       replayView: ui.replayView || "aerial",
-      viewTeamId: ui.viewTeamId || null
+      viewTeamId: ui.viewTeamId || null,
+      slateWeek: ui.slateWeek || null
     };
   }
 
@@ -3835,6 +3837,7 @@
     }
     save();
     shopCpuWeek();
+    ui.slateWeek = state.week;
     ui.hubTab = "slate";
     renderHub();
   }
@@ -4482,12 +4485,28 @@
     return `<div class="standings-wrap"><p class="help">Simulated AFA season. Tiebreakers are wins, head-to-head, point differential, then points scored.</p>${confHTML}${bracket}</div>`;
   }
 
+  function slateWeekNumber() {
+    const max = Math.max(1, (state.schedule && state.schedule.length) || SEASON_WEEKS);
+    let n = Number(ui.slateWeek) || Number(state.week) || 1;
+    if (n < 1) n = 1;
+    if (n > max) n = max;
+    return n;
+  }
+
   function renderSlateHTML() {
-    const idx = Math.min(state.week, SEASON_WEEKS) - 1;
-    const week = state.schedule[idx] || [];
-    const label = state.seasonDone ? ("Week " + SEASON_WEEKS + " (final)") : "Week " + state.week;
+    const view = slateWeekNumber();
+    const current = state.seasonDone ? SEASON_WEEKS : (Number(state.week) || 1);
+    const week = (state.schedule && state.schedule[view - 1]) || [];
     const byes = week.byes || [];
-    return `<div class="panel-h"><strong>${label} slate</strong><span class="help">${week.length} games${byes.length ? " · Byes: " + byes.map((id) => teamById(id).abbr).join(", ") : ""}</span></div>
+    const place = view === current ? "Current week" : (view < current ? "Earlier week" : "Later week");
+    const simHere = view === current && !state.seasonDone && week.length;
+    return `<div class="panel-h slate-nav">
+      <button type="button" class="btn btn-sm" data-slate-week="${view - 1}" ${view <= 1 ? "disabled" : ""}>Previous week</button>
+      <strong>Week ${view} slate</strong>
+      <button type="button" class="btn btn-sm" data-slate-week="${view + 1}" ${view >= SEASON_WEEKS ? "disabled" : ""}>Next week</button>
+      <span class="help">${place}${state.seasonDone && view === SEASON_WEEKS ? " · Season final" : ""} · ${week.length} games${byes.length ? " · Byes: " + byes.map((id) => teamById(id).abbr).join(", ") : ""}</span>
+      ${simHere ? '<button type="button" class="btn btn-sm btn-live" id="btn-slate-sim">Simulate this week</button>' : ""}
+    </div>
       <div class="slate" style="margin-top:12px">
         ${week.map((g) => {
           const h = teamById(g.home); const a = teamById(g.away);
@@ -4999,6 +5018,16 @@
     const hubScout = $("btn-hub-scouting");
     if (hubPlayers) hubPlayers.onclick = openDirectory;
     if (hubScout) hubScout.onclick = openScouting;
+    document.querySelectorAll("[data-slate-week]").forEach((b) => {
+      b.onclick = () => {
+        const n = Number(b.getAttribute("data-slate-week"));
+        if (!n || n < 1 || n > SEASON_WEEKS) return;
+        ui.slateWeek = n;
+        renderHub();
+      };
+    });
+    const slateSim = $("btn-slate-sim");
+    if (slateSim) slateSim.onclick = () => simWeek();
     document.querySelectorAll("[data-home-tab]").forEach((b) => {
       b.onclick = () => {
         ui.hubTab = b.getAttribute("data-home-tab");

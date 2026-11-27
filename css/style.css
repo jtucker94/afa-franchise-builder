@@ -1194,6 +1194,8 @@ body.screen-scouting-active .workspace {
 .div-table tr.you td { background: rgba(224, 177, 69, 0.1); }
 .div-table .rec { font-family: var(--mono); }
 
+.slate-nav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.slate-nav .btn { min-height: 44px; }
 .slate { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
 .match {
   background: var(--panel);
