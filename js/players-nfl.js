@@ -651,7 +651,7 @@
     "sleeperId": "13524",
     "espnId": 5150249,
     "real": true,
-    "ovr": 98
+    "ovr": 67
   },
   {
     "id": "nfl_6794",

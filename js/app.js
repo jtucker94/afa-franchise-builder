@@ -58,12 +58,13 @@
     defFormation: "base43",
     stFormation: "fg",
     replayView: "aerial",
-    tableSort: {}
+    tableSort: {},
+    slateWeek: null
   };
 
   function freshState() {
     return {
-      version: "0.1.43",
+      version: "0.1.44",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -131,7 +132,8 @@
       defFormation: ui.defFormation || "base43",
       stFormation: ui.stFormation || "fg",
       replayView: ui.replayView || "aerial",
-      viewTeamId: ui.viewTeamId || null
+      viewTeamId: ui.viewTeamId || null,
+      slateWeek: ui.slateWeek || null
     };
   }
 
@@ -229,9 +231,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.43";
+      state.version = "0.1.44";
       const payload = {
-        version: "0.1.43",
+        version: "0.1.44",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +260,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.43","0.1.42","0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.44","0.1.43","0.1.42","0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.43";
+      state.version = "0.1.44";
       try { normalizeDraftLabels(); } catch (e) { console.warn("draft label migrate", e); }
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
@@ -389,6 +391,42 @@
 
   function $(id) { return document.getElementById(id); }
 
+  const CLUB_STATE = {
+    prov: "Rhode Island", hart: "Connecticut", alb: "New York", syr: "New York",
+    sav: "Georgia", chs: "South Carolina", wilm: "North Carolina", ral: "North Carolina",
+    ash: "North Carolina", knx: "Tennessee", bir: "Alabama", mob: "Alabama",
+    lou: "Kentucky", lex: "Kentucky", gso: "North Carolina", roc: "New York",
+    spk: "Washington", eug: "Oregon", boi: "Idaho", anc: "Alaska",
+    tuc: "Arizona", sfe: "New Mexico", elp: "Texas", ren: "Nevada",
+    cos: "Colorado", bil: "Montana", far: "North Dakota", sxf: "South Dakota",
+    fre: "California", bak: "California", oma: "Nebraska", dsm: "Iowa"
+  };
+
+  function updateClubBar() {
+    const bar = $("club-bar");
+    if (!bar) return;
+    const active = document.querySelector(".screen.active");
+    const screenId = active && active.id;
+    const hideOn = { "screen-boot": 1, "screen-menu": 1, "screen-mode": 1, "screen-story": 1 };
+    const id = (ui && (ui.viewTeamId || (state && state.userTeamId))) || (state && state.userTeamId) || null;
+    const team = id && typeof teamById === "function" ? teamById(id) : null;
+    if (!team || !screenId || hideOn[screenId]) { bar.hidden = true; return; }
+    bar.hidden = false;
+    const name = $("club-bar-name");
+    const place = $("club-bar-place");
+    const recEl = $("club-bar-rec");
+    const logo = $("club-bar-logo");
+    if (name) name.textContent = team.city + " " + team.nick;
+    if (place) place.textContent = team.city + (CLUB_STATE[team.id] ? ", " + CLUB_STATE[team.id] : "");
+    let rec = { w: 0, l: 0, t: 0 };
+    try { rec = (records()[team.id]) || rec; } catch (e) {}
+    if (recEl) recEl.textContent = rec.w + "–" + rec.l + (rec.t ? "–" + rec.t : "");
+    if (logo) {
+      if (team.logo) { logo.src = "logos/" + team.logo; logo.alt = ""; logo.hidden = false; }
+      else logo.hidden = true;
+    }
+  }
+
   function syncTeamTheme() {
     if (!window.AFATheme) return;
     const id = (ui && (ui.viewTeamId || (state && state.userTeamId))) || null;
@@ -414,6 +452,7 @@
     }
     updateDraftRoomFab();
     syncTeamTheme();
+    try { updateClubBar(); } catch (e) {}
     if (window.AFANewsTicker && AFANewsTicker.onScreen) {
       try { AFANewsTicker.onScreen(); } catch (e) {}
     }
@@ -438,8 +477,10 @@
   }
 
   function jerseyNum(p) {
-    if (!p || p.number == null || Number(p.number) === 0) return "—";
-    return String(Number(p.number));
+    if (!p || p.number == null || p.number === "") return "—";
+    const n = Number(p.number);
+    if (!Number.isFinite(n)) return "—";
+    return String(n);
   }
 
   function attrTone(n) {
@@ -484,7 +525,7 @@
         <div class="scout-id">
           ${window.AFASideline ? AFASideline.portrait(player, scoutPrimary(player), scoutSecondary(player)) : ""}
           <h3 class="name">${player.name}</h3>
-          <div class="meta">#${player.number || "—"} · ${player.pos} · Age ${player.age}</div>
+          <div class="meta">#${jerseyNum(player)} · ${player.pos} · Age ${player.age}</div>
           <div class="scout-grades">
             <div class="scout-grade pff"><span class="g-label">PFF</span><span class="g-val">—</span><span class="g-sub">Not on record</span></div>
             <div class="scout-grade madden"><span class="g-label">Madden NFL 27</span><span class="g-val">${madden ? madden.ovr : "—"}</span><span class="g-sub">${madden ? "list · " + madden.retrievedAt : "Not on record"}</span></div>
@@ -512,6 +553,22 @@
   }
 
   let scoutHideTimer = null;
+  function scrollSnapshots() {
+    const els = [];
+    const add = (el) => { if (el && els.indexOf(el) < 0) els.push(el); };
+    add(document.scrollingElement);
+    add(document.documentElement);
+    add(document.body);
+    document.querySelectorAll(".pool-scroll, .workspace, .screen.active, #draft-workspace, #hub-body, .apt-vp").forEach(add);
+    return els.map((el) => ({ el: el, top: el.scrollTop, left: el.scrollLeft }));
+  }
+  function restoreScrollSnapshots(snaps) {
+    (snaps || []).forEach((snap) => {
+      if (!snap.el) return;
+      if (snap.el.scrollTop !== snap.top) snap.el.scrollTop = snap.top;
+      if (snap.el.scrollLeft !== snap.left) snap.el.scrollLeft = snap.left;
+    });
+  }
   function placeScoutCard(card, clientX, clientY) {
     // Mobile uses CSS modal centering — don't fight it with inline coords
     const mobile = (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) ||
@@ -553,11 +610,20 @@
       card.insertBefore(close, card.firstChild);
       document.getElementById("scout-backdrop")?.classList.add("show");
     }
-    card.hidden = false;
-    card.classList.add("show");
     const cx = (evt && evt.clientX != null) ? evt.clientX : window.innerWidth / 2;
     const cy = (evt && evt.clientY != null) ? evt.clientY : window.innerHeight / 2;
-    requestAnimationFrame(() => placeScoutCard(card, cx, cy));
+    const snaps = scrollSnapshots();
+    card.style.top = Math.max(8, cy + 12) + "px";
+    card.style.left = Math.max(8, cx + 12) + "px";
+    card.hidden = false;
+    card.classList.add("show");
+    card.querySelectorAll("button, a").forEach((el) => { el.tabIndex = -1; });
+    placeScoutCard(card, cx, cy);
+    restoreScrollSnapshots(snaps);
+    requestAnimationFrame(() => {
+      placeScoutCard(card, cx, cy);
+      restoreScrollSnapshots(snaps);
+    });
   }
 
   function moveScoutCard(evt) {
@@ -1292,7 +1358,7 @@
       var hit = pools[i].filter(function (pk) { return pk && pk.playerId === player.id; })[0];
       if (hit) {
         var year = i === 0 && state.collegeDraft ? state.collegeDraft.year : state.lastCollegeDraft.year;
-        return (year || "College") + " college draft · " + spotLabel(recordOverall(hit));
+        return (year || "College") + " college scouting · " + spotLabel(recordOverall(hit));
       }
     }
     return "";
@@ -1908,7 +1974,11 @@
     if (!window.AFAStadiums) return null;
     if (!state.stadiums) state.stadiums = AFAStadiums.initLeague(TEAMS.map((t) => t.id));
     TEAMS.forEach((t) => {
-      if (!state.stadiums[t.id]) state.stadiums[t.id] = AFAStadiums.defaultStadium(t.id, displayName(t));
+      if (!state.stadiums[t.id]) state.stadiums[t.id] = AFAStadiums.defaultStadium(t.id);
+      const st = state.stadiums[t.id];
+      if (st && !st.namingRights && (!st.name || st.name === "AFA Field" || st.name === displayName(t))) {
+        st.name = AFAStadiums.parkName ? AFAStadiums.parkName(t.id) : st.name;
+      }
     });
     if (typeof AFAStadiums.registerLeague === "function") AFAStadiums.registerLeague(state.stadiums);
     if (window.AFABridge && window.AFABridge.hooks) window.AFABridge.hooks.stadiums = AFAStadiums;
@@ -2323,7 +2393,40 @@
   }
 
   function playersAtPos(teamId, pos) {
-    return rosterOf(teamId).filter((p) => p.pos === pos).sort((a, b) => b.ovr - a.ovr);
+    const roster = rosterOf(teamId).filter((p) => p.pos === pos);
+    const order = (state.depthOrders && state.depthOrders[teamId] && state.depthOrders[teamId][pos]) || [];
+    const rank = {};
+    order.forEach((id, i) => { rank[id] = i; });
+    return roster.slice().sort((a, b) => {
+      const ra = rank[a.id];
+      const rb = rank[b.id];
+      if (ra != null && rb != null) return ra - rb;
+      if (ra != null) return -1;
+      if (rb != null) return 1;
+      return (b.ovr || 0) - (a.ovr || 0);
+    });
+  }
+
+  function depthTeamId() {
+    if (document.querySelector("#screen-draft.active")) return draftFocusTeamId();
+    return viewTeamId();
+  }
+
+  function moveDepth(teamId, pos, pid, dir) {
+    if (!teamId || !pos || !pid) return;
+    const list = playersAtPos(teamId, pos).map((p) => p.id);
+    const i = list.indexOf(pid);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const swap = list[i];
+    list[i] = list[j];
+    list[j] = swap;
+    if (!state.depthOrders) state.depthOrders = {};
+    if (!state.depthOrders[teamId]) state.depthOrders[teamId] = {};
+    state.depthOrders[teamId][pos] = list;
+    save();
+    if (document.querySelector("#screen-draft.active")) renderDraft();
+    else renderHub();
   }
 
   function takeStarter(pool, used) {
@@ -2518,7 +2621,10 @@
         return `<div class="depth-slot${row.rank === 1 ? " starter" : ""}" data-scout="${row.player.id}" data-player-id="${row.player.id}">
           <span class="rank">${row.rank}</span>
           <span data-profile="${row.player.id}"><span class="jersey">#${jerseyNum(row.player)}</span> ${row.player.name}</span>
-          <span class="${ovrClass(row.player.ovr)}">${row.player.ovr}</span>
+          <span class="depth-move"><span class="${ovrClass(row.player.ovr)}">${row.player.ovr}</span>
+            <button type="button" class="btn btn-sm" data-depth-up="${row.player.id}" data-depth-pos="${row.player.pos}">Up</button>
+            <button type="button" class="btn btn-sm" data-depth-down="${row.player.id}" data-depth-pos="${row.player.pos}">Down</button>
+          </span>
         </div>`;
       }).join("");
       return `<div class="depth-card"><div class="dh">${card.tag} · ${card.label}</div>${body}</div>`;
@@ -2579,10 +2685,10 @@
     });
     const specialRows = lu.special.filter((s) => s.player).map((s) => Object.assign({}, s.player, { slot: s.slot }));
     const specialTable = playerTable("lineup-special", specialRows, [["slot", "Role"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"]], (pl) => `<tr data-player-id="${pl.id}"><td>${pl.slot}</td><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td></tr>`);
-    const benchRows = playerTable("lineup-bench", bench, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (pl) => `<tr data-player-id="${pl.id}"><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td><td>${pl.age}</td></tr>`, `<tr><td colspan="4" class="help">No bench players yet.</td></tr>`);
+    const benchRows = playerTable("lineup-bench", bench, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"], ["depth", "Depth"]], (pl) => `<tr data-player-id="${pl.id}"><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td><td>${pl.age}</td><td><button type="button" class="btn btn-sm" data-depth-up="${pl.id}" data-depth-pos="${pl.pos}">Move up</button></td></tr>`, `<tr><td colspan="5" class="help">No bench players yet.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
-        <h2>${displayName(team)} · Lineup${side === "offense" ? " · " + (lu.formLabel || lu.formation) : ""}</h2>
+        <h2>${displayName(team)} · Depth Chart${side === "offense" ? " · " + (lu.formLabel || lu.formation) : ""}</h2>
         <div class="lineup-toggle" id="lineup-side-toggle">
           <button class="btn btn-sm ${side === "offense" ? "on" : ""}" data-side="offense">Offense</button>
           <button class="btn btn-sm ${side === "defense" ? "on" : ""}" data-side="defense">Defense</button>
@@ -3446,11 +3552,10 @@
     h = Math.max(3, Math.min(55, Math.round(h * 0.92 + 2)));
     a = Math.max(3, Math.min(55, Math.round(a * 0.92 + 2)));
     if (h === a) {
-      // Overtime — sudden-death-ish; ~18% of remaining ties stay tied after OT rare
-      if (Math.random() < 0.55) h += (Math.random() < 0.5 ? 3 : 6);
-      else if (Math.random() < 0.55) a += (Math.random() < 0.5 ? 3 : 6);
-      else if (Math.random() > 0.12) { if (Math.random() < 0.5) h += 3; else a += 3; }
-      // else true tie after OT
+      const settle = window.AFAGameDay && AFAGameDay.settleTiedScore;
+      const settled = settle ? settle(h, a, Math.random, hp - ap) : { home: h + 3, away: a, stayedTied: false };
+      h = settled.home;
+      a = settled.away;
       g.overtime = true;
     }
     g.hs = h; g.as = a; g.played = true;
@@ -3773,6 +3878,7 @@
     }
     save();
     shopCpuWeek();
+    ui.slateWeek = state.week;
     ui.hubTab = "slate";
     renderHub();
   }
@@ -3835,7 +3941,7 @@
     const hc = coachById(state.coachAssign[vt.id]);
     $("hub-team-meta").innerHTML = `<strong>${displayName(vt)}</strong><div class="city">${vt.conference} · ${vt.division}${hc ? " · HC " + hc.name : ""}${state.dynasty && state.dynasty.coaches && state.dynasty.coaches[vt.id] ? " · " + state.dynasty.coaches[vt.id].offScheme + " / " + state.dynasty.coaches[vt.id].defScheme : ""}${state.sleeperImport && vt.id === state.userTeamId ? ` · <span class="import-badge">${state.sleeperImport.league} import</span>` : ""}</div>`;
 
-    $("hub-week-chip").textContent = state.collegeDraft ? (state.collegeDraft.year + " College Draft") : (state.seasonDone ? "Season final" : "Week " + state.week);
+    $("hub-week-chip").textContent = state.collegeDraft ? (state.collegeDraft.year + " College Scouting") : (state.seasonDone ? "Season final" : "Week " + state.week);
     document.querySelectorAll("#hub-nav [data-tab]").forEach((b) => {
       b.classList.toggle("on", b.getAttribute("data-tab") === ui.hubTab);
     });
@@ -3864,6 +3970,7 @@
 
     bindHubEvents();
     bindScoutHover(body);
+    try { updateClubBar(); } catch (e) {}
   }
 
 
@@ -4135,58 +4242,51 @@
       `<div class="home-star" data-scout="${p.id}" data-player-id="${p.id}"><span class="jersey">#${jerseyNum(p)}</span> <strong data-profile="${p.id}">${p.name}</strong> <span class="pos-pill pos-${p.pos}">${p.pos}</span> <span class="${ovrClass(p.ovr)}">${p.ovr}</span></div>`
     ).join("") || `<p class="help">No roster yet.</p>`;
 
+    const weeks = state.schedule || [];
+    let scoreWeek = null;
+    let scoreLabel = "This week";
+    for (let i = weeks.length - 1; i >= 0; i--) {
+      if ((weeks[i] || []).some((g) => g.played)) { scoreWeek = weeks[i]; scoreLabel = "Week " + (i + 1) + " scores"; break; }
+    }
+    if (!scoreWeek) {
+      const idx = Math.max(0, (state.week || 1) - 1);
+      scoreWeek = weeks[idx] || [];
+      scoreLabel = "Week " + (idx + 1) + " upcoming";
+    }
+    let yourScore = "Your club has not played yet.";
+    const scoreLines = (scoreWeek || []).map((g) => {
+      const h = teamById(g.home);
+      const a = teamById(g.away);
+      const mine = state.userTeamId && (g.home === state.userTeamId || g.away === state.userTeamId);
+      if (mine && g.played) yourScore = displayName(a) + " " + g.as + ", " + displayName(h) + " " + g.hs + ". Simulated AFA score.";
+      const line = g.played ? (a.abbr + " " + g.as + "–" + g.hs + " " + h.abbr) : (a.abbr + " at " + h.abbr);
+      return `<div class="score-line${mine ? " you" : ""}">${line}</div>`;
+    }).join("");
+    const news = rec.w + rec.l + rec.t
+      ? (displayName(team) + " are " + rec.w + "–" + rec.l + (rec.t ? "–" + rec.t : "") + " after simulated AFA games.")
+      : "No simulated headlines yet. Play a week to fill the wire.";
     return `<div class="league-home">
       ${leagueDeskHTML(team)}
-      <div class="home-study" role="navigation" aria-label="Real NFL study">
-        <button type="button" class="study-card" id="btn-hub-players"><span class="eyebrow">Directory</span><strong>Players</strong><span>Real NFL teams, stats, and photos.</span></button>
-        <button type="button" class="study-card" id="btn-hub-scouting"><span class="eyebrow">Workspace</span><strong>Scouting</strong><span>NFL grades, plus OGFFL or Dynasty kept apart.</span></button>
-      </div>
-      <div class="home-hero" style="--club:${team.primary}">
-        <div class="home-hero-main">
-          ${logoImg(team, "lg")}
-          <div>
-            <div class="eyebrow">AFA Franchise · ${(state.seasonYear || 2027) - 1} season</div>
-            <h1>${displayName(team)}</h1>
-            <div class="help">${team.conference} · ${team.division}${hc ? " · HC " + hc.name : ""}</div>
-            <div class="home-rec">${rec.w}-${rec.l}${rec.t ? "-" + rec.t : ""} · Roster ${roster.length} · Avg ${avg} OVR</div>
-          </div>
-        </div>
-        <div class="home-hero-next">${nextHtml}</div>
-      </div>
-      ${collegeCtaHTML()}
       <div class="home-actions">
-        <button class="btn btn-primary" data-home-tab="lineup">Set Lineup</button>
-        <button class="btn btn-primary" data-home-tab="trades">Propose Trade</button>
-        <button class="btn" data-home-tab="roster">Edit Roster</button>
+        <button class="btn btn-primary" data-home-tab="lineup">Depth Chart</button>
+        <button class="btn btn-primary" data-home-tab="roster">Roster</button>
+        <button class="btn" data-home-tab="trades">Trades</button>
         <button class="btn" data-home-tab="signings">Free Agency</button>
-        <button class="btn" data-home-tab="slate">View Schedule</button>
+        <button class="btn" data-home-tab="slate">Schedule</button>
+        <button class="btn" data-home-tab="standings">Standings</button>
         <button class="btn btn-live" data-home-tab="sim">Play Week</button>
       </div>
+      ${nextHtml}
       <div class="home-grid">
         <div class="panel">
-          <div class="panel-h"><strong>Top talent</strong><span class="help">Tap for scout card</span></div>
-          <div class="panel-b home-stars">${starHtml}</div>${picksHtml}
+          <div class="panel-h"><strong>${scoreLabel}</strong><span class="help">Simulated AFA</span></div>
+          <div class="panel-b score-board">${scoreLines || "<p class='help'>No slate yet.</p>"}<p class="help">${yourScore}</p></div>
         </div>
         <div class="panel">
-          <div class="panel-h"><strong>GM desk</strong></div>
-          <div class="panel-b">
-            <p class="help">Madden-style franchise hub. Build your lineup, swing trades, sign free agents, then sim the week when you’re ready.</p>
-            <ul class="home-checklist">
-              <li>Review depth on <strong>Lineup</strong></li>
-              <li>Shop the board on <strong>Trades</strong> / <strong>Free Agency</strong></li>
-              <li>Advance the season from <strong>Play Week</strong></li>
-            </ul>
-          </div>
+          <div class="panel-h"><strong>AFA news</strong><span class="help">Simulated</span></div>
+          <div class="panel-b"><p>${news}</p>${collegeCtaHTML()}</div>
         </div>
       </div>
-      <details class="chart-panel" open>
-        <summary>Positional strength <span class="help">top-3 avg OVR by spot</span></summary>
-        <div class="chart-body">${svgPosBars(team.id)}</div>
-      </details>
-      <details class="chart-panel">
-        <summary>Season trend <span class="help">W-L · points for/against</span></summary>
-        <div class="chart-body">${seasonTrendSVG(team.id)}</div>
-      </details>
     </div>`;
   }
 
@@ -4420,12 +4520,28 @@
     return `<div class="standings-wrap"><p class="help">Simulated AFA season. Tiebreakers are wins, head-to-head, point differential, then points scored.</p>${confHTML}${bracket}</div>`;
   }
 
+  function slateWeekNumber() {
+    const max = Math.max(1, (state.schedule && state.schedule.length) || SEASON_WEEKS);
+    let n = Number(ui.slateWeek) || Number(state.week) || 1;
+    if (n < 1) n = 1;
+    if (n > max) n = max;
+    return n;
+  }
+
   function renderSlateHTML() {
-    const idx = Math.min(state.week, SEASON_WEEKS) - 1;
-    const week = state.schedule[idx] || [];
-    const label = state.seasonDone ? ("Week " + SEASON_WEEKS + " (final)") : "Week " + state.week;
+    const view = slateWeekNumber();
+    const current = state.seasonDone ? SEASON_WEEKS : (Number(state.week) || 1);
+    const week = (state.schedule && state.schedule[view - 1]) || [];
     const byes = week.byes || [];
-    return `<div class="panel-h"><strong>${label} slate</strong><span class="help">${week.length} games${byes.length ? " · Byes: " + byes.map((id) => teamById(id).abbr).join(", ") : ""}</span></div>
+    const place = view === current ? "Current week" : (view < current ? "Earlier week" : "Later week");
+    const simHere = view === current && !state.seasonDone && week.length;
+    return `<div class="panel-h slate-nav">
+      <button type="button" class="btn btn-sm" data-slate-week="${view - 1}" ${view <= 1 ? "disabled" : ""}>Previous week</button>
+      <strong>Week ${view} slate</strong>
+      <button type="button" class="btn btn-sm" data-slate-week="${view + 1}" ${view >= SEASON_WEEKS ? "disabled" : ""}>Next week</button>
+      <span class="help">${place}${state.seasonDone && view === SEASON_WEEKS ? " · Season final" : ""} · ${week.length} games${byes.length ? " · Byes: " + byes.map((id) => teamById(id).abbr).join(", ") : ""}</span>
+      ${simHere ? '<button type="button" class="btn btn-sm btn-live" id="btn-slate-sim">Simulate this week</button>' : ""}
+    </div>
       <div class="slate" style="margin-top:12px">
         ${week.map((g) => {
           const h = teamById(g.home); const a = teamById(g.away);
@@ -4937,6 +5053,16 @@
     const hubScout = $("btn-hub-scouting");
     if (hubPlayers) hubPlayers.onclick = openDirectory;
     if (hubScout) hubScout.onclick = openScouting;
+    document.querySelectorAll("[data-slate-week]").forEach((b) => {
+      b.onclick = () => {
+        const n = Number(b.getAttribute("data-slate-week"));
+        if (!n || n < 1 || n > SEASON_WEEKS) return;
+        ui.slateWeek = n;
+        renderHub();
+      };
+    });
+    const slateSim = $("btn-slate-sim");
+    if (slateSim) slateSim.onclick = () => simWeek();
     document.querySelectorAll("[data-home-tab]").forEach((b) => {
       b.onclick = () => {
         ui.hubTab = b.getAttribute("data-home-tab");
@@ -5319,9 +5445,9 @@
     return `<div class="panel college-cta" style="margin:12px 0">
       <div class="panel-b" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <div style="flex:1;min-width:220px"><div class="eyebrow">Offseason</div>
-          <strong>${year} AFA College Draft</strong>
+          <strong>${year} AFA College Scouting</strong>
           <div class="help">${help}</div></div>
-        ${has ? `<button class="btn btn-primary" id="btn-enter-college">${state.collegeDraft ? "Resume" : "Enter"} AFA College Draft</button>` : `<button class="btn btn-primary" id="btn-skip-college">Skip to next season</button>`}
+        ${has ? `<button class="btn btn-primary" id="btn-enter-college">${state.collegeDraft ? "Resume" : "Enter"} AFA College Scouting</button>` : `<button class="btn btn-primary" id="btn-skip-college">Skip to next season</button>`}
       </div></div>`;
   }
   function startCollegeDraft() {
@@ -5405,7 +5531,7 @@
         state.leagueNews.unshift(AFAFranchise.headline({
           kind: "draft",
           week: state.week,
-          text: displayName(teamById(slot.ownerTeamId)) + " select " + (pl ? pl.name : "a prospect") + ". " + spotLabel(slot.overall) + ". Simulated AFA college draft."
+          text: displayName(teamById(slot.ownerTeamId)) + " select " + (pl ? pl.name : "a prospect") + ". " + spotLabel(slot.overall) + ". Simulated AFA college scouting."
         }));
         state.leagueNews = state.leagueNews.slice(0, 40);
       }
@@ -5497,7 +5623,7 @@
     ui.askPicks = [];
     ui.hubTab = "home";
     save();
-    let msg = skipped ? (year + " College Draft skipped") : (year + " College Draft complete");
+    let msg = skipped ? (year + " College Scouting skipped") : (year + " College Scouting complete");
     if (!skipped && unfilled > 0 && policy === "real") msg += ". Real class exhausted — " + unfilled + " picks unfilled. No fictional players were added";
     if (!skipped && policy === "generated") msg += " (fictional class, labeled)";
     toast(msg + " · " + state.seasonYear + " season underway");
@@ -5505,7 +5631,7 @@
   }
   function renderCollegeDraftHTML() {
     const cd = state.collegeDraft;
-    if (!cd) return collegeCtaHTML() || `<p class="help">No college draft in progress.</p>`;
+    if (!cd) return collegeCtaHTML() || `<p class="help">No college scouting in progress.</p>`;
     const slot = cd.order[cd.idx];
     if (!slot) return `<p class="help">Draft complete.</p>`;
     const team = teamById(slot.ownerTeamId);
@@ -5523,7 +5649,7 @@
       <div class="panel"><div class="panel-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         ${logoImg(team, "lg")}
         <div style="flex:1;min-width:220px">
-          <div class="eyebrow">${cd.year} AFA College Draft · ${mine ? "Your pick" : "CPU on the clock"}</div>
+          <div class="eyebrow">${cd.year} AFA College Scouting · ${mine ? "Your pick" : "CPU on the clock"}</div>
           <h2 style="margin:2px 0">${displayName(team)}</h2>
           <div class="help">${spotLabel(slot.overall)}${slot.originalTeamId !== slot.ownerTeamId ? " · via " + orig.city : ""}</div>
           ${myNext.length ? `<div class="help">Your picks: ${myNext.map((s) => "#" + s.overall).join(", ")}</div>` : ""}
@@ -5625,9 +5751,32 @@
     renderHub();
   }
 
+  function ensureRoster(teamId) {
+    if (!state.rosters) state.rosters = {};
+    if (!Array.isArray(state.rosters[teamId])) state.rosters[teamId] = [];
+    return state.rosters[teamId];
+  }
+
+  function scrubDepth(pid) {
+    const orders = state.depthOrders || {};
+    Object.keys(orders).forEach((tid) => {
+      Object.keys(orders[tid] || {}).forEach((pos) => {
+        orders[tid][pos] = (orders[tid][pos] || []).filter((id) => id !== pid);
+      });
+    });
+  }
+
+  function removeFromAllRosters(pid) {
+    Object.keys(state.rosters || {}).forEach((tid) => {
+      state.rosters[tid] = (state.rosters[tid] || []).filter((id) => id !== pid);
+    });
+    scrubDepth(pid);
+  }
+
   function movePlayer(from, to, pid) {
-    state.rosters[from] = (state.rosters[from] || []).filter((id) => id !== pid);
-    if (!state.rosters[to].includes(pid)) state.rosters[to].push(pid);
+    removeFromAllRosters(pid);
+    const dest = ensureRoster(to);
+    if (dest.indexOf(pid) < 0) dest.push(pid);
   }
 
   function cutPlayer(teamId, pid) {
@@ -5636,7 +5785,7 @@
       return;
     }
     const cut = playerById(pid);
-    state.rosters[teamId] = (state.rosters[teamId] || []).filter((id) => id !== pid);
+    removeFromAllRosters(pid);
     if (!state.fa.includes(pid)) state.fa.push(pid);
     try {
       if (cut && window.AFAStadiums && state.stadiums && state.stadiums[teamId] && cut.ovr >= 88) {
@@ -5651,6 +5800,27 @@
     }
     save();
     toast(((cut && cut.name) || "Player") + " released." + (dead ? " Dead money " + formatMoney(dead) + " stays on the cap." : ""));
+    renderHub();
+  }
+
+  function queueTrade(pid) {
+    const from = Object.keys(state.rosters || {}).find((tid) => (state.rosters[tid] || []).indexOf(pid) >= 0);
+    if (!from) { toast("That player is not on a roster to trade."); return; }
+    ui.hubTab = "trades";
+    ui.offer = [];
+    ui.ask = [];
+    ui.offerPicks = [];
+    ui.askPicks = [];
+    if (!state.userTeamId || from === state.userTeamId || state.mode !== "single") {
+      ui.tradeLeft = state.userTeamId || from;
+      ui.offer = [pid];
+      ui.tradeRight = TEAMS.map((t) => t.id).find((id) => id !== ui.tradeLeft) || ui.tradeLeft;
+    } else {
+      ui.tradeLeft = state.userTeamId;
+      ui.tradeRight = from;
+      ui.ask = [pid];
+    }
+    showScreen("hub");
     renderHub();
   }
 
@@ -5674,9 +5844,16 @@
       toast("Signing blocked — over the salary cap (" + formatMoney(hit) + " / " + formatMoney(state.salaryCap || AFA_CAP) + ").");
       return;
     }
-    if (isOwned(pid)) { state.fa = state.fa.filter((id) => id !== pid); toast("That player is already on a roster."); save(); renderHub(); return; }
-    state.fa = state.fa.filter((id) => id !== pid);
-    state.rosters[teamId].push(pid);
+    if (ensureRoster(teamId).indexOf(pid) >= 0) {
+      state.fa = (state.fa || []).filter((id) => id !== pid);
+      toast("That player is already on a roster.");
+      save();
+      renderHub();
+      return;
+    }
+    removeFromAllRosters(pid);
+    state.fa = (state.fa || []).filter((id) => id !== pid);
+    ensureRoster(teamId).push(pid);
     try {
       if (window.AFAStadiums && state.stadiums && state.stadiums[teamId] && pl && pl.ovr >= 88) {
         AFAStadiums.fanEvent(state.stadiums[teamId], "starSigned", { ovr: pl.ovr });
@@ -5771,6 +5948,17 @@
     $("btn-clear-coach").onclick = unassignSelected;
     $("btn-lock-coaches").onclick = lockCoaches;
     // Delegated scout card for hub / dynamic lists (hover + tap)
+    if (!document.body._depthBound) {
+      document.body._depthBound = true;
+      document.body.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-depth-up], [data-depth-down]");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const pid = btn.getAttribute("data-depth-up") || btn.getAttribute("data-depth-down");
+        moveDepth(depthTeamId(), btn.getAttribute("data-depth-pos"), pid, btn.hasAttribute("data-depth-up") ? -1 : 1);
+      });
+    }
     if (!document.body._scoutDelegate) {
       document.body._scoutDelegate = true;
       document.body.addEventListener("mouseover", (e) => {
@@ -5810,7 +5998,11 @@
     if ($("btn-enter-draft")) $("btn-enter-draft").onclick = enterDraftRoom;
     $("search-players").oninput = (e) => { ui.query = e.target.value; renderDraft(); };
     document.querySelectorAll("#hub-nav [data-tab]").forEach((b) => {
-      b.onclick = () => { ui.hubTab = b.getAttribute("data-tab"); renderHub(); };
+      b.onclick = () => {
+        ui.hubTab = b.getAttribute("data-tab");
+        document.querySelectorAll("#hub-nav details").forEach((d) => { d.open = false; });
+        renderHub();
+      };
     });
     $("btn-hub-reset").onclick = resetLeague;
     $("btn-sim-now").onclick = () => { ui.hubTab = "sim"; renderHub(); };
@@ -5915,7 +6107,7 @@
     },
     seedGradesAndContracts, simRestOfSeason, endSeasonRecalibrate, simGame, legacySimGame,
     ensureStadiums, ensureDynasty, dynastyEndSeason, stadiumOffseason, runPlayoffs, playoffResult, ensureCoachPool, clearLeagueInjuries, hireReplacementCoach, refillRostersFromFA, rebuildFreeAgency, syncCoachToDynasty, watchLiveGame, picksOwnedBy, ensurePicks, generateSchedule, validateSchedule, SEASON_WEEKS, GAMES_PER_TEAM,
-    teamCapHit, playerTradeValue, getState: () => state, getUi: () => ui, showScoutCard, hideScoutCard, bindScoutHover,
+    teamCapHit, playerTradeValue, cutPlayer, signPlayer, queueTrade, getState: () => state, getUi: () => ui, showScoutCard, hideScoutCard, bindScoutHover,
     foldStatLines, teamPower, AFA_CAP, hashStr, TEAMS: () => TEAMS, rosterOf, playerById
   };
 

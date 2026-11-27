@@ -51,6 +51,8 @@
     var book = doc();
     var ix = index();
     if (!book || !ix || !player) return null;
+    // Identity is name + position + team. A shared name is never enough
+    // (Justin Jefferson WR and Justin Jefferson LB are different players).
     var key = fold(player.name) + "|" + player.pos;
     var rows = (ix.byKey[key] || []).slice();
     if (!rows.length) {

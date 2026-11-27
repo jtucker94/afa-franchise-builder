@@ -9,7 +9,7 @@
 .apt-modal{position:fixed;inset:0;background:rgba(5,10,18,.72);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 8px}
 .apt-sheet{width:min(980px,100%);background:#0f1620;border-radius:14px;overflow:hidden;color:#e8ecf2;font:13px system-ui,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .apt-hero{position:relative;display:flex;align-items:flex-end;gap:16px;padding:22px 22px 0;min-height:170px}
-.apt-shot img{height:160px;display:block;filter:drop-shadow(0 6px 12px rgba(0,0,0,.5))}.apt-id{flex:1;padding-bottom:18px}
+.apt-shot{display:flex;flex-direction:column;align-items:flex-start;gap:6px}.apt-shot .apt-logo{position:static;width:72px;height:72px}.apt-under{display:grid;gap:2px}.apt-bio span{display:block;font-size:11px;opacity:.75}.apt-bio b{font-size:13px}.apt-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.apt-acts .btn{min-height:44px}.apt-id{flex:1;padding-bottom:18px}
 .apt-id h2{margin:0;font-size:30px;font-weight:800;letter-spacing:-.01em;text-transform:uppercase}.apt-num{font-size:14px;opacity:.8;font-weight:700}
 .apt-meta,.apt-meta2{opacity:.9;margin-top:4px}.apt-logo{position:absolute;right:110px;top:18px;width:72px;height:72px;object-fit:contain;border-radius:10px;opacity:.95}
 .apt-ovr{position:absolute;right:22px;top:18px;width:70px;height:70px;border:3px solid;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.35)}

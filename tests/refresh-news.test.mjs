@@ -44,6 +44,9 @@ const api = JSON.stringify({
 });
 const fromApi = parseSiteNews(api, { league: "NFL", division: "NFL", apiSource: "ESPN public NFL site API" });
 check(fromApi.length === 1 && fromApi[0].title === "Bucky Irving practiced" && fromApi[0].source === "ESPN public NFL site API" && fromApi[0].flag === "verified", "site API article was dropped");
+const recap = JSON.stringify({ articles: [{ id: 50601719, headline: "Recap", description: "", published: "2026-11-26T05:49:32Z", links: { web: { href: "http://www.espn.com/nfl/recap?gameId=401873079" } } }] });
+const recapParsed = parseSiteNews(recap, { league: "NFL", division: "NFL", apiSource: "ESPN public NFL site API" });
+check(recapParsed[0] && recapParsed[0].sourceUrl === "https://www.espn.com/nfl/recap?gameId=401873079", "http ESPN link was dropped");
 check(parseSiteNews("not json", { league: "NFL", division: "NFL", apiSource: "x" }).length === 0, "bad JSON invented a headline");
 
 const previous = {

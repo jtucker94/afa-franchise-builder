@@ -176,8 +176,18 @@
     if (!pr.name && !lp.name) return;
     try { if (!lp.scout && A().enrichPlayer) A().enrichPlayer(lp); } catch (e) {}
     const team = afaTeamOf(id, st);
+    st = getState(st);
     const c1 = team ? team.primary : "#1d2a3a", c2 = team ? team.secondary : "#4a6a8a";
     const logo = team && team.logo ? `<img class="apt-logo" src="logos/${esc(team.logo)}" alt="" onerror="this.remove()">` : "";
+    const hsName = pr.high_school && pr.high_school.name ? pr.high_school.name : "";
+    const bioLine = (label, val) => `<div class="apt-bio"><span>${label}</span><b>${val ? esc(val) : ""}</b></div>`;
+    const bio = bioLine("Height", pr.height || lp.height || "") + bioLine("Weight", pr.weight ? pr.weight + " lbs" : (lp.weight ? lp.weight + " lbs" : "")) + bioLine("College", pr.college || lp.college || "") + bioLine("High school", hsName);
+    const onUser = team && st && st.userTeamId === team.id;
+    const onFa = st && (st.fa || []).indexOf(id) >= 0;
+    const acts = [];
+    if (onFa) acts.push('<button type="button" class="btn btn-sm" data-act="sign">Sign</button>');
+    if (onUser) acts.push('<button type="button" class="btn btn-sm" data-act="cut">Drop</button>');
+    if (team) acts.push('<button type="button" class="btn btn-sm" data-act="trade">Trade</button>');
     const bp = pr.birthplace ? [pr.birthplace.city, pr.birthplace.state, pr.birthplace.country !== "USA" ? pr.birthplace.country : ""].filter(Boolean).join(", ") : null;
     const d = pr.draft; const draft = !d ? null : d.udfa ? `Undrafted free agent${d.year ? " (" + d.year + ")" : ""}` : `${d.year} · Rd ${d.round}, Pick ${d.pick}${d.team ? " · " + esc(d.team) : ""}`;
     const hs = pr.high_school ? esc(pr.high_school.name) + (pr.high_school.location ? " (" + esc(pr.high_school.location) + ")" : "") : null;
@@ -189,11 +199,12 @@
     modal.innerHTML = `<div class="apt-sheet">
       <div class="apt-hero" style="background:linear-gradient(115deg,${c1} 0%,${c1} 55%,${c2} 140%)">
         <button class="apt-x" aria-label="Close">×</button>
-        <div class="apt-shot">${pr.photo ? `<img src="${esc(pr.photo)}" alt="" onerror="this.remove()">` : ""}</div>
+        <div class="apt-shot">${logo}<div class="apt-under">${bio}</div></div>
         <div class="apt-id"><div class="apt-num">${lp.number != null ? "#" + lp.number : ""}</div><h2>${esc(pr.name || lp.name)}</h2>
+          <div class="apt-acts">${acts.join("")}</div>
           <div class="apt-meta">${esc(pr.pos || lp.pos)} · ${team ? esc(team.city + " " + team.nick) : "AFA: unsigned"} · NFL: ${esc(pr.nflTeam || "—")}</div>
           <div class="apt-meta2">${esc(pr.height || "—")} · ${pr.weight ? pr.weight + " lbs" : "—"} · Age ${age(pr.birthdate) ?? pr.age ?? "—"} · ${esc(pr.college || "—")}</div></div>
-        ${logo}${lp.ovr != null ? `<div class="apt-ovr" style="border-color:${c2}"><b>${lp.ovr}</b><span>OVR</span></div>` : ""}
+        ${lp.ovr != null ? `<div class="apt-ovr" style="border-color:${c2}"><b>${lp.ovr}</b><span>OVR</span></div>` : ""}
       </div>
       ${statCards(c)}
       <div class="apt-tabs">${["Overview", "NFL Stats", "College", "High School", "Bio & History"].map((t, i) => `<button data-t="${i}" class="${i ? "" : "on"}">${t}</button>`).join("")}</div>
@@ -208,7 +219,20 @@
           <div class="apt-card"><h4>Sources</h4>${Object.entries(pr.src || {}).map(([k, v]) => kv(k, esc(v))).join("")}</div></div></section>
       </div></div>`;
     document.body.appendChild(modal);
-    modal.addEventListener("click", (e) => { if (e.target === modal || e.target.classList.contains("apt-x")) close(); const b = e.target.closest(".apt-tabs button"); if (b) { modal.querySelectorAll(".apt-tabs button,.apt-body section").forEach((x) => x.classList.toggle("on", x.dataset.t === b.dataset.t)); } });
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal || e.target.classList.contains("apt-x")) { close(); return; }
+      const act = e.target.closest("[data-act]");
+      if (act && W.FB) {
+        const kind = act.getAttribute("data-act");
+        close();
+        if (kind === "sign" && st.userTeamId) W.FB.signPlayer(st.userTeamId, id);
+        else if (kind === "cut" && team) W.FB.cutPlayer(team.id, id);
+        else if (kind === "trade") W.FB.queueTrade(id);
+        return;
+      }
+      const b = e.target.closest(".apt-tabs button");
+      if (b) modal.querySelectorAll(".apt-tabs button,.apt-body section").forEach((x) => x.classList.toggle("on", x.dataset.t === b.dataset.t));
+    });
     document.addEventListener("keydown", onKey);
   }
   /* Delegated opener: any element with data-profile="<playerId>" (or data-scout, opt-in) opens the profile on click. */
@@ -218,7 +242,7 @@
       const el = e.target.closest(opts.useScoutAttr ? "[data-profile],[data-scout]" : "[data-profile]");
       if (!el || e.target.closest(".apt-modal")) return;
       const id = el.getAttribute("data-profile") || el.getAttribute("data-scout");
-      if (id && (P()[id] || C()[id])) { e.preventDefault(); openProfile(id); }
+      if (id) { e.preventDefault(); openProfile(id); }
     });
   }
   W.AFAPlayersTab = { mount, openProfile, close, enableGlobalHooks, ensureProfilesLoaded };

@@ -970,6 +970,25 @@
    *         injuries?: bool, callOverrides?, keyMomentResolver?, onPlay?,
    *         timeline?: bool (default true) }
    */
+  function rosterOvr(roster) {
+    const list = roster || [];
+    if (!list.length) return 70;
+    return list.reduce((sum, p) => sum + (Number(p.ovr) || 70), 0) / list.length;
+  }
+
+  /* NFL regular seasons (272 games) usually finish with 0–2 ties.
+   * Callers that still have a tie after overtime keep one only about 2% of the time. */
+  function settleTiedScore(home, away, rng, homeEdge) {
+    const roll = rng || Math.random;
+    if (home !== away) return { home: home, away: away, stayedTied: false };
+    if (roll() < 0.02) return { home: home, away: away, stayedTied: true };
+    const lean = Math.max(-0.25, Math.min(0.25, (homeEdge || 0) / 30));
+    const homeGets = roll() < 0.5 + lean;
+    const pts = roll() < 0.68 ? 3 : 6;
+    if (homeGets) return { home: home + pts, away: away, stayedTied: false };
+    return { home: home, away: away + pts, stayedTied: false };
+  }
+
   function simulateGame(homeInput, awayInput, opts) {
     opts = opts || {};
     const rng = createRng(opts.seed);
@@ -1094,7 +1113,7 @@
       if (opts.onPlay) opts.onPlay(play, state);
     }
 
-    // Overtime sudden death simplified (one possession each max) if tied
+    // Overtime. A leftover tie is kept only rarely: about 0–2 per 272-game NFL season.
     if (state.homeScore === state.awayScore) {
       state.quarter = 5; state.clock = 600;
       state.possession = rng() < 0.5 ? "home" : "away";
@@ -1112,7 +1131,14 @@
           if (play.touchdown) break;
         }
       }
-      // still tied — leave as tie (AFA regular season)
+    }
+    if (state.homeScore === state.awayScore) {
+      const edge = rosterOvr(home.roster) - rosterOvr(away.roster);
+      const roll = opts.playoff ? function () { return 0.5; } : rng;
+      const settled = settleTiedScore(state.homeScore, state.awayScore, roll, edge);
+      state.homeScore = settled.home;
+      state.awayScore = settled.away;
+      if (!settled.stayedTied) state.quarter = Math.max(state.quarter || 4, 5);
     }
 
     // End-game injury roll if not done
@@ -1399,7 +1425,7 @@
     createRng, hashSeed, mulberry32,
     evolveChemistry, chemistryPoints, chemistryMult,
     schemeFitBonus, rosterSchemeFit,
-    simulateGame, simulateWeek, buildTimeline,
+    simulateGame, simulateWeek, buildTimeline, settleTiedScore,
     makeDemoRoster, depthChart, unitOvr, ovrOf, rpsDelta,
     clockFmt
   };
