@@ -2684,7 +2684,7 @@
     const benchRows = playerTable("lineup-bench", bench, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"], ["depth", "Depth"]], (pl) => `<tr data-player-id="${pl.id}"><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td><td>${pl.age}</td><td><button type="button" class="btn btn-sm" data-depth-up="${pl.id}" data-depth-pos="${pl.pos}">Move up</button></td></tr>`, `<tr><td colspan="5" class="help">No bench players yet.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
-        <h2>${displayName(team)} · Lineup${side === "offense" ? " · " + (lu.formLabel || lu.formation) : ""}</h2>
+        <h2>${displayName(team)} · Depth Chart${side === "offense" ? " · " + (lu.formLabel || lu.formation) : ""}</h2>
         <div class="lineup-toggle" id="lineup-side-toggle">
           <button class="btn btn-sm ${side === "offense" ? "on" : ""}" data-side="offense">Offense</button>
           <button class="btn btn-sm ${side === "defense" ? "on" : ""}" data-side="defense">Defense</button>
@@ -5980,7 +5980,11 @@
     if ($("btn-enter-draft")) $("btn-enter-draft").onclick = enterDraftRoom;
     $("search-players").oninput = (e) => { ui.query = e.target.value; renderDraft(); };
     document.querySelectorAll("#hub-nav [data-tab]").forEach((b) => {
-      b.onclick = () => { ui.hubTab = b.getAttribute("data-tab"); renderHub(); };
+      b.onclick = () => {
+        ui.hubTab = b.getAttribute("data-tab");
+        document.querySelectorAll("#hub-nav details").forEach((d) => { d.open = false; });
+        renderHub();
+      };
     });
     $("btn-hub-reset").onclick = resetLeague;
     $("btn-sim-now").onclick = () => { ui.hubTab = "sim"; renderHub(); };

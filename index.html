@@ -301,32 +301,35 @@
         <button class="btn btn-sm btn-danger" id="btn-hub-reset">Reset save</button>
       </header>
       <nav class="hub-nav" id="hub-nav" aria-label="League menu">
-        <div class="hub-nav-group">
-          <p class="hub-nav-label">Draft</p>
-          <button class="btn btn-sm btn-draft-tab" id="btn-hub-draft-room" type="button" hidden><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M4 4h16v16H4zM4 9h16M9 9v11"/></svg><span class="hub-nav-text">Draft Room</span></button>
-        </div>
-        <div class="hub-nav-group">
-          <p class="hub-nav-label">Club</p>
-          <button class="btn btn-sm" data-tab="home" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 11l8-7 8 7v9H4z"/><path fill="none" stroke="currentColor" stroke-width="1.8" d="M10 20v-6h4v6"/></svg><span class="hub-nav-text">League Home</span></button>
-          <button class="btn btn-sm" data-tab="lineup" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M4 8h16M4 16h16M8 4v16M16 4v16"/></svg><span class="hub-nav-text">Lineup</span></button>
-          <button class="btn btn-sm" data-tab="roster" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg><span class="hub-nav-text">Roster</span></button>
-          <button class="btn btn-sm" data-tab="players" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 12a3.2 3.2 0 1 0 0-6.4A3.2 3.2 0 0 0 12 12z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M6 20c1.2-3 3.2-4.4 6-4.4S16.8 17 18 20"/></svg><span class="hub-nav-text">Players</span></button>
-        </div>
-        <div class="hub-nav-group">
-          <p class="hub-nav-label">Front office</p>
-          <button class="btn btn-sm" data-tab="trades" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7 7h11l-3-3M17 17H6l3 3"/></svg><span class="hub-nav-text">Trades</span></button>
-          <button class="btn btn-sm" data-tab="signings" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M9 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 20c.8-2.4 2.4-3.6 5-3.6M17 8v6M14 11h6"/></svg><span class="hub-nav-text">Free Agency</span></button>
-          <button class="btn btn-sm" data-tab="slate" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M5 5h14v14H5zM5 9h14M8 3v4M16 3v4"/></svg><span class="hub-nav-text">Schedule</span></button>
-          <button class="btn btn-sm" data-tab="standings" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M6 19V10M12 19V5M18 19v-7"/></svg><span class="hub-nav-text">Standings</span></button>
-        </div>
-        <div class="hub-nav-group">
-          <p class="hub-nav-label">Season</p>
-          <button class="btn btn-sm" data-tab="stadium" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 20V10l8-6 8 6v10M9 20v-6h6v6"/></svg><span class="hub-nav-text">Stadium</span></button>
-          <button class="btn btn-sm" data-tab="dynasty" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 16l2-8 6 4 6-4 2 8H4z"/></svg><span class="hub-nav-text">Dynasty</span></button>
-          <button class="btn btn-sm" data-tab="gameday" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 4c4 2 6 6 6 8s-2 6-6 8c-4-2-6-6-6-8s2-6 6-8zM8 12h8"/></svg><span class="hub-nav-text">Game Day</span></button>
-          <button class="btn btn-sm" data-tab="college" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M3 10l9-5 9 5-9 5-9-5zM7 12v4c2 1.2 8 1.2 10 0v-4"/></svg><span class="hub-nav-text">College Draft</span></button>
-          <button class="btn btn-sm" data-tab="sim" type="button"><svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span class="hub-nav-text">Play Week</span></button>
-        </div>
+        <button class="btn btn-sm btn-draft-tab" id="btn-hub-draft-room" type="button" hidden><span class="hub-nav-text">Draft Room</span></button>
+        <button class="btn btn-sm" data-tab="home" type="button"><span class="hub-nav-text">League Home</span></button>
+        <details class="nav-drop">
+          <summary class="btn btn-sm">Team</summary>
+          <div class="nav-drop-panel">
+            <button class="btn btn-sm" data-tab="roster" type="button"><span class="hub-nav-text">Roster</span></button>
+            <button class="btn btn-sm" data-tab="lineup" type="button"><span class="hub-nav-text">Depth Chart</span></button>
+          </div>
+        </details>
+        <button class="btn btn-sm" data-tab="players" type="button"><span class="hub-nav-text">Players</span></button>
+        <details class="nav-drop">
+          <summary class="btn btn-sm">Front Office</summary>
+          <div class="nav-drop-panel">
+            <button class="btn btn-sm" data-tab="trades" type="button"><span class="hub-nav-text">Trades</span></button>
+            <button class="btn btn-sm" data-tab="signings" type="button"><span class="hub-nav-text">Free Agency</span></button>
+          </div>
+        </details>
+        <details class="nav-drop">
+          <summary class="btn btn-sm">League</summary>
+          <div class="nav-drop-panel">
+            <button class="btn btn-sm" data-tab="slate" type="button"><span class="hub-nav-text">Schedule</span></button>
+            <button class="btn btn-sm" data-tab="standings" type="button"><span class="hub-nav-text">Standings</span></button>
+            <button class="btn btn-sm" data-tab="stadium" type="button"><span class="hub-nav-text">Stadium</span></button>
+            <button class="btn btn-sm" data-tab="dynasty" type="button"><span class="hub-nav-text">Dynasty</span></button>
+            <button class="btn btn-sm" data-tab="gameday" type="button"><span class="hub-nav-text">Game Day</span></button>
+            <button class="btn btn-sm" data-tab="college" type="button"><span class="hub-nav-text">College Draft</span></button>
+          </div>
+        </details>
+        <button class="btn btn-sm" data-tab="sim" type="button"><span class="hub-nav-text">Play Week</span></button>
       </nav>
       <div class="workspace" id="hub-body"></div>
     </section>
