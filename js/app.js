@@ -63,7 +63,7 @@
 
   function freshState() {
     return {
-      version: "0.1.43",
+      version: "0.1.44",
       phase: "menu",
       mode: null,
       userTeamId: null,
@@ -229,9 +229,9 @@
     try {
       enforceUniquePlayers();
       captureActivePhase();
-      state.version = "0.1.43";
+      state.version = "0.1.44";
       const payload = {
-        version: "0.1.43",
+        version: "0.1.44",
         savedAt: Date.now(),
         state: state,
         ui: snapshotUi()
@@ -258,9 +258,9 @@
         return false;
       }
       const ver = savedState.version || parsed.version;
-      if (!["0.1.43","0.1.42","0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
+      if (!["0.1.44","0.1.43","0.1.42","0.1.41","0.1.40","0.1.39","0.1.38","0.1.37","0.1.36","0.1.35","0.1.34","0.1.33","0.1.32","0.1.31","0.1.30","0.1.29","0.1.28","0.1.27","0.1.26","0.1.25","0.1.24","0.1.23","0.1.22","0.1.21","0.1.20","0.1.19","0.1.17","0.1.16","0.1.15","0.1.14","0.1.13","0.1.12","0.1.11","0.1.10","0.1.9","0.1.8","0.1.7","0.1.6","0.1.5","0.1.4","0.1.3","0.1.2","0.1.1","0.1"].includes(ver)) return false;
       state = Object.assign(freshState(), savedState);
-      state.version = "0.1.43";
+      state.version = "0.1.44";
       try { normalizeDraftLabels(); } catch (e) { console.warn("draft label migrate", e); }
       if (!state.playerStats) state.playerStats = {};
       if (!state.teamIR) state.teamIR = {};
@@ -438,8 +438,10 @@
   }
 
   function jerseyNum(p) {
-    if (!p || p.number == null || Number(p.number) === 0) return "—";
-    return String(Number(p.number));
+    if (!p || p.number == null || p.number === "") return "—";
+    const n = Number(p.number);
+    if (!Number.isFinite(n)) return "—";
+    return String(n);
   }
 
   function attrTone(n) {
@@ -484,7 +486,7 @@
         <div class="scout-id">
           ${window.AFASideline ? AFASideline.portrait(player, scoutPrimary(player), scoutSecondary(player)) : ""}
           <h3 class="name">${player.name}</h3>
-          <div class="meta">#${player.number || "—"} · ${player.pos} · Age ${player.age}</div>
+          <div class="meta">#${jerseyNum(player)} · ${player.pos} · Age ${player.age}</div>
           <div class="scout-grades">
             <div class="scout-grade pff"><span class="g-label">PFF</span><span class="g-val">—</span><span class="g-sub">Not on record</span></div>
             <div class="scout-grade madden"><span class="g-label">Madden NFL 27</span><span class="g-val">${madden ? madden.ovr : "—"}</span><span class="g-sub">${madden ? "list · " + madden.retrievedAt : "Not on record"}</span></div>
@@ -512,6 +514,22 @@
   }
 
   let scoutHideTimer = null;
+  function scrollSnapshots() {
+    const els = [];
+    const add = (el) => { if (el && els.indexOf(el) < 0) els.push(el); };
+    add(document.scrollingElement);
+    add(document.documentElement);
+    add(document.body);
+    document.querySelectorAll(".pool-scroll, .workspace, .screen.active, #draft-workspace, #hub-body, .apt-vp").forEach(add);
+    return els.map((el) => ({ el: el, top: el.scrollTop, left: el.scrollLeft }));
+  }
+  function restoreScrollSnapshots(snaps) {
+    (snaps || []).forEach((snap) => {
+      if (!snap.el) return;
+      if (snap.el.scrollTop !== snap.top) snap.el.scrollTop = snap.top;
+      if (snap.el.scrollLeft !== snap.left) snap.el.scrollLeft = snap.left;
+    });
+  }
   function placeScoutCard(card, clientX, clientY) {
     // Mobile uses CSS modal centering — don't fight it with inline coords
     const mobile = (window.matchMedia && window.matchMedia("(max-width: 900px)").matches) ||
@@ -553,11 +571,20 @@
       card.insertBefore(close, card.firstChild);
       document.getElementById("scout-backdrop")?.classList.add("show");
     }
-    card.hidden = false;
-    card.classList.add("show");
     const cx = (evt && evt.clientX != null) ? evt.clientX : window.innerWidth / 2;
     const cy = (evt && evt.clientY != null) ? evt.clientY : window.innerHeight / 2;
-    requestAnimationFrame(() => placeScoutCard(card, cx, cy));
+    const snaps = scrollSnapshots();
+    card.style.top = Math.max(8, cy + 12) + "px";
+    card.style.left = Math.max(8, cx + 12) + "px";
+    card.hidden = false;
+    card.classList.add("show");
+    card.querySelectorAll("button, a").forEach((el) => { el.tabIndex = -1; });
+    placeScoutCard(card, cx, cy);
+    restoreScrollSnapshots(snaps);
+    requestAnimationFrame(() => {
+      placeScoutCard(card, cx, cy);
+      restoreScrollSnapshots(snaps);
+    });
   }
 
   function moveScoutCard(evt) {

@@ -1697,6 +1697,9 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 /* ---------- SCOUT HOVER CARD ---------- */
 .scout-card {
   position: fixed;
+  top: 12px;
+  left: 12px;
+  overflow-anchor: none;
   z-index: 1200;
   width: min(360px, calc(100vw - 24px));
   pointer-events: none;
@@ -2144,7 +2147,7 @@ body.save-cta-hover .save-fab:not(:hover):not(:focus-visible) {
 .ws-roster li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--line-2); }
 .ws-note { display: flex; gap: 6px; align-items: center; flex: 1; }
 .ws-note input { min-height: 44px; flex: 1; }
-.pool-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pool-scroll { overflow-x: auto; overflow-anchor: none; -webkit-overflow-scrolling: touch; }
 .pool-sort { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
 .pool-sort select { min-height: 44px; }
 .pool-sort-btn { background: transparent; color: inherit; border: 0; font: inherit; cursor: pointer; min-height: 36px; padding: 4px 2px; white-space: nowrap; }
