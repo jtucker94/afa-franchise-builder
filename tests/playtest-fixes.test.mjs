@@ -13,6 +13,12 @@ check(css.includes("overflow-anchor: none"), "pool scroll can jump when the scou
 const jersey = app.slice(app.indexOf("function jerseyNum"), app.indexOf("function attrTone"));
 check(jersey.includes("Number.isFinite(n)"), "jersey 0 is not kept as a number");
 check(!jersey.includes('=== 0) return "—"'), "jersey 0 still renders as a dash");
+const pool = fs.readFileSync(root + "js/players-nfl.js", "utf8");
+const lb = pool.slice(pool.indexOf('"id": "espn_5150249"'), pool.indexOf('"id": "espn_5150249"') + 400);
+const wr = pool.slice(pool.indexOf('"id": "nfl_6794"'), pool.indexOf('"id": "nfl_6794"') + 400);
+check(/"ovr": 67/.test(lb), "Browns LB Jefferson still has the receiver overall");
+check(lb.includes('"pos": "LB"') && wr.includes('"pos": "WR"'), "Jefferson records lost their positions");
+check(!/"ovr": 98/.test(lb), "LB Jefferson overall still matches the old shared 98");
 
 if (failures.length) {
   console.error("FAILED " + failures.length);
