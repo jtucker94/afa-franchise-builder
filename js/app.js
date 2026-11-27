@@ -1358,7 +1358,7 @@
       var hit = pools[i].filter(function (pk) { return pk && pk.playerId === player.id; })[0];
       if (hit) {
         var year = i === 0 && state.collegeDraft ? state.collegeDraft.year : state.lastCollegeDraft.year;
-        return (year || "College") + " college draft · " + spotLabel(recordOverall(hit));
+        return (year || "College") + " college scouting · " + spotLabel(recordOverall(hit));
       }
     }
     return "";
@@ -3937,7 +3937,7 @@
     const hc = coachById(state.coachAssign[vt.id]);
     $("hub-team-meta").innerHTML = `<strong>${displayName(vt)}</strong><div class="city">${vt.conference} · ${vt.division}${hc ? " · HC " + hc.name : ""}${state.dynasty && state.dynasty.coaches && state.dynasty.coaches[vt.id] ? " · " + state.dynasty.coaches[vt.id].offScheme + " / " + state.dynasty.coaches[vt.id].defScheme : ""}${state.sleeperImport && vt.id === state.userTeamId ? ` · <span class="import-badge">${state.sleeperImport.league} import</span>` : ""}</div>`;
 
-    $("hub-week-chip").textContent = state.collegeDraft ? (state.collegeDraft.year + " College Draft") : (state.seasonDone ? "Season final" : "Week " + state.week);
+    $("hub-week-chip").textContent = state.collegeDraft ? (state.collegeDraft.year + " College Scouting") : (state.seasonDone ? "Season final" : "Week " + state.week);
     document.querySelectorAll("#hub-nav [data-tab]").forEach((b) => {
       b.classList.toggle("on", b.getAttribute("data-tab") === ui.hubTab);
     });
@@ -5448,9 +5448,9 @@
     return `<div class="panel college-cta" style="margin:12px 0">
       <div class="panel-b" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <div style="flex:1;min-width:220px"><div class="eyebrow">Offseason</div>
-          <strong>${year} AFA College Draft</strong>
+          <strong>${year} AFA College Scouting</strong>
           <div class="help">${help}</div></div>
-        ${has ? `<button class="btn btn-primary" id="btn-enter-college">${state.collegeDraft ? "Resume" : "Enter"} AFA College Draft</button>` : `<button class="btn btn-primary" id="btn-skip-college">Skip to next season</button>`}
+        ${has ? `<button class="btn btn-primary" id="btn-enter-college">${state.collegeDraft ? "Resume" : "Enter"} AFA College Scouting</button>` : `<button class="btn btn-primary" id="btn-skip-college">Skip to next season</button>`}
       </div></div>`;
   }
   function startCollegeDraft() {
@@ -5534,7 +5534,7 @@
         state.leagueNews.unshift(AFAFranchise.headline({
           kind: "draft",
           week: state.week,
-          text: displayName(teamById(slot.ownerTeamId)) + " select " + (pl ? pl.name : "a prospect") + ". " + spotLabel(slot.overall) + ". Simulated AFA college draft."
+          text: displayName(teamById(slot.ownerTeamId)) + " select " + (pl ? pl.name : "a prospect") + ". " + spotLabel(slot.overall) + ". Simulated AFA college scouting."
         }));
         state.leagueNews = state.leagueNews.slice(0, 40);
       }
@@ -5626,7 +5626,7 @@
     ui.askPicks = [];
     ui.hubTab = "home";
     save();
-    let msg = skipped ? (year + " College Draft skipped") : (year + " College Draft complete");
+    let msg = skipped ? (year + " College Scouting skipped") : (year + " College Scouting complete");
     if (!skipped && unfilled > 0 && policy === "real") msg += ". Real class exhausted — " + unfilled + " picks unfilled. No fictional players were added";
     if (!skipped && policy === "generated") msg += " (fictional class, labeled)";
     toast(msg + " · " + state.seasonYear + " season underway");
@@ -5634,7 +5634,7 @@
   }
   function renderCollegeDraftHTML() {
     const cd = state.collegeDraft;
-    if (!cd) return collegeCtaHTML() || `<p class="help">No college draft in progress.</p>`;
+    if (!cd) return collegeCtaHTML() || `<p class="help">No college scouting in progress.</p>`;
     const slot = cd.order[cd.idx];
     if (!slot) return `<p class="help">Draft complete.</p>`;
     const team = teamById(slot.ownerTeamId);
@@ -5652,7 +5652,7 @@
       <div class="panel"><div class="panel-b" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
         ${logoImg(team, "lg")}
         <div style="flex:1;min-width:220px">
-          <div class="eyebrow">${cd.year} AFA College Draft · ${mine ? "Your pick" : "CPU on the clock"}</div>
+          <div class="eyebrow">${cd.year} AFA College Scouting · ${mine ? "Your pick" : "CPU on the clock"}</div>
           <h2 style="margin:2px 0">${displayName(team)}</h2>
           <div class="help">${spotLabel(slot.overall)}${slot.originalTeamId !== slot.ownerTeamId ? " · via " + orig.city : ""}</div>
           ${myNext.length ? `<div class="help">Your picks: ${myNext.map((s) => "#" + s.overall).join(", ")}</div>` : ""}
