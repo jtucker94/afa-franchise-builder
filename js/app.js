@@ -5652,9 +5652,32 @@
     renderHub();
   }
 
+  function ensureRoster(teamId) {
+    if (!state.rosters) state.rosters = {};
+    if (!Array.isArray(state.rosters[teamId])) state.rosters[teamId] = [];
+    return state.rosters[teamId];
+  }
+
+  function scrubDepth(pid) {
+    const orders = state.depthOrders || {};
+    Object.keys(orders).forEach((tid) => {
+      Object.keys(orders[tid] || {}).forEach((pos) => {
+        orders[tid][pos] = (orders[tid][pos] || []).filter((id) => id !== pid);
+      });
+    });
+  }
+
+  function removeFromAllRosters(pid) {
+    Object.keys(state.rosters || {}).forEach((tid) => {
+      state.rosters[tid] = (state.rosters[tid] || []).filter((id) => id !== pid);
+    });
+    scrubDepth(pid);
+  }
+
   function movePlayer(from, to, pid) {
-    state.rosters[from] = (state.rosters[from] || []).filter((id) => id !== pid);
-    if (!state.rosters[to].includes(pid)) state.rosters[to].push(pid);
+    removeFromAllRosters(pid);
+    const dest = ensureRoster(to);
+    if (dest.indexOf(pid) < 0) dest.push(pid);
   }
 
   function cutPlayer(teamId, pid) {
@@ -5663,7 +5686,7 @@
       return;
     }
     const cut = playerById(pid);
-    state.rosters[teamId] = (state.rosters[teamId] || []).filter((id) => id !== pid);
+    removeFromAllRosters(pid);
     if (!state.fa.includes(pid)) state.fa.push(pid);
     try {
       if (cut && window.AFAStadiums && state.stadiums && state.stadiums[teamId] && cut.ovr >= 88) {
@@ -5701,9 +5724,16 @@
       toast("Signing blocked — over the salary cap (" + formatMoney(hit) + " / " + formatMoney(state.salaryCap || AFA_CAP) + ").");
       return;
     }
-    if (isOwned(pid)) { state.fa = state.fa.filter((id) => id !== pid); toast("That player is already on a roster."); save(); renderHub(); return; }
-    state.fa = state.fa.filter((id) => id !== pid);
-    state.rosters[teamId].push(pid);
+    if (ensureRoster(teamId).indexOf(pid) >= 0) {
+      state.fa = (state.fa || []).filter((id) => id !== pid);
+      toast("That player is already on a roster.");
+      save();
+      renderHub();
+      return;
+    }
+    removeFromAllRosters(pid);
+    state.fa = (state.fa || []).filter((id) => id !== pid);
+    ensureRoster(teamId).push(pid);
     try {
       if (window.AFAStadiums && state.stadiums && state.stadiums[teamId] && pl && pl.ovr >= 88) {
         AFAStadiums.fanEvent(state.stadiums[teamId], "starSigned", { ovr: pl.ovr });

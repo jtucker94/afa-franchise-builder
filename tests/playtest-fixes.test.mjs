@@ -19,6 +19,7 @@ const wr = pool.slice(pool.indexOf('"id": "nfl_6794"'), pool.indexOf('"id": "nfl
 check(/"ovr": 67/.test(lb), "Browns LB Jefferson still has the receiver overall");
 check(lb.includes('"pos": "LB"') && wr.includes('"pos": "WR"'), "Jefferson records lost their positions");
 check(!/"ovr": 98/.test(lb), "LB Jefferson overall still matches the old shared 98");
+check(app.includes("function removeFromAllRosters") && app.includes("ensureRoster(teamId).push(pid)"), "signings do not write the live roster");
 
 if (failures.length) {
   console.error("FAILED " + failures.length);
