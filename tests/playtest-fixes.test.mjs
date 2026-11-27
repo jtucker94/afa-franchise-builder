@@ -20,6 +20,7 @@ check(/"ovr": 67/.test(lb), "Browns LB Jefferson still has the receiver overall"
 check(lb.includes('"pos": "LB"') && wr.includes('"pos": "WR"'), "Jefferson records lost their positions");
 check(!/"ovr": 98/.test(lb), "LB Jefferson overall still matches the old shared 98");
 check(app.includes("function removeFromAllRosters") && app.includes("ensureRoster(teamId).push(pid)"), "signings do not write the live roster");
+check(app.includes("state.depthOrders") && app.includes("function moveDepth"), "depth chart edits are not saved");
 
 if (failures.length) {
   console.error("FAILED " + failures.length);

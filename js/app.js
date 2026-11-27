@@ -2350,7 +2350,40 @@
   }
 
   function playersAtPos(teamId, pos) {
-    return rosterOf(teamId).filter((p) => p.pos === pos).sort((a, b) => b.ovr - a.ovr);
+    const roster = rosterOf(teamId).filter((p) => p.pos === pos);
+    const order = (state.depthOrders && state.depthOrders[teamId] && state.depthOrders[teamId][pos]) || [];
+    const rank = {};
+    order.forEach((id, i) => { rank[id] = i; });
+    return roster.slice().sort((a, b) => {
+      const ra = rank[a.id];
+      const rb = rank[b.id];
+      if (ra != null && rb != null) return ra - rb;
+      if (ra != null) return -1;
+      if (rb != null) return 1;
+      return (b.ovr || 0) - (a.ovr || 0);
+    });
+  }
+
+  function depthTeamId() {
+    if (document.querySelector("#screen-draft.active")) return draftFocusTeamId();
+    return viewTeamId();
+  }
+
+  function moveDepth(teamId, pos, pid, dir) {
+    if (!teamId || !pos || !pid) return;
+    const list = playersAtPos(teamId, pos).map((p) => p.id);
+    const i = list.indexOf(pid);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const swap = list[i];
+    list[i] = list[j];
+    list[j] = swap;
+    if (!state.depthOrders) state.depthOrders = {};
+    if (!state.depthOrders[teamId]) state.depthOrders[teamId] = {};
+    state.depthOrders[teamId][pos] = list;
+    save();
+    if (document.querySelector("#screen-draft.active")) renderDraft();
+    else renderHub();
   }
 
   function takeStarter(pool, used) {
@@ -2545,7 +2578,10 @@
         return `<div class="depth-slot${row.rank === 1 ? " starter" : ""}" data-scout="${row.player.id}" data-player-id="${row.player.id}">
           <span class="rank">${row.rank}</span>
           <span data-profile="${row.player.id}"><span class="jersey">#${jerseyNum(row.player)}</span> ${row.player.name}</span>
-          <span class="${ovrClass(row.player.ovr)}">${row.player.ovr}</span>
+          <span class="depth-move"><span class="${ovrClass(row.player.ovr)}">${row.player.ovr}</span>
+            <button type="button" class="btn btn-sm" data-depth-up="${row.player.id}" data-depth-pos="${row.player.pos}">Up</button>
+            <button type="button" class="btn btn-sm" data-depth-down="${row.player.id}" data-depth-pos="${row.player.pos}">Down</button>
+          </span>
         </div>`;
       }).join("");
       return `<div class="depth-card"><div class="dh">${card.tag} · ${card.label}</div>${body}</div>`;
@@ -2606,7 +2642,7 @@
     });
     const specialRows = lu.special.filter((s) => s.player).map((s) => Object.assign({}, s.player, { slot: s.slot }));
     const specialTable = playerTable("lineup-special", specialRows, [["slot", "Role"], ["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"]], (pl) => `<tr data-player-id="${pl.id}"><td>${pl.slot}</td><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td></tr>`);
-    const benchRows = playerTable("lineup-bench", bench, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"]], (pl) => `<tr data-player-id="${pl.id}"><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td><td>${pl.age}</td></tr>`, `<tr><td colspan="4" class="help">No bench players yet.</td></tr>`);
+    const benchRows = playerTable("lineup-bench", bench, [["ovr", "OVR"], ["name", "Player"], ["pos", "Pos"], ["age", "Age"], ["depth", "Depth"]], (pl) => `<tr data-player-id="${pl.id}"><td class="${ovrClass(pl.ovr)}">${pl.ovr}</td><td class="name-col" data-profile="${pl.id}">${pl.name}</td><td><span class="pos-pill pos-${pl.pos}">${pl.pos}</span></td><td>${pl.age}</td><td><button type="button" class="btn btn-sm" data-depth-up="${pl.id}" data-depth-pos="${pl.pos}">Move up</button></td></tr>`, `<tr><td colspan="5" class="help">No bench players yet.</td></tr>`);
     return `<button type="button" class="btn btn-sm btn-primary back-to-board" data-back-board>← Draft board</button>
       <div class="madden-head">
         <h2>${displayName(team)} · Lineup${side === "offense" ? " · " + (lu.formLabel || lu.formation) : ""}</h2>
@@ -5828,6 +5864,17 @@
     $("btn-clear-coach").onclick = unassignSelected;
     $("btn-lock-coaches").onclick = lockCoaches;
     // Delegated scout card for hub / dynamic lists (hover + tap)
+    if (!document.body._depthBound) {
+      document.body._depthBound = true;
+      document.body.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-depth-up], [data-depth-down]");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const pid = btn.getAttribute("data-depth-up") || btn.getAttribute("data-depth-down");
+        moveDepth(depthTeamId(), btn.getAttribute("data-depth-pos"), pid, btn.hasAttribute("data-depth-up") ? -1 : 1);
+      });
+    }
     if (!document.body._scoutDelegate) {
       document.body._scoutDelegate = true;
       document.body.addEventListener("mouseover", (e) => {

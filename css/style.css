@@ -1388,6 +1388,8 @@ body.screen-scouting-active .workspace {
   letter-spacing: 0.06em;
   font-size: 13px;
 }
+.depth-move { display: flex; align-items: center; gap: 6px; }
+.depth-move .btn { min-height: 44px; }
 .depth-slot {
   display: grid;
   grid-template-columns: 42px 1fr auto;
